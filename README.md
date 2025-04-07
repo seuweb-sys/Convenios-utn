@@ -104,6 +104,6 @@ Este proyecto está licenciado bajo [MIT License](LICENSE).
 
 <div align="center">
   <p>Desarrollado para la Universidad Tecnológica Nacional - Facultad Regional Resistencia</p>
-  <p>Contacto: <a href="mailto:contacto@example.com">contacto@example.com</a></p>
+  <p>Contacto: <a href="mailto:contacto@example.com">santycabrera150@gmail.com</a></p>
 </div>
 
