@@ -1,25 +1,25 @@
-import { ArrowUpRight, InfoIcon } from "lucide-react";
-import Link from "next/link";
+import { InfoIcon } from "lucide-react";
 
-export function SmtpMessage() {
+export const SmtpMessage = () => {
   return (
-    <div className="bg-muted/50 px-5 py-3 border rounded-md flex gap-4">
-      <InfoIcon size={16} className="mt-0.5" />
-      <div className="flex flex-col gap-1">
-        <small className="text-sm text-secondary-foreground">
-          <strong> Note:</strong> Emails are rate limited. Enable Custom SMTP to
-          increase the rate limit.
-        </small>
+    <div className="text-sm max-w-md text-foreground w-full p-4 mt-6 rounded-md border">
+      <div className="bg-accent text-foreground text-sm p-3 rounded-md flex gap-3 items-center mb-4">
+        <InfoIcon size="16" strokeWidth={2} />
         <div>
-          <Link
-            href="https://supabase.com/docs/guides/auth/auth-smtp"
-            target="_blank"
-            className="text-primary/50 hover:text-primary flex items-center text-sm gap-1"
-          >
-            Learn more <ArrowUpRight size={14} />
-          </Link>
+          <p className="flex-1">
+            Para el propósito de este demo, las contraseñas y los correos
+            electrónicos no están verificados.
+          </p>
         </div>
+      </div>
+      <div className="px-2">
+        <p>
+          Si estuvieras usando un servidor SMTP, se enviaría un enlace de
+          verificación al registrarte. En este momento, puedes simplemente
+          iniciar sesión con el correo electrónico y la contraseña que acabas de
+          proporcionar.
+        </p>
       </div>
     </div>
   );
-}
+};
