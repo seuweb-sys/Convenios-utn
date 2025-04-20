@@ -2,9 +2,8 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
-import { signOutAction } from "@/app/actions";
 import { FileTextIcon, HomeIcon, ClockIcon, CheckCircleIcon, UserIcon, SettingsIcon, BellIcon, SearchIcon, MenuIcon } from "lucide-react";
+import LogoutButton from "@/app/components/auth/logout-button";
 
 export default async function DashboardLayout({
   children,
@@ -20,6 +19,9 @@ export default async function DashboardLayout({
   if (!user) {
     return redirect("/sign-in");
   }
+
+  // Obtener role del usuario desde metadata
+  const userRole = user.user_metadata?.role || 'common';
 
   return (
     <div className="flex h-screen flex-col">
@@ -64,19 +66,17 @@ export default async function DashboardLayout({
             
             <div className="flex items-center gap-3 border-l pl-3 ml-1">
               <div className="hidden md:block text-right">
-                <div className="text-sm font-medium">{user.email?.split('@')[0]}</div>
-                <div className="text-xs text-muted-foreground">Administrador</div>
+                <div className="text-sm font-medium">{user.user_metadata?.full_name || user.email?.split('@')[0]}</div>
+                <div className="text-xs text-muted-foreground capitalize">{userRole}</div>
               </div>
               
               <div className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center text-primary font-medium text-sm overflow-hidden">
-                {user.email ? user.email[0].toUpperCase() : "U"}
+                {user.user_metadata?.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "U"}
               </div>
               
-              <form action={signOutAction} className="hidden md:block">
-                <Button variant="outline" size="sm" type="submit" className="text-xs h-8">
-                  Cerrar sesión
-                </Button>
-              </form>
+              <div className="hidden md:block">
+                <LogoutButton />
+              </div>
               
               <button className="md:hidden p-1">
                 <MenuIcon className="h-5 w-5" />
@@ -109,21 +109,24 @@ export default async function DashboardLayout({
             </Link>
           </nav>
           
-          <div className="mt-6 px-3 pt-6 border-t">
-            <div className="px-3 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Administración
+          {/* Mostrar sección de administración solo para administradores */}
+          {userRole === 'admin' && (
+            <div className="mt-6 px-3 pt-6 border-t">
+              <div className="px-3 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Administración
+              </div>
+              <nav className="space-y-1">
+                <Link href="/protected/usuarios" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                  <UserIcon className="h-4 w-4" />
+                  Usuarios
+                </Link>
+                <Link href="/protected/configuracion" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                  <SettingsIcon className="h-4 w-4" />
+                  Configuración
+                </Link>
+              </nav>
             </div>
-            <nav className="space-y-1">
-              <Link href="/protected/usuarios" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
-                <UserIcon className="h-4 w-4" />
-                Usuarios
-              </Link>
-              <Link href="/protected/configuracion" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
-                <SettingsIcon className="h-4 w-4" />
-                Configuración
-              </Link>
-            </nav>
-          </div>
+          )}
           
           <div className="mt-10 mx-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
             <div className="flex items-start gap-3">
