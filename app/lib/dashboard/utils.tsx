@@ -5,7 +5,13 @@ import {
   ClipboardCheckIcon,
   FileTextIcon,
   GraduationCapIcon,
-  HeartHandshakeIcon
+  HeartHandshakeIcon,
+  ClockIcon,
+  CheckIcon,
+  AlertCircleIcon,
+  FilePlusIcon,
+  EditIcon,
+  InfoIcon
 } from "lucide-react";
 
 export type ConvenioColor = "blue" | "green" | "amber" | "purple" | "rose" | "cyan";
@@ -89,4 +95,33 @@ export function formatTimeAgo(dateString: string): string {
   
   // Para fechas más antiguas, mostramos la fecha exacta
   return date.toLocaleDateString('es-AR');
+}
+
+/**
+ * Devuelve el componente de icono React correspondiente a un nombre.
+ * @param iconName - El nombre del icono (ej: 'file', 'check').
+ * @returns El componente ReactNode del icono o un icono por defecto.
+ */
+export function getIconByName(iconName: string): ReactNode {
+  const iconProps = { className: "h-4 w-4" }; // Propiedades comunes para los iconos
+
+  switch (iconName?.toLowerCase()) {
+    case "file":
+    case "info": // Agrupamos info con file por defecto
+      return <FileTextIcon {...iconProps} />;
+    case "clock":
+      return <ClockIcon {...iconProps} />;
+    case "check":
+      return <CheckIcon {...iconProps} />;
+    case "alert-circle":
+      return <AlertCircleIcon {...iconProps} />;
+    case "file-plus": // Icono para 'create'
+      return <FilePlusIcon {...iconProps} />;
+    case "edit": // Icono para 'update'
+      return <EditIcon {...iconProps} />;
+    // Añade más casos según los iconName definidos en la API de actividad
+    default:
+      console.warn(`Icono no encontrado para el nombre: ${iconName}`);
+      return <InfoIcon {...iconProps} />; // Icono por defecto si no se encuentra
+  }
 } 

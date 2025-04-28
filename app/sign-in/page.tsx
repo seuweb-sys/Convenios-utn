@@ -48,25 +48,27 @@ export default async function SignIn({
 
       <div className="flex flex-col items-center justify-center min-h-screen w-full">
         <div className="w-full max-w-md px-4 py-8 mx-auto">
-          {/* Logo UTN */}
+          {/* Logo UTN envuelto en Link */}
           <div className="flex justify-center mb-8">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-teal-600/10 rounded-xl blur-lg"></div>
-              <div className="bg-white/90 backdrop-filter backdrop-blur-sm p-3 rounded-xl shadow-lg relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-teal-50 opacity-90"></div>
-                <div className="absolute inset-0 bg-white/60 mix-blend-overlay"></div>
-                <Image 
-                  src={`/utn-logo.png?v=${new Date().getTime()}`} 
-                  alt="Logo UTN" 
-                  width={180}
-                  height={60}
-                  className="h-12 w-auto object-contain relative z-10 contrast-125 brightness-105"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-teal-500/10"></div>
+            <Link href="/" className="block cursor-pointer" aria-label="Ir a la página de inicio">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-teal-600/10 rounded-xl blur-lg"></div>
+                <div className="bg-white/90 backdrop-filter backdrop-blur-sm p-3 rounded-xl shadow-lg relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-teal-50 opacity-90"></div>
+                  <div className="absolute inset-0 bg-white/60 mix-blend-overlay"></div>
+                  <Image 
+                    src={`/utn-logo.png`} 
+                    alt="Logo UTN" 
+                    width={180}
+                    height={60}
+                    className="h-12 w-auto object-contain relative z-10 contrast-125 brightness-105"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-teal-500/10"></div>
+                </div>
+                <div className="absolute -inset-3 bg-gradient-to-r from-blue-500/20 via-transparent to-teal-500/20 blur-md -z-10"></div>
               </div>
-              <div className="absolute -inset-3 bg-gradient-to-r from-blue-500/20 via-transparent to-teal-500/20 blur-md -z-10"></div>
-            </div>
+            </Link>
           </div>
 
           {/* Formulario con estilo moderno */}

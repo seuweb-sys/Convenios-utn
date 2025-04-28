@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { FileTextIcon, HomeIcon, ClockIcon, CheckCircleIcon, UserIcon, SettingsIcon, BellIcon, SearchIcon, MenuIcon } from "lucide-react";
 import LogoutButton from "@/app/components/auth/logout-button";
+import { cn } from "@/lib/utils";
 
 export default async function DashboardLayout({
   children,
@@ -128,17 +129,26 @@ export default async function DashboardLayout({
             </div>
           )}
           
-          <div className="mt-10 mx-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800/30">
+          <div className="mt-10 mx-3 p-3 bg-blue-50 dark:bg-background/30 backdrop-blur-sm rounded-lg border border-blue-100 dark:border-blue-800/30 overflow-hidden">
             <div className="flex items-start gap-3">
-              <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-800/30 text-blue-600 dark:text-blue-400">
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
+              <div className={cn(
+                "relative flex items-center justify-center w-9 h-9 rounded-lg shrink-0 mt-0.5",
+                "bg-blue-500/20 dark:bg-blue-500/30"
+              )}>
+                <div className={cn(
+                  "absolute inset-0 rounded-lg blur-sm opacity-70",
+                  "bg-blue-500/20 dark:bg-blue-500/30"
+                )}></div>
+                <div className="relative z-10 text-blue-400">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
               </div>
               <div>
-                <h3 className="text-xs font-medium text-blue-800 dark:text-blue-300">¿Necesitas ayuda?</h3>
-                <p className="mt-1 text-xs text-blue-700 dark:text-blue-400">Consulta la guía de uso o contacta a soporte.</p>
-                <a href="#" className="mt-2 inline-block text-xs font-medium text-blue-600 dark:text-blue-300 hover:underline">
+                <h3 className="text-sm font-medium text-primary">¿Necesitas ayuda?</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Consulta la guía de uso o contacta a soporte.</p>
+                <a href="#" className="mt-2 inline-block text-xs font-medium text-blue-500 hover:underline">
                   Ver documentación
                 </a>
               </div>

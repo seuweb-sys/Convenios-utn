@@ -1,4 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
+import type { ConvenioApiData } from "@/app/api/convenios/route"; // Importar interfaz de la API
+import { cookies } from 'next/headers'; // Importar cookies
 
 export interface UserConvenioData {
   id: string;
@@ -20,49 +22,41 @@ interface ConvenioWithType {
   };
 }
 
+// URL base de la API
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
 export async function getUserConvenios(limit: number = 4): Promise<UserConvenioData[]> {
-  const supabase = await createClient();
-  
-  // Obtener el usuario actual
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
+  const requestHeaders = new Headers();
+  try {
+    // Usar await y luego getAll()
+    const cookieStore = await cookies(); 
+    const allCookies = cookieStore.getAll(); 
+    allCookies.forEach((cookie: any) => { // Aceptar el 'any' si es necesario
+      requestHeaders.append('Cookie', `${cookie.name}=${cookie.value}`);
+    });
+  } catch (error) {
+      console.error("Error al obtener cookies para fetch:", error);
+      // Considera qué hacer si no se pueden obtener las cookies. 
+      // ¿Devolver [] o intentar el fetch sin cookies?
+  }
+
+  try {
+    const apiUrl = `${API_BASE_URL}/api/convenios?limit=${limit}`;
+    const response = await fetch(apiUrl, {
+      headers: requestHeaders, 
+    });
+
+    if (!response.ok) { 
+      console.error(`API request failed for getUserConvenios with status ${response.status}`);
+      const errorBody = await response.text();
+      console.error(`Error details: ${errorBody}`);
+      return []; 
+    }
+    const apiData: UserConvenioData[] = await response.json();
+    return apiData;
+
+  } catch (error) {
+    console.error("Error fetching user convenios from API:", error);
     return [];
   }
-  
-  // Consultar convenios del usuario
-  const { data, error } = await supabase
-    .from('convenios')
-    .select(`
-      id, 
-      title, 
-      status, 
-      created_at,
-      convenio_type_id,
-      convenio_types(name)
-    `)
-    .eq('user_id', user.id)
-    .order('updated_at', { ascending: false })
-    .limit(limit);
-  
-  if (error) {
-    console.error("Error fetching user convenios:", error);
-    return [];
-  }
-  
-  // Si no hay convenios, devolver array vacío
-  if (!data || data.length === 0) {
-    return [];
-  }
-  
-  // Transformar los datos para el componente
-  return (data as ConvenioWithType[]).map(convenio => {
-    return {
-      id: convenio.id,
-      title: convenio.title,
-      date: new Date(convenio.created_at).toLocaleDateString('es-AR'),
-      type: convenio.convenio_types?.name || "Sin tipo",
-      status: convenio.status
-    };
-  });
 } 

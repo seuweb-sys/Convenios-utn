@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EyeIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export type ConvenioColor = "blue" | "green" | "amber";
+export type ConvenioColor = "blue" | "green" | "amber" | "purple" | "rose" | "cyan";
 
 export interface ConvenioTypeCardProps {
   title: string;
@@ -16,45 +17,81 @@ export const ConvenioTypeCard = ({
   title, 
   description,
   icon,
-  color,
+  color = "cyan",
   previewUrl
 }: ConvenioTypeCardProps) => {
-  const buttonColors = {
+  const iconGlowClasses = {
+    blue: "bg-blue-500/20 dark:bg-blue-500/30",
+    green: "bg-green-500/20 dark:bg-green-500/30",
+    amber: "bg-amber-500/20 dark:bg-amber-500/30",
+    purple: "bg-purple-500/20 dark:bg-purple-500/30",
+    rose: "bg-rose-500/20 dark:bg-rose-500/30",
+    cyan: "bg-cyan-500/20 dark:bg-cyan-500/30",
+  };
+
+  const iconTextClasses = {
+    blue: "text-blue-400",
+    green: "text-green-400",
+    amber: "text-amber-400",
+    purple: "text-purple-400",
+    rose: "text-rose-400",
+    cyan: "text-cyan-400",
+  };
+
+  const buttonBgClasses = {
     blue: "bg-blue-600 hover:bg-blue-700",
     green: "bg-green-600 hover:bg-green-700",
-    amber: "bg-amber-600 hover:bg-amber-700"
+    amber: "bg-amber-600 hover:bg-amber-700",
+    purple: "bg-purple-600 hover:bg-purple-700",
+    rose: "bg-rose-600 hover:bg-rose-700",
+    cyan: "bg-cyan-600 hover:bg-cyan-700",
   };
 
-  const borderColors = {
+  const borderHoverClasses = {
     blue: "hover:border-blue-400/50",
     green: "hover:border-green-400/50",
-    amber: "hover:border-amber-400/50"
-  };
-
-  const iconColors = {
-    blue: "bg-blue-100 dark:bg-blue-900/20 text-blue-500",
-    green: "bg-green-100 dark:bg-green-900/20 text-green-500",
-    amber: "bg-amber-100 dark:bg-amber-900/20 text-amber-500"
+    amber: "hover:border-amber-400/50",
+    purple: "hover:border-purple-400/50",
+    rose: "hover:border-rose-400/50",
+    cyan: "hover:border-cyan-400/50",
   };
 
   return (
-    <div className={`border rounded-lg p-6 ${borderColors[color]} hover:shadow-md transition-all duration-200 bg-card group`}>
-      <div className="flex items-start justify-between">
+    <div className={cn(
+      "border rounded-lg p-6 hover:shadow-md transition-all duration-200 bg-card group",
+      borderHoverClasses[color]
+    )}>
+      <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="font-medium text-lg group-hover:text-primary transition-colors">{title}</h3>
-          <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
-        <div className={`p-3 rounded-full ${iconColors[color]}`}>
-          {icon}
+        <div className={cn(
+          "relative flex items-center justify-center w-12 h-12 rounded-lg shrink-0",
+          iconGlowClasses[color]
+        )}>
+          <div className={cn(
+            "absolute inset-0 rounded-lg blur-md opacity-70",
+            iconGlowClasses[color]
+          )}></div>
+          <div className={cn("relative z-10", iconTextClasses[color])}>
+            {icon}
+          </div>
         </div>
       </div>
       <div className="mt-6 grid grid-cols-2 gap-2">
-        <Link href={`/protected/convenio/nuevo?tipo=${title.toLowerCase()}`}>
-          <Button className={`w-full text-white ${buttonColors[color]} border-0`}>
+        <Link href={`/protected/convenio/nuevo?tipo=${encodeURIComponent(title)}`} legacyBehavior>
+          <Button 
+            className={cn(
+              "w-full border-0",
+              buttonBgClasses[color],
+              "text-primary-foreground"
+            )}
+          >
             Usar plantilla
           </Button>
         </Link>
-        <Link href={previewUrl}>
+        <Link href={previewUrl} legacyBehavior>
           <Button variant="outline" className="w-full border-border/60 flex items-center justify-center gap-1">
             <EyeIcon className="h-4 w-4" />
             <span>Vista previa</span>
