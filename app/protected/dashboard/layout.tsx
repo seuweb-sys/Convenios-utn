@@ -2,9 +2,9 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { signOutAction } from "@/app/actions";
 import { FileTextIcon, HomeIcon, ClockIcon, CheckCircleIcon, UserIcon, SettingsIcon, BellIcon, SearchIcon, MenuIcon } from "lucide-react";
-import LogoutButton from "@/app/components/auth/logout-button";
-import { cn } from "@/lib/utils";
 
 export default async function DashboardLayout({
   children,
@@ -21,14 +21,22 @@ export default async function DashboardLayout({
     return redirect("/sign-in");
   }
 
-  // Obtener role del usuario desde metadata
-  const userRole = user.user_metadata?.role || 'common';
+  // Obtener el perfil del usuario
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError) {
+    console.error('Error al obtener perfil:', profileError);
+  }
 
   return (
     <div className="flex h-screen flex-col">
       {/* Header */}
       <header className="border-b bg-card shadow-sm sticky top-0 z-50">
-        <div className="flex h-16 items-center justify-between px-6">
+        <div className="flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-4">
             <Link href="/protected/dashboard" className="flex items-center gap-2">
               <div className="bg-white/95 backdrop-filter backdrop-blur-sm p-1.5 rounded-md shadow-md relative overflow-hidden">
@@ -59,7 +67,7 @@ export default async function DashboardLayout({
             </div>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button className="relative p-2 rounded-full hover:bg-muted/50 transition-colors">
               <BellIcon className="h-5 w-5 text-muted-foreground" />
               <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full"></span>
@@ -67,17 +75,29 @@ export default async function DashboardLayout({
             
             <div className="flex items-center gap-3 border-l pl-3 ml-1">
               <div className="hidden md:block text-right">
-                <div className="text-sm font-medium">{user.user_metadata?.full_name || user.email?.split('@')[0]}</div>
-                <div className="text-xs text-muted-foreground capitalize">{userRole}</div>
+                <div className="text-sm font-medium">{profile?.full_name || user.email?.split('@')[0]}</div>
+                <div className="text-xs text-muted-foreground capitalize">{profile?.role || 'Usuario'}</div>
               </div>
               
               <div className="h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center text-primary font-medium text-sm overflow-hidden">
-                {user.user_metadata?.full_name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "U"}
+                {profile?.avatar_url ? (
+                  <Image 
+                    src={profile.avatar_url}
+                    alt={profile.full_name || user.email?.split('@')[0] || "Usuario"}
+                    width={36}
+                    height={36}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  user.email ? user.email[0].toUpperCase() : "U"
+                )}
               </div>
               
-              <div className="hidden md:block">
-                <LogoutButton />
-              </div>
+              <form action={signOutAction} className="hidden md:block">
+                <Button variant="outline" size="sm" type="submit" className="text-xs h-8">
+                  Cerrar sesión
+                </Button>
+              </form>
               
               <button className="md:hidden p-1">
                 <MenuIcon className="h-5 w-5" />
@@ -88,71 +108,42 @@ export default async function DashboardLayout({
       </header>
 
       {/* Main Container */}
-      <div className="flex flex-1 overflow-hidden bg-muted/10">
-        {/* Sidebar Navigation */}
-        <aside className="hidden md:block w-60 border-r bg-card shadow-sm overflow-y-auto pt-6">
-          <nav className="space-y-1 px-3">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside className="hidden md:flex flex-col w-64 border-r bg-card/50">
+          <nav className="flex-1 px-3 py-4 space-y-1">
             <Link href="/protected/dashboard" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md bg-primary/10 text-primary">
               <HomeIcon className="h-4 w-4" />
-              Inicio
+              Dashboard
             </Link>
             <Link href="/protected/convenios" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
               <FileTextIcon className="h-4 w-4" />
-              Mis Convenios
+              Convenios
             </Link>
-            <Link href="/protected/pendientes" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+            <Link href="/protected/actividad" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
               <ClockIcon className="h-4 w-4" />
-              Pendientes
+              Actividad
             </Link>
-            <Link href="/protected/aprobados" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+            <Link href="/protected/aprobaciones" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
               <CheckCircleIcon className="h-4 w-4" />
-              Aprobados
+              Aprobaciones
             </Link>
           </nav>
-          
-          {/* Mostrar sección de administración solo para administradores */}
-          {userRole === 'admin' && (
-            <div className="mt-6 px-3 pt-6 border-t">
-              <div className="px-3 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Administración
-              </div>
-              <nav className="space-y-1">
-                <Link href="/protected/usuarios" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
-                  <UserIcon className="h-4 w-4" />
-                  Usuarios
-                </Link>
-                <Link href="/protected/configuracion" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
-                  <SettingsIcon className="h-4 w-4" />
-                  Configuración
-                </Link>
-              </nav>
+
+          <div className="mt-6 px-3 pt-6 border-t">
+            <div className="px-3 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Administración
             </div>
-          )}
-          
-          <div className="mt-10 mx-3 p-3 bg-blue-50 dark:bg-background/30 backdrop-blur-sm rounded-lg border border-blue-100 dark:border-blue-800/30 overflow-hidden">
-            <div className="flex items-start gap-3">
-              <div className={cn(
-                "relative flex items-center justify-center w-9 h-9 rounded-lg shrink-0 mt-0.5",
-                "bg-blue-500/20 dark:bg-blue-500/30"
-              )}>
-                <div className={cn(
-                  "absolute inset-0 rounded-lg blur-sm opacity-70",
-                  "bg-blue-500/20 dark:bg-blue-500/30"
-                )}></div>
-                <div className="relative z-10 text-blue-400">
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-primary">¿Necesitas ayuda?</h3>
-                <p className="mt-1 text-xs text-muted-foreground">Consulta la guía de uso o contacta a soporte.</p>
-                <a href="#" className="mt-2 inline-block text-xs font-medium text-blue-500 hover:underline">
-                  Ver documentación
-                </a>
-              </div>
-            </div>
+            <nav className="space-y-1">
+              <Link href="/protected/usuarios" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                <UserIcon className="h-4 w-4" />
+                Usuarios
+              </Link>
+              <Link href="/protected/configuracion" className="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors">
+                <SettingsIcon className="h-4 w-4" />
+                Configuración
+              </Link>
+            </nav>
           </div>
         </aside>
 
