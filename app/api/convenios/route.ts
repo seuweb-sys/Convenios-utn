@@ -1,25 +1,17 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
 import { type NextRequest } from 'next/server';
-
-// Interfaz para los datos que devolverá esta API
-// Similar a UserConvenioData, pero podemos ajustar si es necesario
-export interface ConvenioApiData {
-  id: string;
-  title: string;
-  date: string; // Formateada como string
-  type: string;
-  status: string;
-}
+import { CreateConvenioDTO } from "@/lib/types/convenio";
 
 // Definimos la estructura de los datos que esperamos de Supabase
-// Esto ayuda a TypeScript a entender el join
 interface ConvenioFromDB {
   id: string;
   title: string;
   status: string;
   created_at: string;
-  convenio_types: { name: string } | null; // Puede ser null si el join falla o no existe
+  convenio_types: {
+    name: string;
+  } | null;
 }
 
 export async function GET(request: NextRequest) {
@@ -54,7 +46,7 @@ export async function GET(request: NextRequest) {
         title,
         status,
         created_at,
-        convenio_types(name)
+        convenio_types!inner(name)
       `)
       .eq('user_id', user.id) // Filtrar por el ID del usuario autenticado
       .order('updated_at', { ascending: false })
@@ -66,11 +58,11 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. Transformar los datos al formato deseado por la API
-    const responseData: ConvenioApiData[] = (data as ConvenioFromDB[] || []).map(convenio => ({
+    const responseData = (data as unknown as ConvenioFromDB[]).map(convenio => ({
       id: convenio.id,
       title: convenio.title || "Sin título",
-      date: new Date(convenio.created_at).toLocaleDateString('es-AR'), // Formatear fecha aquí
-      type: convenio.convenio_types?.name || "Sin tipo", // Manejar posible null
+      date: new Date(convenio.created_at).toLocaleDateString('es-AR'),
+      type: convenio.convenio_types?.name || "Sin tipo",
       status: convenio.status || "Desconocido"
     }));
 
@@ -80,6 +72,103 @@ export async function GET(request: NextRequest) {
   } catch (e: any) {
     console.error("API Route Exception:", e);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+    
+    // Verificar autenticación
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
+    // Obtener y validar el body
+    const body = await request.json() as CreateConvenioDTO;
+    
+    if (!body.title || !body.convenio_type_id || !body.content_data) {
+      return NextResponse.json(
+        { error: "Faltan campos requeridos" },
+        { status: 400 }
+      );
+    }
+
+    // Generar número de serie
+    const { data: lastConvenio } = await supabase
+      .from('convenios')
+      .select('serial_number')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    const currentYear = new Date().getFullYear();
+    let serialNumber = `${currentYear}-001`;
+    
+    if (lastConvenio?.serial_number) {
+      const [year, number] = lastConvenio.serial_number.split('-');
+      if (year === currentYear.toString()) {
+        const nextNumber = (parseInt(number) + 1).toString().padStart(3, '0');
+        serialNumber = `${year}-${nextNumber}`;
+      }
+    }
+
+    // Crear el convenio
+    const { data: convenio, error: createError } = await supabase
+      .from('convenios')
+      .insert({
+        serial_number: serialNumber,
+        title: body.title,
+        convenio_type_id: body.convenio_type_id,
+        content_data: body.content_data,
+        status: 'borrador',
+        user_id: user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('Error al crear convenio:', createError);
+      return NextResponse.json(
+        { error: "Error al crear el convenio" },
+        { status: 500 }
+      );
+    }
+
+    // Registrar en activity_log
+    const { error: logError } = await supabase
+      .from('activity_log')
+      .insert({
+        id: crypto.randomUUID(),
+        convenio_id: convenio.id,
+        user_id: user.id,
+        action: 'create',
+        status_from: null,
+        status_to: 'borrador',
+        created_at: new Date().toISOString(),
+        ip_address: request.headers.get('x-forwarded-for') || 'unknown'
+      });
+
+    if (logError) {
+      console.error('Error al registrar actividad:', logError);
+      // No retornamos error aquí ya que el convenio ya fue creado
+    }
+
+    return NextResponse.json(convenio);
+
+  } catch (error) {
+    console.error('Error en el endpoint de convenios:', error);
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    );
   }
 }
 
