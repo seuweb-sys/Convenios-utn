@@ -22,7 +22,7 @@ export async function getConvenioTypes(): Promise<ConvenioTypeData[]> {
       return [];
     }
 
-    const apiData: ConvenioTypeApiData[] = await response.json();
+    const apiData: (ConvenioTypeApiData & { id: number })[] = await response.json();
 
     return apiData.map(item => ({
       id: item.id,

@@ -121,14 +121,15 @@ export default async function Dashboard() {
               </p>
               
               <div className="space-y-4">
-                {convenioTypes.map((type, index) => (
+                {convenioTypes.map((type) => (
                   <ConvenioTypeCard
-                    key={index}
+                    key={type.id}
                     title={type.title}
                     description={type.description}
                     icon={type.icon}
                     color={type.color as ConvenioColor}
                     previewUrl={type.previewUrl}
+                    typeId={type.id}
                   />
                 ))}
               </div>

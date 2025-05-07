@@ -50,11 +50,11 @@ export async function getUserConvenios(limit: number = 4): Promise<UserConvenioD
       console.error(`API request failed for getUserConvenios with status ${response.status}`);
       const errorBody = await response.text();
       console.error(`Error details: ${errorBody}`);
-      return []; 
-    }
+    return [];
+  }
     const apiData: UserConvenioData[] = await response.json();
     return apiData;
-
+  
   } catch (error) {
     console.error("Error fetching user convenios from API:", error);
     return [];

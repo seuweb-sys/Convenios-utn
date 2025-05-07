@@ -1,15 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams, useParams } from 'next/navigation';
 import { ChevronLeftIcon, FileTextIcon, MaximizeIcon, ZoomInIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+// Importar el store Zustand
+import { useConvenioStore } from "@/stores/convenioStore";
 
 // Componentes compartidos
 import Stepper from "@/app/components/shared/stepper";
 
 // Componentes de convenios
-import ConvenioHeader from "@/app/components/convenios/convenio-header";
 import NavigationFooter from "@/app/components/convenios/navigation-footer";
 import DocumentoPreview from "@/app/components/convenios/documento-preview";
 
@@ -21,55 +24,114 @@ import AnexosForm from "@/app/components/forms/anexos-form";
 import RevisionForm from "@/app/components/forms/revision-form";
 
 // Componente principal de la página
-export default function ConvenioPage({ params }: { params: Promise<{ id: string }> }) {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({});
-  const resolvedParams = React.use(params);
-  const convenioId = resolvedParams.id;
+export default function ConvenioPage() {
+  // --- Leer estado directamente del store ---
+  const currentStep = useConvenioStore((state) => state.currentStep);
+  const formData = useConvenioStore((state) => state.convenioData); // Obtener todos los datos
+  const convenioFields = useConvenioStore((state) => state.formFields);
+  const isLoading = useConvenioStore((state) => state.isLoading);
+  const isInitialized = useConvenioStore((state) => state.isInitialized);
 
+  // --- Acciones del store (obtenidas una vez para evitar re-renders innecesarios) ---
+  const initializeStore = useConvenioStore((state) => state.initialize);
+  const goToStep = useConvenioStore((state) => state.goToStep);
+
+  // --- Parámetros de Ruta y Búsqueda ---
+  const params = useParams<{ id: string }>();
+  const paramId = params.id;
+  const isCreating = paramId === "nuevo";
+  const searchParams = useSearchParams();
+  const typeId = searchParams.get('typeId');
+
+  // --- Efecto de Inicialización ---
+  useEffect(() => {
+    // Parsear IDs a número, manejar errores si no son válidos
+    const typeIdNumber = typeId ? parseInt(typeId, 10) : null;
+    const convenioIdNumber = !isCreating ? parseInt(paramId, 10) : undefined;
+
+    if (isNaN(convenioIdNumber ?? 0)) {
+        console.error("ID de convenio inválido en la URL:", paramId);
+        // TODO: Mostrar error al usuario / Redirigir
+        return;
+    }
+
+    if (isCreating && typeIdNumber === null) {
+      console.error("Falta typeId en la URL para crear un nuevo convenio.");
+      // TODO: Mostrar error al usuario / Redirigir
+      return;
+    } else if (isCreating && isNaN(typeIdNumber!)) {
+       console.error("typeId inválido en la URL:", typeId);
+       // TODO: Mostrar error al usuario / Redirigir
+       return;
+    }
+
+    // Llamar a initialize solo si typeIdNumber es válido
+    if (typeIdNumber !== null && !isNaN(typeIdNumber)) {
+         console.log(`ConvenioPage: Calling store.initialize with typeId: ${typeIdNumber}, convenioId: ${convenioIdNumber}`);
+         initializeStore(typeIdNumber, convenioIdNumber);
+    }
+    
+    // Opcional: Limpiar el store al desmontar el componente si aplica
+    // return () => {
+    //   console.log("ConvenioPage: Unmounting, resetting store.");
+    //   resetStore(); 
+    // };
+
+  }, [paramId, typeId, initializeStore, isCreating]); // Dependencias clave
+
+  // --- Handlers simplificados (llaman acciones del store) ---
   const handleStepChange = (step: number) => {
-    if (step >= 1 && step <= 5) {
-      setCurrentStep(step);
-    }
+    goToStep(step);
   };
 
-  const handleFormDataChange = (data: any) => {
-    setFormData((prevData) => ({ ...prevData, ...data }));
-  };
-
-  const handlePrevious = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentStep < 5) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handleSubmit = () => {
-    console.log("Formulario enviado:", formData);
-  };
-
+  // --- Renderizado del Paso Actual ---
   const renderStep = () => {
+    // Mostrar carga mientras el store no esté inicializado o esté cargando
+    if (!isInitialized || isLoading) {
+        return (
+            <div className="text-center py-10">
+                <span className="loading loading-dots loading-lg"></span> Cargando formulario...
+            </div>
+        );
+    }
+    
+    // TODO: Manejar estado de error leído del store
+    // if (errorLoading) return <div className="text-destructive p-4 bg-destructive/10 rounded-md">{errorLoading}</div>;
+
+    // Asegurarse de que los campos se cargaron (aunque isInitialized debería cubrir esto)
+    if (!convenioFields || convenioFields.length === 0) {
+        return <div className="text-muted-foreground text-center py-4">No se pudo cargar la estructura del formulario.</div>;
+    }
+    
+    // Filtrar campos para el paso actual
+    const fieldsForCurrentStep = convenioFields.filter(field => field.step === currentStep);
+
     switch (currentStep) {
       case 1:
-        return <DatosBasicosForm onDataChange={handleFormDataChange} />;
+        // Pasar solo los campos del paso 1 y los valores por defecto para 'datosBasicos'
+        return <DatosBasicosForm 
+                 fields={fieldsForCurrentStep} 
+                 defaultValues={formData.datosBasicos || {}} // Pasar solo la parte relevante del formData
+                 // Ya no necesita setStepValidity
+               />;
       case 2:
-        return <PartesForm onDataChange={handleFormDataChange} />;
+         // TODO: Refactorizar PartesForm para usar el store
+        return <PartesForm /* fields={fieldsForCurrentStep} defaultValues={formData.partes || []} */ />;
       case 3:
-        return <ClausulasForm onDataChange={handleFormDataChange} />;
+         // TODO: Refactorizar ClausulasForm para usar el store
+        return <ClausulasForm /* fields={fieldsForCurrentStep} defaultValues={formData.clausulas || []} */ />;
       case 4:
-        return <AnexosForm onDataChange={handleFormDataChange} />;
+         // TODO: Refactorizar AnexosForm para usar el store
+        return <AnexosForm /* fields={fieldsForCurrentStep} defaultValues={formData.anexos || []} */ />;
       case 5:
-        return <RevisionForm onDataChange={handleFormDataChange} formData={formData} />;
+         // TODO: Refactorizar RevisionForm para usar el store
+        return <RevisionForm /* formData={formData} */ />;
       default:
-        return <DatosBasicosForm onDataChange={handleFormDataChange} />;
+        return <div>Paso desconocido: {currentStep}</div>;
     }
   };
 
+  // --- Renderizado Principal ---
   return (
     <>
       {/* Fondo con patrón de puntos estático */}
@@ -103,7 +165,7 @@ export default function ConvenioPage({ params }: { params: Promise<{ id: string 
         {/* Panel de bienvenida con stepper - como en las capturas */}
         <div className="bg-card/50 backdrop-blur-sm border border-white/10 rounded-lg p-5 mb-8">
           <h1 className="text-2xl font-bold text-white mb-1">
-            {convenioId === "nuevo" ? "Nuevo Convenio" : `Editar Convenio #${convenioId}`}
+            {isCreating ? "Nuevo Convenio" : `Editar Convenio #${paramId}`}
           </h1>
           <p className="text-white/60 mb-4">
             Completa la información del convenio paso a paso
@@ -119,18 +181,9 @@ export default function ConvenioPage({ params }: { params: Promise<{ id: string 
         <div className="flex flex-col lg:flex-row items-start gap-8">
           {/* Columna izquierda - Formulario */}
           <div className="w-full lg:w-3/5">
-            {/* Formulario del paso actual */}
-            <div className="bg-card/60 backdrop-blur-sm border border-border/60 rounded-lg p-6 mb-6 shadow-sm">
+            <div className="bg-card/60 backdrop-blur-sm border border-border/60 rounded-lg p-6 mb-6 shadow-sm min-h-[300px]">
               {renderStep()}
-              
-              {/* Mini-footer para navegación */}
-              <NavigationFooter 
-                currentStep={currentStep}
-                totalSteps={5}
-                onPrevious={handlePrevious}
-                onNext={handleNext}
-                onSubmit={handleSubmit}
-              />
+              <NavigationFooter />
             </div>
           </div>
 
@@ -157,7 +210,7 @@ export default function ConvenioPage({ params }: { params: Promise<{ id: string 
                 </div>
               </div>
               <div className="p-4">
-                <DocumentoPreview formData={formData} />
+                <DocumentoPreview />
               </div>
             </div>
           </div>

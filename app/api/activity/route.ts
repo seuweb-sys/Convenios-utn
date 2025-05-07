@@ -23,9 +23,10 @@ interface ActivityLogFromDB {
   created_at: string;
   convenio_id: string;
   user_id: string; // Incluimos user_id para el filtro
+  // Ajustamos para esperar un array (incluso de 1 elemento) o null
   convenios: {
     title: string;
-  } | null;
+  }[] | null;
 }
 
 // Datos de fallback si no hay actividad
@@ -90,12 +91,13 @@ export async function GET(request: NextRequest) {
         responseData = defaultActivity;
     } else {
         // 4. Formatear los datos directamente en la API
-        responseData = (data as ActivityLogFromDB[]).map(activity => {
+        responseData = (data || []).map((activity: ActivityLogFromDB) => {
           let type: ApiActivityType = "info";
           let iconName = "file"; // Default icon name
           let title = "Actividad en convenio";
           let description = "";
-          const convenioTitle = activity.convenios?.title || "Convenio";
+          // Accedemos al primer elemento del array si existe
+          const convenioTitle = activity.convenios?.[0]?.title || "Convenio";
 
           switch(activity.action) {
             case "create":

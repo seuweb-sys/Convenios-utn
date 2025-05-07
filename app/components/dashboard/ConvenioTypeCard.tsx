@@ -11,6 +11,7 @@ export interface ConvenioTypeCardProps {
   icon: React.ReactNode;
   color: ConvenioColor;
   previewUrl: string;
+  typeId: string | number;
 }
 
 export const ConvenioTypeCard = ({ 
@@ -18,7 +19,8 @@ export const ConvenioTypeCard = ({
   description,
   icon,
   color = "cyan",
-  previewUrl
+  previewUrl,
+  typeId
 }: ConvenioTypeCardProps) => {
   const iconGlowClasses = {
     blue: "bg-blue-500/20 dark:bg-blue-500/30",
@@ -75,12 +77,12 @@ export const ConvenioTypeCard = ({
             iconGlowClasses[color]
           )}></div>
           <div className={cn("relative z-10", iconTextClasses[color])}>
-            {icon}
+          {icon}
           </div>
         </div>
       </div>
       <div className="mt-6 grid grid-cols-2 gap-2">
-        <Link href={`/protected/convenio/nuevo?tipo=${encodeURIComponent(title)}`} legacyBehavior>
+        <Link href={`/protected/convenio/nuevo?typeId=${typeId}`} legacyBehavior>
           <Button 
             className={cn(
               "w-full border-0",
