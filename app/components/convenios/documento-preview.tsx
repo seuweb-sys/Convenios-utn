@@ -7,7 +7,7 @@ interface DocumentoPreviewProps {
   formData: any;
 }
 
-export const DocumentoPreview = ({ formData }: DocumentoPreviewProps) => {
+export const  DocumentoPreview = ({ formData }: DocumentoPreviewProps) => {
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   const openFullScreen = () => setIsFullScreen(true);
