@@ -108,24 +108,16 @@ export default function ConvenioPage() {
 
     switch (currentStep) {
       case 1:
-        // Pasar solo los campos del paso 1 y los valores por defecto para 'datosBasicos'
-        return <DatosBasicosForm 
-                 fields={fieldsForCurrentStep} 
-                 defaultValues={formData.datosBasicos || {}} // Pasar solo la parte relevante del formData
-                 // Ya no necesita setStepValidity
-               />;
+        // Ya no pasamos fields ni defaultValues, el componente usa el store directamente
+        return <DatosBasicosForm />;
       case 2:
-         // TODO: Refactorizar PartesForm para usar el store
-        return <PartesForm /* fields={fieldsForCurrentStep} defaultValues={formData.partes || []} */ />;
+        return <PartesForm />;
       case 3:
-         // TODO: Refactorizar ClausulasForm para usar el store
-        return <ClausulasForm /* fields={fieldsForCurrentStep} defaultValues={formData.clausulas || []} */ />;
+        return <ClausulasForm />;
       case 4:
-         // TODO: Refactorizar AnexosForm para usar el store
-        return <AnexosForm /* fields={fieldsForCurrentStep} defaultValues={formData.anexos || []} */ />;
+        return <AnexosForm />;
       case 5:
-         // TODO: Refactorizar RevisionForm para usar el store
-        return <RevisionForm /* formData={formData} */ />;
+        return <RevisionForm />;
       default:
         return <div>Paso desconocido: {currentStep}</div>;
     }

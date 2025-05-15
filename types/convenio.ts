@@ -1,63 +1,123 @@
-import { z } from 'zod';
+// Eliminamos la importación de Zod
+// import { z } from 'zod';
+// Ahora usamos TypeScript puro
 
-// Schema Zod para Datos Básicos (basado en lo que hicimos antes)
-// Exportamos el schema para poder usarlo en la validación inicial del store
-export const DatosBasicosSchema = z.object({
-    nombre: z.string().min(1, "El nombre es requerido"),
-    objeto: z.string().min(1, "El objeto es requerido"),
-    fechaInicio: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Fecha de inicio inválida" }),
-    fechaFin: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Fecha de fin inválida" }),
-    confidencial: z.boolean().optional(),
-    // TODO: Añadir otros campos si los hay
-}).refine(data => new Date(data.fechaInicio) < new Date(data.fechaFin), {
-    message: "La fecha de fin debe ser posterior a la fecha de inicio",
-    path: ["fechaFin"], // Asociar error al campo fechaFin
-});
+// Interfaces para los datos
+export interface DatosBasicosData {
+    nombre: string;
+    objeto: string;
+    fechaInicio: string;
+    fechaFin: string;
+    confidencial?: boolean;
+}
 
-// Tipo inferido del schema Zod para Datos Básicos
-export type DatosBasicosData = z.infer<typeof DatosBasicosSchema>;
+// Función simple de validación para DatosBasicos
+export function validateDatosBasicos(data?: DatosBasicosData): { valid: boolean, errors: string[] } {
+    const errors: string[] = [];
+    if (!data) return { valid: false, errors: ['Faltan datos básicos'] };
+    
+    if (!data.nombre) errors.push('El nombre es requerido');
+    if (!data.objeto) errors.push('El objeto es requerido');
+    if (!data.fechaInicio) errors.push('Fecha de inicio es requerida');
+    if (!data.fechaFin) errors.push('Fecha de fin es requerida');
+    
+    // Validar que fechaFin es posterior a fechaInicio
+    if (data.fechaInicio && data.fechaFin) {
+        const inicio = new Date(data.fechaInicio);
+        const fin = new Date(data.fechaFin);
+        if (inicio >= fin) {
+            errors.push('La fecha de fin debe ser posterior a la fecha de inicio');
+        }
+    }
+    
+    return {
+        valid: errors.length === 0,
+        errors
+    };
+}
 
-// --- Placeholder para otros pasos --- 
-// (Crear schemas y tipos Zod para estos cuando refactoricemos esos formularios)
+// Tipos para Partes
+export type ParteTipo = 'universidad' | 'empresa' | 'alumno' | 'docente' | 'otro';
 
-// Ejemplo para Partes
-export const ParteSchema = z.object({
-    id: z.string().uuid().optional(), 
-    tipo: z.enum(['universidad', 'empresa', 'alumno', 'docente', 'otro'])
-           .optional() // Hacerlo opcional explícitamente
-           .default('empresa'), // Luego aplicar default
-    nombre: z.string().min(1, "Nombre de la parte requerido"),
-    cuit: z.string()
-           .optional()
-           .refine(val => !val || /^\d{2}-\d{8}-\d{1}$/.test(val), { // Validar formato CUIT si existe
-               message: "Formato CUIT inválido (XX-XXXXXXXX-X)"
-           }),
-    domicilio: z.string().min(1, "Domicilio requerido"), // Requerido
-    representanteNombre: z.string().min(1, "Nombre del representante requerido"), // Requerido
-    representanteDni: z.string()
-                       .optional()
-                       .refine(val => !val || /^\d{7,8}$/.test(val), { // Validar formato DNI simple si existe
-                           message: "Formato DNI inválido (7 u 8 dígitos)"
-                       }),
-    cargoRepresentante: z.string().min(1, "Cargo del representante requerido"), // Añadido y requerido
-});
-export type ParteData = z.infer<typeof ParteSchema>;
+export interface ParteData {
+    id?: string;
+    tipo: ParteTipo;
+    nombre: string;
+    cuit?: string;
+    domicilio: string;
+    representanteNombre: string;
+    representanteDni?: string;
+    cargoRepresentante: string;
+}
 
-// Schema para una Cláusula individual
-export const ClausulaSchema = z.object({
-  // id: z.string().uuid().optional(), // Podríamos añadir un ID si se necesita
-  texto: z.string().min(1, "El texto de la cláusula no puede estar vacío"),
-});
-export type ClausulaData = z.infer<typeof ClausulaSchema>;
+// Función de validación para Partes
+export function validateParte(data?: Partial<ParteData>): { valid: boolean, errors: string[] } {
+    const errors: string[] = [];
+    if (!data) return { valid: false, errors: ['Faltan datos de la parte'] };
+    
+    // Validar campos requeridos
+    if (!data.nombre) errors.push('Nombre de la parte requerido');
+    if (!data.domicilio) errors.push('Domicilio requerido');
+    if (!data.representanteNombre) errors.push('Nombre del representante requerido');
+    if (!data.cargoRepresentante) errors.push('Cargo del representante requerido');
+    
+    // Validar formato CUIT si existe
+    if (data.cuit && !/^\d{2}-\d{8}-\d{1}$/.test(data.cuit)) {
+        errors.push('Formato CUIT inválido (XX-XXXXXXXX-X)');
+    }
+    
+    // Validar formato DNI si existe
+    if (data.representanteDni) {
+        const cleanDni = data.representanteDni.replace(/[^\d]/g, '');
+        if (cleanDni.length < 7 || cleanDni.length > 8) {
+            errors.push('DNI debe tener 7 u 8 dígitos numéricos');
+        }
+    }
+    
+    return {
+        valid: errors.length === 0,
+        errors
+    };
+}
 
-// Schema para el array de Cláusulas (validará que cada objeto cumpla ClausulaSchema)
-export const ClausulasFormSchema = z.object({
-  clausulas: z.array(ClausulaSchema).min(1, "Debe haber al menos una cláusula"), // Asegura al menos una cláusula
-});
-export type ClausulasFormData = z.infer<typeof ClausulasFormSchema>;
+// Estructura para Cláusulas
+export interface ClausulaData {
+    texto: string;
+}
+
+// Función de validación para Cláusulas
+export function validateClausulas(clausulas?: ClausulaData[]): { valid: boolean, errors: string[] } {
+    const errors: string[] = [];
+    
+    if (!clausulas || clausulas.length === 0) {
+        errors.push('Debe haber al menos una cláusula');
+        return { valid: false, errors };
+    }
+    
+    // Verificar que clausulas sea un array
+    if (!Array.isArray(clausulas)) {
+        errors.push('El formato de las cláusulas es incorrecto');
+        return { valid: false, errors };
+    }
+    
+    // Verificar que cada cláusula tenga texto
+    clausulas.forEach((clausula, index) => {
+        if (!clausula.texto || clausula.texto.trim() === '') {
+            errors.push(`El texto de la cláusula ${index + 1} no puede estar vacío`);
+        }
+    });
+    
+    return {
+        valid: errors.length === 0,
+        errors
+    };
+}
+
+export interface ClausulasFormData {
+    clausulas: ClausulaData[];
+}
 
 // Estructura principal para todos los datos del convenio
-// Usamos Partial porque los datos pueden venir incompletos inicialmente
 export interface ConvenioData {
     id?: number; // ID del convenio en la BBDD
     typeId: number; // ID del tipo de convenio
@@ -68,10 +128,7 @@ export interface ConvenioData {
     // Datos agrupados por paso/sección
     datosBasicos?: DatosBasicosData;
     partes?: ParteData[]; // Array de partes
-    clausulas?: ClausulaData[]; // <--- Actualizado para usar ClausulaData
-    anexos?: { nombreArchivo: string; url: string }[]; // Array de objetos de anexo (ejemplo)
-    revision?: { comentarios: string; aprobado: boolean }; // Ejemplo
-
-    // Podríamos añadir otros campos globales si es necesario
-    // numeroExpediente?: string;
+    clausulas?: ClausulaData[]; // Array de clausulas
+    anexos?: { nombreArchivo: string; url: string }[]; // Array de objetos de anexo
+    revision?: { comentarios: string; aprobado: boolean };
 } 

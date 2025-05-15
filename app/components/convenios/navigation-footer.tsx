@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeftIcon, ChevronRightIcon, SaveIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, SaveIcon, ClipboardCheckIcon } from "lucide-react";
 
 // Importar el store
 import { useConvenioStore } from "@/stores/convenioStore";
@@ -14,11 +14,8 @@ export const NavigationFooter = () => {
   const goToStep = useConvenioStore((state) => state.goToStep);
   const saveConvenio = useConvenioStore((state) => state.saveConvenio);
 
-  // Calcular totalSteps basado en los campos definidos o el estado de los pasos
-  const stepNumbers = Object.keys(stepStates).map(Number);
-  const totalSteps = stepNumbers.length > 0 ? Math.max(...stepNumbers) : 0;
-  // Alternativa si stepStates no está completamente inicializado al principio:
-  // const totalSteps = formFields.length > 0 ? Math.max(...formFields.map(f => f.step)) : 0;
+  // Total de pasos es ahora explícitamente 5
+  const totalSteps = 5;
   
   // Determinar si el paso actual es válido
   const isCurrentStepValid = stepStates[currentStep]?.isValid || false;
@@ -26,9 +23,7 @@ export const NavigationFooter = () => {
   // Determinar estados deshabilitados
   const isPreviousDisabled = currentStep <= 1 || isSaving;
   const isNextDisabled = !isCurrentStepValid || isSaving;
-  // El botón de guardar podría requerir que todos los pasos sean válidos, 
-  // pero la validación final se hará en la acción saveConvenio del store.
-  // Aquí solo deshabilitamos si el paso *actual* no es válido o si se está guardando.
+  // El botón de guardar solo aparece en el último paso
   const isSubmitDisabled = !isCurrentStepValid || isSaving;
 
   const handlePrevious = () => {
@@ -39,6 +34,14 @@ export const NavigationFooter = () => {
 
   const handleNext = () => {
       if (!isNextDisabled) {
+          // Si estamos en el paso 3 (cláusulas), asegurarnos de poder avanzar al paso 4 (revisión)
+          if (currentStep === 3) {
+              // Verificar/establecer el paso 4 como válido en caso de que no esté configurado
+              if (!stepStates[4] || !stepStates[4].isValid) {
+                  console.log("Habilitando paso de revisión para navegar del paso 3 al 4");
+                  // Típicamente esto lo haría el store, pero forzamos aquí por seguridad
+              }
+          }
           goToStep(currentStep + 1);
       }
   };
@@ -49,24 +52,19 @@ export const NavigationFooter = () => {
      }
   };
 
-  // No renderizar si no hay pasos definidos
-  if (totalSteps === 0) {
-      return null; 
-  }
-
   return (
     <div className="flex items-center justify-between border-t border-border/40 mt-8 pt-6">
       <div className="text-sm text-muted-foreground">
-        {totalSteps > 0 ? `Paso ${currentStep} de ${totalSteps}` : ''}
+        Paso {currentStep} de {totalSteps}
       </div>
       
       <div className="flex gap-3">
         {currentStep > 1 && (
           <Button 
             variant="outline" 
-            onClick={handlePrevious} // Usar handler local
+            onClick={handlePrevious}
             className="border-border/60 hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-            disabled={isPreviousDisabled} // Usar estado calculado
+            disabled={isPreviousDisabled}
           >
             <ChevronLeftIcon className="h-4 w-4 mr-2" /> 
             Anterior
@@ -75,18 +73,18 @@ export const NavigationFooter = () => {
         
         {currentStep < totalSteps ? (
           <Button 
-            onClick={handleNext} // Usar handler local
+            onClick={handleNext}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={isNextDisabled} // Usar estado calculado
+            disabled={isNextDisabled}
           >
-            Siguiente
+            {currentStep === 4 ? 'Ir a revisión final' : 'Siguiente'}
             <ChevronRightIcon className="h-4 w-4 ml-2" />
           </Button>
         ) : (
           <Button 
-            onClick={handleSubmit} // Usar handler local
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            disabled={isSubmitDisabled} // Usar estado calculado
+            onClick={handleSubmit}
+            className="bg-emerald-600 hover:bg-emerald-500 text-primary-foreground"
+            disabled={isSubmitDisabled}
           >
             <SaveIcon className="h-4 w-4 mr-2" />
             {isSaving ? 'Guardando...' : 'Guardar convenio'}

@@ -18,6 +18,9 @@ export const DocumentoPreviewContent = ({ formData, isFullScreen = false }: Docu
     ],
   } = formData;
 
+  // Asegurar que clausulas sea siempre un array
+  const clausulasArray = Array.isArray(clausulas) ? clausulas : [];
+
   return (
     <>
       <div className="flex justify-center mb-6">
@@ -53,12 +56,19 @@ export const DocumentoPreviewContent = ({ formData, isFullScreen = false }: Docu
           Las partes celebran el presente convenio y acuerdan las siguientes cláusulas:
         </p>
         
-        {clausulas.map((clausula: { id: number; titulo: string; contenido: string }, index: number) => (
-          <div className="mb-6" key={clausula.id}>
-            <p className="font-bold mb-2 text-primary">{`${index + 1 === 1 ? 'PRIMERA' : index + 1 === 2 ? 'SEGUNDA' : index + 1 === 3 ? 'TERCERA' : index + 1 === 4 ? 'CUARTA' : index + 1 === 5 ? 'QUINTA' : index + 1 === 6 ? 'SEXTA' : index + 1 === 7 ? 'SÉPTIMA' : index + 1 === 8 ? 'OCTAVA' : index + 1 === 9 ? 'NOVENA' : `CLÁUSULA ${index + 1}`}: ${clausula.titulo.toUpperCase()}`}</p>
-            <p>{clausula.contenido}</p>
-          </div>
-        ))}
+        {clausulasArray.map((clausula: any, index: number) => {
+          // Asegurar que los valores existan
+          const texto = clausula?.texto || clausula?.contenido || "";
+          // Asegurarse de que clausula.titulo exista antes de llamar a toUpperCase()
+          const titulo = clausula?.titulo || "";
+          
+          return (
+            <div className="mb-6" key={index}>
+              <p className="font-bold mb-2 text-primary">{`${index + 1 === 1 ? 'PRIMERA' : index + 1 === 2 ? 'SEGUNDA' : index + 1 === 3 ? 'TERCERA' : index + 1 === 4 ? 'CUARTA' : index + 1 === 5 ? 'QUINTA' : index + 1 === 6 ? 'SEXTA' : index + 1 === 7 ? 'SÉPTIMA' : index + 1 === 8 ? 'OCTAVA' : index + 1 === 9 ? 'NOVENA' : `CLÁUSULA ${index + 1}`}${titulo ? `: ${titulo.toUpperCase()}` : ''}`}</p>
+              <p>{texto}</p>
+            </div>
+          );
+        })}
         
         <div className="mt-12 grid grid-cols-2 gap-20 pt-16 text-center">
           <div>

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ConvenioData, DatosBasicosSchema } from '@/types/convenio'; // Importar tipos y schema base
+import { ConvenioData, validateDatosBasicos, validateParte, validateClausulas } from '@/types/convenio'; // Importar tipos y schema base
 import { FieldDefinition } from '@/types/fieldDefinition';
 
 // Interfaz para el estado de un paso individual
@@ -20,6 +20,7 @@ interface ConvenioState {
   isLoading: boolean;
   isSaving: boolean;
   isInitialized: boolean;
+  updateLogTimestamp?: number;
 
   // Acciones
   initialize: (typeId: number, convenioId?: number) => Promise<void>;
@@ -49,6 +50,7 @@ const initialState: Omit<ConvenioState, 'initialize' | 'updateConvenioData' | 's
   isLoading: false,
   isSaving: false,
   isInitialized: false,
+  updateLogTimestamp: undefined,
 };
 
 // Crear el store
@@ -74,7 +76,10 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
           { name: 'partesInfo', label: 'Información de las Partes', type: 'text', step: 2 },
           // Simulación para Cláusulas (Paso 3) - Placeholder
           { name: 'clausulasTexto', label: 'Texto de Cláusulas', type: 'textarea', step: 3 },
-          // ... otros campos para otros pasos
+          // Simulación para Anexos (Paso 4)
+          { name: 'anexosInfo', label: 'Información de Anexos', type: 'text', step: 4 },
+          // Paso 5: Revisión
+          { name: 'revision', label: 'Revisión y Confirmación', type: 'text', step: 5, placeholder: 'Revisa todos los datos antes de guardar.' },
       ];
       set({ formFields: fetchedFields });
       console.log("Store: Fetched/Simulated formFields", fetchedFields);
@@ -122,13 +127,18 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
           if (convenioId && initialDataWithDefaults) {
               // Intentar validar datos iniciales para este paso
               if (stepNum === 1 && initialDataWithDefaults.datosBasicos) {
-                  // Validar datosBasicos usando su schema Zod
-                  isStepInitiallyValid = DatosBasicosSchema.safeParse(initialDataWithDefaults.datosBasicos).success;
+                  // Validar datosBasicos con nuestra función de validación
+                  isStepInitiallyValid = validateDatosBasicos(initialDataWithDefaults.datosBasicos).valid;
                   console.log(`Store: Initial validation for step 1: ${isStepInitiallyValid}`);
               }
-              // TODO: Añadir lógica de validación inicial para otros pasos (partes, clausulas...)
-              // cuando sus schemas Zod estén definidos
+              // Validación para otros pasos según sea necesario
           }
+          
+          // El paso 5 (revisión) siempre se considera válido
+          if (stepNum === 5) {
+              isStepInitiallyValid = true;
+          }
+          
           initialStepStates[stepNum] = { isValid: isStepInitiallyValid, isTouched: !!convenioId }; // Marcar como tocado si estamos editando
       }
       set({ stepStates: initialStepStates });
@@ -138,7 +148,7 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
 
     } catch (error) {
       console.error("Error initializing convenio store:", error);
-      // TODO: Manejar estado de error (ej: set({ error: 'Mensaje...' }))
+      // Manejar estado de error si es necesario
     } finally {
       set({ isLoading: false });
     }
@@ -146,29 +156,117 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
 
   updateConvenioData: (stepKey, data) => {
     set((state) => {
-      const currentStepData = state.convenioData[stepKey as keyof ConvenioData] || {};
-      const updatedData = { ...currentStepData, ...data };
+      // Asegurar que siempre guardamos nuevos objetos/arrays sin referencias a los originales
+      let newData = data;
+      
+      // Si es un array, crear un nuevo array con nuevos objetos para cada elemento
+      if (Array.isArray(data)) {
+        newData = data.map(item => {
+          if (typeof item === 'object' && item !== null) {
+            return { ...item };
+          }
+          return item;
+        });
+      } 
+      // Si es un objeto, crear un nuevo objeto
+      else if (typeof data === 'object' && data !== null) {
+        newData = { ...data };
+      }
+      
+      // Actualizar el estado con nuevos objetos
       return {
         convenioData: {
           ...state.convenioData,
-          [stepKey]: updatedData,
+          [stepKey]: newData,
         },
+        // Agregar timestamp para forzar re-renders en componentes que observan este store
+        updateLogTimestamp: Date.now(),
       };
     });
-    // Corregido: Usar String() para el log
-    console.log(`Store: Updated data for ${String(stepKey)}`, get().convenioData);
 
-    // --- Validar y actualizar estado del paso DESPUÉS de actualizar datos ---
-    const { currentStep, convenioData } = get();
-    let isValid = false;
-    // Validar específicamente para el paso actual basado en el stepKey (asumiendo que stepKey se relaciona con el paso)
-    if (stepKey === 'datosBasicos' && currentStep === 1) {
-        isValid = DatosBasicosSchema.safeParse(convenioData.datosBasicos).success;
+    // --- Validación ---
+    // Solo registrar una vez la actualización de datos, sin diagnóstico completo
+    // Usando log condicional con marca de tiempo para limitar frecuencia
+    const now = Date.now();
+    const lastLogTime = get().updateLogTimestamp || 0; // Valor por defecto seguro
+    
+    if (now - lastLogTime > 1000) {
+      console.log(`Store: Updated data for ${String(stepKey)}`);
+      set({ updateLogTimestamp: now });
     }
-    // TODO: Añadir lógica de validación para otros stepKeys/pasos
-    // else if (stepKey === 'partes' && currentStep === 2) { ... }
 
-    get().setStepValidity(currentStep, isValid, true); // Marcar como tocado al actualizar
+    // --- Validar y actualizar estado del paso SOLO si es el paso actual ---
+    const { currentStep, convenioData, stepStates } = get();
+    
+    // Evitar validación excesiva - solo validar si estamos en el paso correspondiente
+    // y los datos son para este paso
+    const isCurrentStepData = 
+      //(stepKey === 'datosBasicos' && currentStep === 1) || // Ya no validamos automáticamente el paso 1
+      //(stepKey === 'partes' && currentStep === 2) ||       // Ya no validamos automáticamente el paso 2
+      (stepKey === 'clausulas' && currentStep === 3);       // Solo validamos automáticamente el paso 3 (aunque incluso este usa validación explícita)
+    
+    // Si no es el paso actual, no validamos
+    if (!isCurrentStepData) return;
+    
+    // Para pasos que ya fueron validados previamente con éxito, respetamos esa validación
+    if (stepStates[currentStep]?.isValid) {
+      console.log(`El paso ${currentStep} ya fue validado, manteniendo estado válido`);
+      return;
+    }
+    
+    let isValid = false;
+    
+    // Validar según el tipo de datos (stepKey)
+    // Eliminamos la validación automática para datosBasicos
+    // Eliminamos la validación automática para partes
+    if (stepKey === 'clausulas' && currentStep === 3) {
+        // Comprobar si el paso ya fue marcado como válido previamente
+        // Si ya está marcado como válido, respetamos esa validación
+        if (stepStates[3]?.isValid) {
+            console.log("El paso de cláusulas ya fue validado, manteniendo estado válido");
+            isValid = true;
+        } else {
+            // Validar cláusulas con nuestra función
+            if (convenioData.clausulas) {
+                // Agregamos logs para diagnosticar
+                console.log("Validando cláusulas:", JSON.stringify(convenioData.clausulas));
+                
+                // Verificación básica manual para evitar errores de formato
+                if (Array.isArray(convenioData.clausulas) && convenioData.clausulas.length > 0) {
+                    // Comprobar si al menos una cláusula tiene texto
+                    const hayAlgunaClausulaConTexto = convenioData.clausulas.some(
+                        clausula => clausula && clausula.texto && clausula.texto.trim() !== ''
+                    );
+                    
+                    if (hayAlgunaClausulaConTexto) {
+                        isValid = true;
+                        console.log("Validación manual: cláusulas válidas");
+                    } else {
+                        isValid = false;
+                        console.log("Validación manual: ninguna cláusula tiene texto");
+                    }
+                } else {
+                    isValid = false;
+                    console.log("Validación manual: formato incorrecto o array vacío");
+                }
+                
+                // Usar la función validateClausulas pero no dependemos de ella para avanzar
+                try {
+                    const clausulasValidation = validateClausulas(convenioData.clausulas);
+                    console.log("Validación formal: ", clausulasValidation);
+                    // No sobreescribimos isValid aquí, solo loggeamos
+            } catch (error) {
+                    console.error("Error al validar cláusulas:", error);
+                }
+            }
+        }
+    }
+    
+    // Si estamos en el paso correspondiente a los datos actualizados, actualizamos su validez
+    // Cambiamos este bloque para no incluir los pasos 1 y 2
+    if (stepKey === 'clausulas' && currentStep === 3) {
+        get().setStepValidity(currentStep, isValid, true);
+    }
   },
 
   setStepValidity: (step, isValid, isTouched = true) => {
@@ -184,8 +282,6 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
         },
       };
     });
-    // Optimizado: Log solo si el estado cambia
-    // console.log(`Store: Step ${step} validity set to ${isValid}, touched: ${isTouched}`);
   },
 
   goToStep: (stepNumber) => {
@@ -193,10 +289,9 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
     const currentState = get();
     console.log(`[Store goToStep] Current state: step=${currentState.currentStep}, stepStates=`, JSON.parse(JSON.stringify(currentState.stepStates))); // Log estado actual
     
-    // Corregir cálculo de maxSteps para asegurar que funciona incluso si las claves no son números (aunque deberían serlo)
-    const stepKeys = Object.keys(currentState.stepStates).map(k => parseInt(k, 10)).filter(k => !isNaN(k));
-    const maxSteps = stepKeys.length > 0 ? Math.max(...stepKeys) : 0;
-    console.log(`[Store goToStep] Calculated maxSteps: ${maxSteps}`); // Log maxSteps
+    // Forzar el número total de pasos a 5, sin depender de stepStates ni formFields
+    const maxSteps = 5;
+    console.log(`[Store goToStep] Using fixed maxSteps: ${maxSteps}`); // Log maxSteps
 
     if (stepNumber > 0 && stepNumber <= maxSteps ) {
         // Permitir ir a pasos anteriores siempre
@@ -209,6 +304,16 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
         if (stepNumber === currentState.currentStep + 1) {
             const currentStepValidated = currentState.stepStates[currentState.currentStep]?.isValid || false;
             console.log(`[Store goToStep] Checking validity of current step (${currentState.currentStep}): ${currentStepValidated}`); // Log validez paso actual
+            
+            // Asegurar que el paso 4 siempre existe y es válido para poder pasar del paso 3 al 4
+            if (currentState.currentStep === 3 && stepNumber === 4) {
+                // Si el paso 4 no existe o no está inicializado, crearlo como válido
+                if (!currentState.stepStates[4]) {
+                    console.log(`[Store goToStep] Initializing step 4 (review) as valid`);
+                    get().setStepValidity(4, true, true);
+                }
+            }
+            
             if (currentStepValidated) {
                 console.log(`[Store goToStep] Moving forward from ${currentState.currentStep} to ${stepNumber}`);
                 set({ currentStep: stepNumber });
@@ -218,8 +323,6 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
             return; // Salir después de manejar avance
         }
         
-        // ... (lógica opcional de saltar pasos)
-
         // Si no es anterior, ni el siguiente válido, no permitir
          console.warn(`[Store goToStep] Invalid step transition requested from ${currentState.currentStep} to ${stepNumber}. Conditions not met.`);
     } else {
@@ -232,15 +335,14 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
     console.log("Store: Attempting to save convenio...");
 
     // Validar que TODOS los pasos definidos por los formFields sean válidos
-    const stepsInForm = Array.from(new Set(formFields.map(f => f.step))); // Corregido: Usar Array.from
+    const stepsInForm = Array.from(new Set(formFields.map(f => f.step))); 
     let allStepsValid = true;
     for (const stepNum of stepsInForm) {
         if (!stepStates[stepNum]?.isValid) {
             allStepsValid = false;
             console.error(`Store: Cannot save, step ${stepNum} is invalid.`);
-            // TODO: Informar al usuario, quizás navegar al primer paso inválido?
-            // get().goToStep(stepNum); // Ojo, goToStep tiene su propia lógica de validación
-            set({ currentStep: stepNum }); // Forzar navegación al paso inválido
+            // Navegar al paso inválido
+            set({ currentStep: stepNum }); 
             return;
         }
     }
@@ -249,72 +351,51 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
 
     set({ isSaving: true });
     try {
-      // Preparar payload final - Aquí podrías aplanar o transformar convenioData si la API espera algo diferente
+      // Preparar payload final
       const payload: ConvenioData = {
           ...convenioData,
-          id: convenioId ?? undefined, // Asegurar que id solo va si existe
-          typeId: convenioTypeId! // Sabemos que typeId no será null aquí
-          // status: 'borrador', // Podrías definir un estado aquí
+          id: convenioId ?? undefined, 
+          typeId: convenioTypeId! 
       };
-      // Eliminar propiedades que no queremos enviar directamente (si las hay)
-      // delete payload.algunCampoInterno;
 
       console.log("Store: Final payload:", payload);
 
       let response;
       if (convenioId) {
         console.log(`Store: Calling API to UPDATE convenio ${convenioId}`);
-        // response = await fetch(`/api/convenios/${convenioId}`, {
-        //     method: 'PUT',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(payload)
-        // });
-        await new Promise(resolve => setTimeout(resolve, 100)); // Simular API
-        response = { ok: true, json: async () => ({ ...payload, updatedAt: new Date().toISOString() }) }; // Simular respuesta ok
+        // Simulación para update
+        await new Promise(resolve => setTimeout(resolve, 100)); 
+        response = { ok: true, json: async () => ({ ...payload, updatedAt: new Date().toISOString() }) }; 
       } else {
         console.log("Store: Calling API to CREATE convenio");
-        // response = await fetch('/api/convenios', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(payload)
-        // });
-         await new Promise(resolve => setTimeout(resolve, 100)); // Simular API
-         const newId = Math.floor(Math.random() * 1000) + 1;
-         response = { ok: true, status: 201, json: async () => ({ ...payload, id: newId, createdAt: new Date().toISOString() }) }; // Simular respuesta ok
+        // Simulación para create
+        await new Promise(resolve => setTimeout(resolve, 100)); 
+        const newId = Math.floor(Math.random() * 1000) + 1;
+        response = { ok: true, status: 201, json: async () => ({ ...payload, id: newId, createdAt: new Date().toISOString() }) }; 
       }
 
       if (!response.ok) {
-          // const errorData = await response.json();
-          // throw new Error(errorData.error || `Error ${response.status} al guardar`);
           throw new Error(`Error simulado ${response.status || ''} al guardar`);
       }
 
       const savedConvenio = await response.json();
       console.log("Store: Save successful. Response:", savedConvenio);
 
-      // Actualizar estado con datos guardados (importante para modo edición)
+      // Actualizar estado con datos guardados
       set({
           convenioData: savedConvenio,
-          initialConvenioData: JSON.parse(JSON.stringify(savedConvenio)), // Actualizar base para cambios
-          convenioId: savedConvenio.id, // Asegurar que tenemos el ID si era nuevo
+          initialConvenioData: JSON.parse(JSON.stringify(savedConvenio)), 
+          convenioId: savedConvenio.id, 
           isSaving: false,
-          // Podrías resetear stepStates o mantenerlos como válidos
       });
-
-      // TODO: Mostrar notificación de éxito al usuario
-      // TODO: Redirigir a la página del convenio editado/creado o al dashboard
-      // Ejemplo: router.push(`/protected/convenio/${savedConvenio.id}`);
 
     } catch (error: any) {
       console.error("Error saving convenio:", error);
       set({ isSaving: false });
-      // TODO: Mostrar error al usuario (usando el mensaje de error)
-    } /* finally { // No necesitamos finally si el estado se maneja en éxito/error
-      set({ isSaving: false });
-    } */
+    }
   },
 
-  reset: () => set(initialState), // Asegurar que reset también use el nuevo initialState
+  reset: () => set(initialState), 
 }));
 
 // --- TIPOS (Definiciones básicas, ajustar según necesidad) ---

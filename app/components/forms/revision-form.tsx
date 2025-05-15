@@ -1,164 +1,241 @@
+"use client";
+
 import React, { useEffect } from "react";
-import { FileIcon, CornerDownRightIcon, PaperclipIcon, FileTextIcon, MessageSquareIcon, CheckSquareIcon } from "lucide-react";
+import { 
+  FileIcon, 
+  CornerDownRightIcon, 
+  PaperclipIcon, 
+  FileTextIcon, 
+  MessageSquareIcon, 
+  CheckSquareIcon,
+  InfoIcon,
+  UsersIcon,
+  AlertCircleIcon 
+} from "lucide-react";
 
 import { useConvenioStore } from "@/stores/convenioStore";
 import { ConvenioData } from "@/types/convenio";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
-interface RevisionFormProps {
-  // onDataChange?: (data: any) => void;
-  // formData: any;
-}
+interface RevisionFormProps {}
 
-export const RevisionForm = ({ }: RevisionFormProps) => {
+export const RevisionForm = ({}: RevisionFormProps) => {
+  // --- Store ---
   const formData = useConvenioStore((state) => state.convenioData);
   const updateConvenioData = useConvenioStore((state) => state.updateConvenioData);
   const setStepValidity = useConvenioStore((state) => state.setStepValidity);
 
+  // --- Efectos ---
   useEffect(() => {
+    // Siempre considerar este paso como válido
     setStepValidity(5, true, true);
   }, [setStepValidity]);
 
+  // --- Handlers ---
   const handleObservacionesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const comentarios = e.target.value;
-    updateConvenioData('revision', { comentarios });
+    updateConvenioData('revision', { 
+      comentarios, 
+      aprobado: formData.revision?.aprobado || false 
+    });
   };
   
+  // Función auxiliar para mostrar datos o placeholder
   const displayData = (data: string | number | undefined | null, placeholder = "No especificado") => {
-    return data ? String(data) : <span className="text-foreground/50 italic">{placeholder}</span>;
+    return data ? String(data) : <span className="text-gray-400 dark:text-gray-500 italic">{placeholder}</span>;
   };
 
+  console.log('RevisionForm formData:', formData);
+
   return (
-    <div className="animate-in fade-in slide-in-from-right duration-500">
-      <div className="mb-6 pb-4 border-b border-border/30">
-        <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
+    <div className="space-y-6 animate-in fade-in-0">
+      {/* Encabezado */}
+      <div className="space-y-2 mb-6">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
           <div className="p-1.5 rounded-full bg-primary/20 text-primary">
             <CheckSquareIcon className="h-5 w-5" />
           </div>
-          Revisión Final
+          Revisión Final del Convenio
         </h2>
-        <p className="text-muted-foreground text-sm">Verifica toda la información del convenio antes de guardar.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Verifica toda la información del convenio antes de guardar.
+        </p>
       </div>
       
-      <div className="space-y-6">
-        <div className="border border-border/60 p-6 rounded-md bg-card/80 hover:border-primary/30 transition-colors">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2 text-foreground">
-            <div className="p-2 rounded-full bg-blue-500/20 text-blue-500"><FileIcon className="h-5 w-5" /></div>
+      {/* Alerta de revisión */}
+      <div className="bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 p-4 rounded-md mb-6">
+        <div className="flex items-start gap-3">
+          <div className="p-1.5 bg-amber-100 dark:bg-amber-800/50 rounded-full text-amber-700 dark:text-amber-300 flex-shrink-0 mt-0.5">
+            <AlertCircleIcon className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-sm text-amber-700 dark:text-amber-300 font-medium">
+              Importante: Revisión final
+            </p>
+            <p className="text-sm text-amber-600/80 dark:text-amber-400/80 mt-1">
+              Una vez enviado, el convenio será remitido para aprobación y no podrá ser modificado hasta que sea aprobado o rechazado.
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div className="space-y-5">
+        {/* Información básica */}
+        <div className="border border-gray-200 dark:border-gray-800 p-5 rounded-lg bg-white dark:bg-gray-900/60 hover:border-primary/30 transition-colors">
+          <h3 className="text-base font-medium mb-4 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+            <div className="p-1.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+              <FileIcon className="h-4 w-4" />
+            </div>
             Información básica
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
             <div className="space-y-1">
-              <p className="text-muted-foreground">Nombre:</p>
-              <p className="font-medium text-foreground">{displayData(formData.datosBasicos?.nombre)}</p>
+              <p className="text-gray-500 dark:text-gray-400">Nombre:</p>
+              <p className="font-medium text-gray-800 dark:text-gray-200">{displayData(formData.datosBasicos?.nombre)}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-muted-foreground">Fecha Inicio:</p>
-              <p className="font-medium text-foreground">{displayData(formData.datosBasicos?.fechaInicio)}</p>
+              <p className="text-gray-500 dark:text-gray-400">Fecha Inicio:</p>
+              <p className="font-medium text-gray-800 dark:text-gray-200">{displayData(formData.datosBasicos?.fechaInicio)}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-muted-foreground">Fecha Fin:</p>
-              <p className="font-medium text-foreground">{displayData(formData.datosBasicos?.fechaFin)}</p>
+              <p className="text-gray-500 dark:text-gray-400">Fecha Fin:</p>
+              <p className="font-medium text-gray-800 dark:text-gray-200">{displayData(formData.datosBasicos?.fechaFin)}</p>
             </div>
-             <div className="space-y-1 md:col-span-2">
-              <p className="text-muted-foreground">Objeto:</p>
-              <p className="font-medium text-foreground whitespace-pre-wrap">{displayData(formData.datosBasicos?.objeto)}</p>
+            <div className="space-y-1 md:col-span-2">
+              <p className="text-gray-500 dark:text-gray-400">Objeto:</p>
+              <p className="font-medium text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{displayData(formData.datosBasicos?.objeto)}</p>
             </div>
-             <div className="space-y-1">
-              <p className="text-muted-foreground">Confidencial:</p>
-              <p className="font-medium text-foreground">{formData.datosBasicos?.confidencial ? 'Sí' : 'No'}</p>
+            <div className="space-y-1">
+              <p className="text-gray-500 dark:text-gray-400">Confidencial:</p>
+              <p className="font-medium text-gray-800 dark:text-gray-200">
+                {formData.datosBasicos?.confidencial ? 
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">Sí</span> : 
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">No</span>
+                }
+              </p>
             </div>
           </div>
         </div>
         
-        <div className="border border-border/60 p-6 rounded-md bg-card/80 hover:border-primary/30 transition-colors">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2 text-foreground">
-            <div className="p-2 rounded-full bg-green-500/20 text-green-500">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+        {/* Partes involucradas */}
+        <div className="border border-gray-200 dark:border-gray-800 p-5 rounded-lg bg-white dark:bg-gray-900/60 hover:border-primary/30 transition-colors">
+          <h3 className="text-base font-medium mb-4 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+            <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+              <UsersIcon className="h-4 w-4" />
             </div>
             Partes involucradas ({formData.partes?.length || 0})
           </h3>
           <div className="space-y-4 text-sm">
             {formData.partes && formData.partes.length > 0 ? (
               formData.partes.map((parte, index) => (
-                <div key={parte.id || index} className="border-b border-border/40 pb-3 last:border-b-0 last:pb-0">
-                  <p className="font-semibold mb-1 text-foreground capitalize">{displayData(parte.tipo)}: {displayData(parte.nombre)}</p>
-                  <div className="grid grid-cols-2 gap-x-4 text-xs">
-                    <div><span className="text-muted-foreground">CUIT:</span> {displayData(parte.cuit)}</div>
-                    <div><span className="text-muted-foreground">Domicilio:</span> {displayData(parte.domicilio)}</div>
-                    <div><span className="text-muted-foreground">Rep.:</span> {displayData(parte.representanteNombre)}</div>
-                    <div><span className="text-muted-foreground">DNI Rep.:</span> {displayData(parte.representanteDni)}</div>
+                <div key={parte.id || index} className="border-b border-gray-200 dark:border-gray-800 pb-3 last:border-b-0 last:pb-0">
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium mb-2 text-gray-800 dark:text-gray-200 capitalize flex items-center">
+                      {parte.tipo === 'universidad' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 mr-2">Universidad</span>
+                      ) : parte.tipo === 'empresa' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 mr-2">Empresa</span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 mr-2">{parte.tipo}</span>
+                      )}
+                      {displayData(parte.nombre)}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-xs bg-gray-50 dark:bg-gray-800/50 p-3 rounded-md">
+                    <div><span className="text-gray-500 dark:text-gray-400">CUIT:</span> {displayData(parte.cuit)}</div>
+                    <div><span className="text-gray-500 dark:text-gray-400">Domicilio:</span> {displayData(parte.domicilio)}</div>
+                    <div><span className="text-gray-500 dark:text-gray-400">Representante:</span> {displayData(parte.representanteNombre)}</div>
+                    <div><span className="text-gray-500 dark:text-gray-400">Cargo:</span> {displayData(parte.cargoRepresentante)}</div>
                   </div>
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground italic">No hay partes definidas</p>
+              <p className="text-gray-500 dark:text-gray-400 italic">No hay partes definidas</p>
             )}
           </div>
         </div>
         
-        <div className="border border-border/60 p-6 rounded-md bg-card/80 hover:border-primary/30 transition-colors">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2 text-foreground">
-            <div className="p-2 rounded-full bg-amber-500/20 text-amber-500"><CornerDownRightIcon className="h-5 w-5" /></div>
+        {/* Cláusulas */}
+        <div className="border border-gray-200 dark:border-gray-800 p-5 rounded-lg bg-white dark:bg-gray-900/60 hover:border-primary/30 transition-colors">
+          <h3 className="text-base font-medium mb-4 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+            <div className="p-1.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+              <CornerDownRightIcon className="h-4 w-4" />
+            </div>
             Cláusulas ({formData.clausulas?.length || 0})
           </h3>
-          <ul className="space-y-2 text-sm">
+          <ul className="space-y-3 text-sm">
             {formData.clausulas && formData.clausulas.length > 0 ? (
               formData.clausulas.map((clausula, index) => (
-                <li key={index} className="flex items-start gap-2">
+                <li key={index} className="flex items-start gap-2 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-md">
                   <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0 mt-0.5">
                     <span className="text-xs font-medium">{index + 1}</span>
                   </div>
-                  <p className="text-foreground whitespace-pre-wrap">{displayData(clausula.texto, 'Cláusula sin texto')}</p>
+                  <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{displayData(clausula.texto, 'Cláusula sin texto')}</p>
                 </li>
               ))
             ) : (
-              <li className="text-muted-foreground italic">No hay cláusulas definidas</li>
+              <li className="text-gray-500 dark:text-gray-400 italic">No hay cláusulas definidas</li>
             )}
           </ul>
         </div>
         
-        <div className="border border-border/60 p-6 rounded-md bg-card/80 hover:border-primary/30 transition-colors">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2 text-foreground">
-            <div className="p-2 rounded-full bg-purple-500/20 text-purple-500"><PaperclipIcon className="h-5 w-5" /></div>
+        {/* Anexos */}
+        <div className="border border-gray-200 dark:border-gray-800 p-5 rounded-lg bg-white dark:bg-gray-900/60 hover:border-primary/30 transition-colors">
+          <h3 className="text-base font-medium mb-4 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+            <div className="p-1.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+              <PaperclipIcon className="h-4 w-4" />
+            </div>
             Anexos adjuntos ({formData.anexos?.length || 0})
           </h3>
-          <ul className="space-y-2 text-sm">
-            {formData.anexos && formData.anexos.length > 0 ? (
-              formData.anexos.map((anexo, index) => (
-                <li key={index} className="flex items-center gap-2">
-                  <div className="p-1.5 rounded bg-primary text-primary-foreground flex-shrink-0">
+          
+          {formData.anexos && formData.anexos.length > 0 ? (
+            <div className="space-y-2">
+              {formData.anexos.map((anexo, index) => (
+                <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800/50 rounded-md">
+                  <div className="p-1.5 rounded bg-primary/10 text-primary flex-shrink-0">
                     <FileTextIcon className="w-4 h-4"/>
                   </div>
-                  <span className="text-foreground">{displayData(anexo.nombreArchivo)}</span>
-                </li>
-              ))
-            ) : (
-              <li className="text-muted-foreground italic">No hay anexos adjuntos</li>
-            )}
-          </ul>
+                  <span className="text-gray-800 dark:text-gray-200 text-sm">{displayData(anexo.nombreArchivo)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 italic text-sm">No hay anexos adjuntos</p>
+          )}
         </div>
         
-        <div className="border border-border/60 p-6 rounded-md bg-card/80 hover:border-primary/30 transition-colors">
-          <h3 className="text-lg font-medium mb-4 flex items-center gap-2 text-foreground">
-            <div className="p-2 rounded-full bg-cyan-500/20 text-cyan-500"><MessageSquareIcon className="h-5 w-5" /></div>
+        {/* Observaciones */}
+        <div className="border border-gray-200 dark:border-gray-800 p-5 rounded-lg bg-white dark:bg-gray-900/60 hover:border-primary/30 transition-colors">
+          <h3 className="text-base font-medium mb-4 flex items-center gap-2 text-gray-800 dark:text-gray-200">
+            <div className="p-1.5 rounded-full bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400">
+              <MessageSquareIcon className="h-4 w-4" />
+            </div>
             Observaciones adicionales
           </h3>
-          <textarea
-            className="w-full px-4 py-2.5 bg-card/80 border border-border/60 text-foreground focus:border-primary/30 focus:ring-1 focus:ring-primary/20 focus:ring-offset-0 rounded-md h-28 resize-none transition-colors placeholder-muted-foreground"
+          <Textarea
+            className={cn(
+              "w-full min-h-[120px] resize-none bg-gray-50 dark:bg-gray-800/50",
+              "border border-gray-200 dark:border-gray-700 rounded-md",
+              "text-gray-800 dark:text-gray-200",
+              "focus:border-primary/30 focus:ring-1 focus:ring-primary/20"
+            )}
             placeholder="Agregue cualquier observación o nota adicional sobre el convenio..."
             value={formData.revision?.comentarios || ""}
             onChange={handleObservacionesChange}
-          ></textarea>
+          />
         </div>
         
-        <div className="p-4 bg-primary/20 border border-primary/30 rounded-md">
+        {/* Nota importante */}
+        <div className="p-4 bg-primary/10 border border-primary/30 rounded-md">
           <div className="flex items-start gap-3">
-            <div className="p-1 rounded-full bg-primary text-primary-foreground mt-0.5 flex-shrink-0">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div className="p-1.5 rounded-full bg-primary/20 text-primary flex-shrink-0 mt-0.5">
+              <InfoIcon className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Importante:</p>
-              <p className="text-sm text-muted-foreground">
-                Una vez enviado, el convenio será remitido para revisión y no podrá ser modificado hasta que sea aprobado o rechazado.
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Siguiente paso:</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Al finalizar la revisión, podrás guardar el convenio como borrador o enviarlo para su aprobación.
               </p>
             </div>
           </div>
