@@ -13,7 +13,7 @@ export const ConvenioHeader = ({ title, subtitle }: ConvenioHeaderProps) => {
     <div className="mb-8 border-b border-border/40 pb-6">
       <div className="flex items-center justify-between mb-2">
         <Link
-          href="/protected/dashboard"
+          href="/protected/"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ChevronLeftIcon className="h-4 w-4 mr-1" /> 

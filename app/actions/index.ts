@@ -10,7 +10,7 @@ import { createClient } from "@/utils/supabase/server";
  */
 export async function signOutAction() {
   const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient(cookieStore);
   
   await supabase.auth.signOut();
   revalidatePath("/", "layout");

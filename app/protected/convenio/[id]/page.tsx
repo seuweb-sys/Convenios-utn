@@ -23,6 +23,33 @@ import ClausulasForm from "@/app/components/forms/clausulas-form";
 import AnexosForm from "@/app/components/forms/anexos-form";
 import RevisionForm from "@/app/components/forms/revision-form";
 
+// Definir la interfaz para los datos del formulario
+interface FormData {
+  // Datos básicos
+  titulo?: string;
+  fecha?: string;
+  duracion?: number;
+  'unidad-tiempo'?: string;
+  descripcion?: string;
+  confidencial?: boolean;
+  
+  // Partes
+  organizacion?: string;
+  representante?: string;
+  cargo?: string;
+  direccion?: string;
+  
+  // Cláusulas y anexos
+  clausulas?: Array<{ id: number; titulo: string; contenido: string }>;
+  anexos?: Array<{ id: number; nombre: string; tipo: string; tamano: string; fecha: string }>;
+  
+  // Revisión
+  observaciones?: string;
+  
+  // Otros
+  convenio_type_id?: number;
+}
+
 // Componente principal de la página
 export default function ConvenioPage() {
   // --- Leer estado directamente del store ---
@@ -146,11 +173,11 @@ export default function ConvenioPage() {
         {/* Botón de regreso independiente */}
         <div className="mb-6">
           <Link
-            href="/protected/dashboard"
+            href="/protected/"
             className="inline-flex items-center text-sm text-white/60 hover:text-white transition-colors"
           >
             <ChevronLeftIcon className="h-4 w-4 mr-1" /> 
-            Volver al dashboard
+            Volver al Inicio
           </Link>
         </div>
         
@@ -210,4 +237,4 @@ export default function ConvenioPage() {
       </div>
     </>
   );
-}
+} 

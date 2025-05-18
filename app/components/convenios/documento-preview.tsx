@@ -2,17 +2,10 @@ import React, { useState } from "react";
 import { FileTextIcon, MaximizeIcon } from "lucide-react";
 import DocumentoPreviewContent from "./documento-preview-content";
 import FullScreenPreview from "./full-screen-preview";
-
-// Importar el store
 import { useConvenioStore } from "@/stores/convenioStore";
 
-// Quitar props, el componente leerá del store
-interface DocumentoPreviewProps {}
-
-export const DocumentoPreview = ({}: DocumentoPreviewProps) => { // Quitar formData de la desestructuración
+export const DocumentoPreview = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
-  
-  // Leer formData del store
   const formData = useConvenioStore((state) => state.convenioData);
 
   const openFullScreen = () => setIsFullScreen(true);

@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
         responseData = defaultActivity;
     } else {
         // 4. Formatear los datos directamente en la API
-        responseData = (data || []).map((activity: ActivityLogFromDB) => {
+        responseData = (data as unknown as ActivityLogFromDB[]).map(activity => {
           let type: ApiActivityType = "info";
           let iconName = "file"; // Default icon name
           let title = "Actividad en convenio";
