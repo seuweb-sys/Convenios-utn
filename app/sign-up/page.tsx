@@ -18,7 +18,7 @@ export default async function SignUp({
   const message = params?.message;
 
   if (user) {
-    return redirect("/protected/dashboard");
+    return redirect("/protected/");
   }
 
   return (

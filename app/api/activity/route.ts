@@ -22,9 +22,13 @@ interface ActivityLogFromDB {
   status_to: string | null;
   created_at: string;
   convenio_id: string;
-  user_id: string; // Incluimos user_id para el filtro
+  user_id: string;
   convenios: {
     title: string;
+    serial_number: string;
+  } | null;
+  profiles: {
+    full_name: string;
   } | null;
 }
 
@@ -47,7 +51,7 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError) {
-      console.error("API Error getting user (activity):", userError);
+      console.error("API Error getting user:", userError);
       return NextResponse.json({ error: 'Error de autenticación' }, { status: 500 });
     }
     if (!user) {
@@ -57,12 +61,13 @@ export async function GET(request: NextRequest) {
     // 2. Obtener parámetro 'limit'
     const searchParams = request.nextUrl.searchParams;
     const limitParam = searchParams.get('limit');
-    const limit = limitParam ? parseInt(limitParam, 10) : 3; // Default a 3
+    const limit = limitParam ? parseInt(limitParam, 10) : 50; // Default a 50
+
     if (isNaN(limit) || limit <= 0) {
-        return NextResponse.json({ error: 'Parámetro limit inválido' }, { status: 400 });
+      return NextResponse.json({ error: 'Parámetro limit inválido' }, { status: 400 });
     }
 
-    // 3. Consultar actividad reciente
+    // 3. Consultar actividad
     const { data, error: dbError } = await supabase
       .from('activity_log')
       .select(`
@@ -73,76 +78,34 @@ export async function GET(request: NextRequest) {
         created_at,
         convenio_id,
         user_id,
-        convenios(title)
+        convenios (
+          title,
+          serial_number
+        ),
+        profiles:user_id (
+          full_name
+        )
       `)
-      .or(`user_id.eq.${user.id}`)
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (dbError) {
-      console.error("API Error fetching recent activity:", dbError);
-      return NextResponse.json({ error: 'Error al obtener actividad reciente', details: dbError.message }, { status: 500 });
+      console.error("API Error fetching activity:", dbError);
+      return NextResponse.json({ error: 'Error al obtener actividad', details: dbError.message }, { status: 500 });
     }
 
-    let responseData: ActivityApiData[];
+    // 4. Transformar los datos al formato deseado
+    const responseData = (data as unknown as ActivityLogFromDB[]).map(activity => ({
+      id: activity.id,
+      action: activity.action,
+      status_from: activity.status_from,
+      status_to: activity.status_to,
+      created_at: activity.created_at,
+      convenio_title: activity.convenios?.title || "Sin título",
+      convenio_serial: activity.convenios?.serial_number || "Sin número",
+      user_name: activity.profiles?.full_name || "Usuario"
+    }));
 
-    if (!data || data.length === 0) {
-        responseData = defaultActivity;
-    } else {
-        // 4. Formatear los datos directamente en la API
-        responseData = (data as unknown as ActivityLogFromDB[]).map(activity => {
-          let type: ApiActivityType = "info";
-          let iconName = "file"; // Default icon name
-          let title = "Actividad en convenio";
-          let description = "";
-          const convenioTitle = activity.convenios?.title || "Convenio";
-
-          switch(activity.action) {
-            case "create":
-              title = `Nuevo convenio creado`;
-              description = `Se ha creado el convenio "${convenioTitle}"`;
-              iconName = "file-plus"; // Ejemplo
-              break;
-            case "update":
-              title = `Convenio actualizado`;
-              description = `Se han realizado cambios en "${convenioTitle}"`;
-              iconName = "edit"; // Ejemplo
-              break;
-            case "status_change":
-              if (activity.status_to === "aprobado") {
-                type = "success";
-                iconName = "check";
-                title = `Convenio aprobado`;
-                description = `El convenio "${convenioTitle}" ha sido aprobado`;
-              } else if (activity.status_to === "rechazado") {
-                type = "error";
-                iconName = "alert-circle";
-                title = `Convenio rechazado`;
-                description = `El convenio "${convenioTitle}" ha sido rechazado`;
-              } else if (activity.status_to === "revision") {
-                title = `Convenio enviado a revisión`;
-                description = `El convenio "${convenioTitle}" está siendo revisado`;
-                iconName = "clock";
-              }
-              break;
-            default:
-              title = `Actividad en convenio`;
-              description = `Ha ocurrido una actividad en "${convenioTitle}"`;
-              iconName = "info"; // Ejemplo
-              break;
-          }
-
-          return {
-            title,
-            description,
-            time: formatTimeAgo(activity.created_at),
-            type,
-            iconName
-          };
-        });
-    }
-
-    // 5. Devolver datos formateados
     return NextResponse.json(responseData);
 
   } catch (e: any) {

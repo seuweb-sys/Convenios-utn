@@ -112,8 +112,12 @@ export default function ConvenioPage({ params }: { params: Promise<{ id: string 
 
       console.log('Enviando datos:', convenioData); // Para debug
 
-      const response = await fetch('/api/convenios', {
-        method: 'POST',
+      const isNewConvenio = convenioId === "nuevo";
+      const url = isNewConvenio ? '/api/convenios' : `/api/convenios/${convenioId}`;
+      const method = isNewConvenio ? 'POST' : 'PATCH';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -122,12 +126,14 @@ export default function ConvenioPage({ params }: { params: Promise<{ id: string 
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Error al guardar el convenio');
+        throw new Error(error.message || `Error al ${isNewConvenio ? 'crear' : 'actualizar'} el convenio`);
       }
 
       const data = await response.json();
       console.log('Convenio guardado:', data);
       
+      // Mostrar mensaje de éxito
+      alert(`Convenio ${isNewConvenio ? 'creado' : 'actualizado'} con éxito`);
       // Redirigir al dashboard
       window.location.href = '/protected/';
       
