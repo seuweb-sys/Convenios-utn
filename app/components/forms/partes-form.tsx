@@ -53,13 +53,13 @@ export const PartesForm = ({}: PartesFormProps) => {
     mode: 'onChange',
     // Inicializar con valores por defecto o con la contraparte existente
     defaultValues: partes.length > 1 ? partes[1] : {
-      tipo: 'empresa',
-      nombre: '',
-      domicilio: '',
-      representanteNombre: '',
-      representanteDni: '',
-      cargoRepresentante: '',
-      cuit: ''
+        tipo: 'empresa',
+        nombre: '',
+        domicilio: '',
+        representanteNombre: '',
+        representanteDni: '',
+        cargoRepresentante: '',
+        cuit: ''
     }
   });
   
@@ -107,7 +107,7 @@ export const PartesForm = ({}: PartesFormProps) => {
       reset({ ...partes[1] });
     }
   }, [currentStep, partes, reset]);
-  
+      
   // --- Funciones ---
   
   // Guardar datos en el store explícitamente
@@ -150,7 +150,7 @@ export const PartesForm = ({}: PartesFormProps) => {
     
     return isValid;
   };
-  
+
   // Manejar clic en botón de validación
   const onManualValidate = () => {
     trigger().then(() => {
@@ -401,7 +401,7 @@ export const PartesForm = ({}: PartesFormProps) => {
         <p className="text-xs text-gray-500 dark:text-gray-400">
           <span className="inline-block mr-1 p-1 bg-primary/10 text-primary rounded-full">
             <InfoIcon className="h-3 w-3" />
-          </span>
+            </span>
           {partes.length > 1 ? 'Dos partes definidas' : 'Solo parte UTN definida'}
           {formStatus.validated && formStatus.valid && (
             <span className="ml-2 text-green-600">✓ Datos completos</span>

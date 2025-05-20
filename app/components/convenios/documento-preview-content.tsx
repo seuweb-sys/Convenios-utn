@@ -66,7 +66,7 @@ export const DocumentoPreviewContent = ({ formData, isFullScreen = false }: Docu
             <div className="mb-6" key={index}>
               <p className="font-bold mb-2 text-primary">{`${index + 1 === 1 ? 'PRIMERA' : index + 1 === 2 ? 'SEGUNDA' : index + 1 === 3 ? 'TERCERA' : index + 1 === 4 ? 'CUARTA' : index + 1 === 5 ? 'QUINTA' : index + 1 === 6 ? 'SEXTA' : index + 1 === 7 ? 'SÉPTIMA' : index + 1 === 8 ? 'OCTAVA' : index + 1 === 9 ? 'NOVENA' : `CLÁUSULA ${index + 1}`}${titulo ? `: ${titulo.toUpperCase()}` : ''}`}</p>
               <p>{texto}</p>
-            </div>
+          </div>
           );
         })}
         

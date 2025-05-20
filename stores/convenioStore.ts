@@ -352,46 +352,57 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
     set({ isSaving: true });
     try {
       // Preparar payload final
-      const payload: ConvenioData = {
-          ...convenioData,
-          id: convenioId ?? undefined, 
-          typeId: convenioTypeId! 
+      const payload = {
+        title: convenioData.datosBasicos?.nombre || "Sin título",
+        convenio_type_id: convenioTypeId!,
+        content_data: {
+          datos_basicos: convenioData.datosBasicos,
+          partes: convenioData.partes,
+          clausulas: convenioData.clausulas,
+          anexos: convenioData.anexos,
+          revision: convenioData.revision,
+        }
       };
 
-      console.log("Store: Final payload:", payload);
-
-      let response;
+      let response, savedConvenio;
       if (convenioId) {
-        console.log(`Store: Calling API to UPDATE convenio ${convenioId}`);
-        // Simulación para update
-        await new Promise(resolve => setTimeout(resolve, 100)); 
-        response = { ok: true, json: async () => ({ ...payload, updatedAt: new Date().toISOString() }) }; 
+        // UPDATE (PATCH)
+        response = await fetch(`/api/convenios/${convenioId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
       } else {
-        console.log("Store: Calling API to CREATE convenio");
-        // Simulación para create
-        await new Promise(resolve => setTimeout(resolve, 100)); 
-        const newId = Math.floor(Math.random() * 1000) + 1;
-        response = { ok: true, status: 201, json: async () => ({ ...payload, id: newId, createdAt: new Date().toISOString() }) }; 
+        // CREATE (POST)
+        response = await fetch("/api/convenios", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
       }
 
       if (!response.ok) {
-          throw new Error(`Error simulado ${response.status || ''} al guardar`);
+        const error = await response.json();
+        throw new Error(error.error || "Error al guardar el convenio");
       }
 
-      const savedConvenio = await response.json();
+      savedConvenio = await response.json();
       console.log("Store: Save successful. Response:", savedConvenio);
 
       // Actualizar estado con datos guardados
       set({
-          convenioData: savedConvenio,
-          initialConvenioData: JSON.parse(JSON.stringify(savedConvenio)), 
-          convenioId: savedConvenio.id, 
-          isSaving: false,
+        convenioData: savedConvenio,
+        initialConvenioData: JSON.parse(JSON.stringify(savedConvenio)), 
+        convenioId: savedConvenio.id, 
+        isSaving: false,
       });
+
+      // (Opcional) Redirigir o mostrar feedback de éxito aquí
 
     } catch (error: any) {
       console.error("Error saving convenio:", error);
       set({ isSaving: false });
+      // (Opcional) Mostrar feedback de error al usuario
     }
   },
 

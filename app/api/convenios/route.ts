@@ -75,6 +75,33 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Función para generar número de serie
+async function generateSerialNumber(supabase: any) {
+  // Obtener el año actual
+  const currentYear = new Date().getFullYear();
+  
+  // Buscar el último número de serie del año actual
+  const { data: lastConvenio } = await supabase
+    .from('convenios')
+    .select('serial_number')
+    .like('serial_number', `${currentYear}-%`)
+    .order('serial_number', { ascending: false })
+    .limit(1)
+    .single();
+
+  let nextNumber = 1;
+  
+  if (lastConvenio?.serial_number) {
+    const [year, number] = lastConvenio.serial_number.split('-');
+    if (year === currentYear.toString()) {
+      nextNumber = parseInt(number) + 1;
+    }
+  }
+
+  // Formatear el número con ceros a la izquierda
+  return `${currentYear}-${nextNumber.toString().padStart(3, '0')}`;
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
