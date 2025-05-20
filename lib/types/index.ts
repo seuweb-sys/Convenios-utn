@@ -28,4 +28,7 @@ export interface Template {
   type: 'practicas' | 'marco'
   content: string
   fields: string[]
-} 
+}
+
+// Activity Types
+export type { ActivityAction, ActivityType, ActivityLog } from './activity'; 

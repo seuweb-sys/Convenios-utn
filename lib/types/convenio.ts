@@ -112,4 +112,23 @@ export interface ConvenioWithRelations extends Convenio {
     full_name: string | null
     email: string
   } | null
+}
+
+interface ConvenioTemplate {
+  title: string;
+  subtitle: string;
+  partes: string[];
+  considerandos: string[];
+  clausulas: {
+    titulo: string;
+    contenido: string;
+  }[];
+  cierre: string;
+}
+
+interface CampoRequerido {
+  name: string;
+  label: string;
+  type: 'text' | 'date' | 'number';
+  required: boolean;
 } 

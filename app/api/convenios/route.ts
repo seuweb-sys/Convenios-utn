@@ -89,6 +89,17 @@ export async function POST(request: Request) {
       );
     }
 
+    // Obtener el perfil del usuario para el nombre
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) {
+      console.error('Error al obtener perfil del usuario:', profileError);
+    }
+
     // Obtener y validar el body
     const body = await request.json() as CreateConvenioDTO;
     
@@ -99,30 +110,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generar número de serie
-    const { data: lastConvenio } = await supabase
-      .from('convenios')
-      .select('serial_number')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    const currentYear = new Date().getFullYear();
-    let serialNumber = `${currentYear}-001`;
-    
-    if (lastConvenio?.serial_number) {
-      const [year, number] = lastConvenio.serial_number.split('-');
-      if (year === currentYear.toString()) {
-        const nextNumber = (parseInt(number) + 1).toString().padStart(3, '0');
-        serialNumber = `${year}-${nextNumber}`;
-      }
-    }
-
-    // Crear el convenio
+    // Crear el convenio (el serial_number lo genera el trigger)
     const { data: convenio, error: createError } = await supabase
       .from('convenios')
       .insert({
-        serial_number: serialNumber,
         title: body.title,
         convenio_type_id: body.convenio_type_id,
         content_data: body.content_data,
@@ -137,7 +128,7 @@ export async function POST(request: Request) {
     if (createError) {
       console.error('Error al crear convenio:', createError);
       return NextResponse.json(
-        { error: "Error al crear el convenio" },
+        { error: "Error al crear el convenio", details: createError.message },
         { status: 500 }
       );
     }
@@ -149,6 +140,7 @@ export async function POST(request: Request) {
         id: crypto.randomUUID(),
         convenio_id: convenio.id,
         user_id: user.id,
+        user_name: userProfile?.full_name || user.email,
         action: 'create',
         status_from: null,
         status_to: 'borrador',
@@ -173,4 +165,4 @@ export async function POST(request: Request) {
 }
 
 // Aquí podrías añadir POST, PUT, DELETE para convenios en el futuro
-// export async function POST(request: Request) { ... } 
+// export async function POST(request: Request) { ... }
