@@ -58,6 +58,9 @@ export const ConvenioTypeCard = ({
     cyan: "hover:border-cyan-400/50",
   };
 
+  // Solo habilitar el botón si es azul (Convenio Marco)
+  const isMarco = color === "blue";
+
   return (
     <div className={cn(
       "border rounded-lg p-6 hover:shadow-md transition-all duration-200 bg-card group",
@@ -82,13 +85,15 @@ export const ConvenioTypeCard = ({
         </div>
       </div>
       <div className="mt-6 grid grid-cols-2 gap-2">
-        <Link href={`/protected/convenio/nuevo?typeId=${typeId}`} legacyBehavior>
+        <Link href={isMarco ? `/protected/convenio-detalle/nuevo?type=marco` : "#"} legacyBehavior>
           <Button 
             className={cn(
               "w-full border-0",
               buttonBgClasses[color],
               "text-primary-foreground"
             )}
+            disabled={!isMarco}
+            title={isMarco ? undefined : "Solo disponible para Convenio Marco"}
           >
             Usar plantilla
           </Button>

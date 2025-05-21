@@ -87,7 +87,7 @@ export default async function Dashboard() {
             {/* Listado de Convenios */}
             <SectionContainer 
               title="Mis Convenios" 
-              viewAllLink="/protected/convenios"
+              viewAllLink="/protected/convenios-lista"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {convenios.length > 0 ? (

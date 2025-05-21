@@ -40,3 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 Contexto.txt
+
+# Informacion y Contexto | Markdown
+*.md
+*.mdx
+*.mdx

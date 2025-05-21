@@ -1,5 +1,5 @@
 import { ThemeSwitcher } from "@/components/theme-switcher";
-import { Geist } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import Link from "next/link";
 import "./globals.css";
@@ -14,7 +14,7 @@ export const metadata = {
   description: "Sistema de gestión de convenios institucionales para la UTN",
 };
 
-const geistSans = Geist({
+const inter = Inter({
   display: "swap",
   subsets: ["latin"],
 });
@@ -25,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={geistSans.className} suppressHydrationWarning>
+    <html lang="es" className={inter.className} suppressHydrationWarning>
       <body className="bg-background text-foreground">
         <ThemeProvider
           attribute="class"

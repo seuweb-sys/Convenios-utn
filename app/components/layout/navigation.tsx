@@ -23,9 +23,9 @@ export function Navigation() {
           Dashboard
         </Link>
         <Link 
-          href="/protected/convenios" 
+          href="/protected/convenios-lista" 
           className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-            isActive('/protected/convenios') 
+            isActive('/protected/convenios-lista') 
               ? 'bg-primary/10 text-primary' 
               : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
           }`}

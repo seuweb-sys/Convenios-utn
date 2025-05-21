@@ -51,7 +51,7 @@ export const ConvenioItem = ({
   };
 
   return (
-    <Link href={`/protected/convenio/${id}`} className="block">
+    <Link href={`/protected/convenio-detalle/${id}`} className="block">
       <div className="p-4 border border-border/60 rounded-lg hover:border-primary/30 hover:shadow-sm hover:bg-accent/30 transition-all duration-200 cursor-pointer">
         <div className="flex justify-between items-start">
           <h3 className="font-medium text-sm line-clamp-1">{title}</h3>
