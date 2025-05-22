@@ -160,24 +160,30 @@ export async function POST(request: Request) {
       );
     }
 
-    // Registrar en activity_log
-    const { error: logError } = await supabase
-      .from('activity_log')
-      .insert({
+    // Registrar en activity_log - Simplificado sin buscar columnas
+    try {
+      const activityData = {
         id: crypto.randomUUID(),
         convenio_id: convenio.id,
         user_id: user.id,
-        user_name: userProfile?.full_name || user.email,
         action: 'create',
         status_from: null,
         status_to: 'borrador',
         created_at: new Date().toISOString(),
         ip_address: request.headers.get('x-forwarded-for') || 'unknown'
-      });
+      };
+      
+      const { error: logError } = await supabase
+        .from('activity_log')
+        .insert(activityData);
 
-    if (logError) {
-      console.error('Error al registrar actividad:', logError);
-      // No retornamos error aquí ya que el convenio ya fue creado
+      if (logError) {
+        console.error('Error al registrar actividad:', logError);
+        // No retornamos error aquí ya que el convenio ya fue creado
+      }
+    } catch (logErr) {
+      console.error("Error en el registro de actividad:", logErr);
+      // Continuamos incluso si hay error en el registro de actividad
     }
 
     return NextResponse.json(convenio);

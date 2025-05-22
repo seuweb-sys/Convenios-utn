@@ -1,89 +1,93 @@
-import React from "react";
+"use client";
+
+import React from 'react';
+
+type ConvenioData = {
+  entidad_nombre?: string;
+  entidad_tipo?: string;
+  entidad_domicilio?: string;
+  entidad_ciudad?: string;
+  entidad_cuit?: string;
+  entidad_representante?: string;
+  entidad_dni?: string;
+  entidad_cargo?: string;
+  dia?: string;
+  mes?: string;
+  [key: string]: any;
+};
 
 interface DocumentoPreviewContentProps {
-  formData: any;
-  isFullScreen?: boolean;
+  data: ConvenioData;
+  type: 'marco' | 'especifico';
 }
 
-export const DocumentoPreviewContent = ({ formData, isFullScreen = false }: DocumentoPreviewContentProps) => {
-  // Extraer datos del formulario o usar valores por defecto
-  const {
-    titulo = "Convenio Marco de Colaboración",
-    organizacion = "Nombre de la Organización",
-    representante = "Nombre del Representante", 
-    clausulas = [
-      { id: 1, titulo: "Objeto", contenido: "El presente convenio tiene por objeto establecer relaciones de complementación y cooperación académica, científica y cultural entre las partes." },
-      { id: 2, titulo: "Obligaciones de las partes", contenido: "Para el logro del objetivo señalado, las partes se comprometen a:" },
-      { id: 3, titulo: "Plazo de ejecución", contenido: "El presente convenio tendrá una duración de 12 meses a partir de la fecha de su firma." }
-    ],
-  } = formData;
-
-  // Asegurar que clausulas sea siempre un array
-  const clausulasArray = Array.isArray(clausulas) ? clausulas : [];
-
+export const DocumentoPreviewContent = ({ data, type }: DocumentoPreviewContentProps) => {
+  // Verificar si tenemos datos
+  const hasData = Object.keys(data || {}).length > 0;
+  
+  if (!hasData) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">No hay datos disponibles para previsualizar.</p>
+      </div>
+    );
+  }
+  
   return (
-    <>
-      <div className="flex justify-center mb-6">
-        <svg width="50" height="50" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={isFullScreen ? "w-16 h-16" : ""}>
-          <path d="M60 14L74.5 28.5H104.5V90.5H15.5V28.5H45.5L60 14Z" className="fill-primary" />
-          <path d="M36 48.5H84M36 68.5H84M36 88.5H66" stroke="black" strokeWidth="2.5" strokeLinecap="round" />
-        </svg>
-      </div>
-      
-      <div className="text-center mb-8">
-        <h1 className={`${isFullScreen ? "text-2xl" : "text-xl"} font-bold uppercase tracking-wide text-black`}>
-          {titulo}
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Universidad Tecnológica Nacional - Facultad Regional Resistencia y {organizacion}
-        </p>
-      </div>
-      
-      <div className="mb-8">
-        <h2 className="text-md font-semibold mb-3 text-primary">PARTES INTERVINIENTES</h2>
-        <div className="pl-4 text-sm space-y-4 text-black">
-          <p>
-            <span className="font-medium">Por una parte:</span> la UNIVERSIDAD TECNOLÓGICA NACIONAL – FACULTAD REGIONAL RESISTENCIA, representada en este acto por el Sr. Decano, Ing. José Leandro BASTERRA, con domicilio legal en French 414 de la ciudad de Resistencia, Chaco, en adelante "LA FACULTAD".
-          </p>
-          <p>
-            <span className="font-medium">Por la otra parte:</span> {organizacion}, representada en este acto por {representante}, con domicilio legal en [...], en adelante "LA ORGANIZACIÓN".
-          </p>
+    <div className="overflow-auto h-full">
+      <div className="p-8 space-y-6 font-serif text-sm">
+        <div className="text-center mb-8">
+          <p className="mb-2 text-xs uppercase tracking-wider">{"2025 – Año de la Reconstrucción de la Nación Argentina"}</p>
+          <h1 className="text-2xl font-bold uppercase mb-4">CONVENIO MARCO</h1>
+          <p className="uppercase whitespace-pre-line mb-2">ENTRE {data.entidad_nombre || '________________'}</p>
+          <p className="uppercase mb-2">Y LA FACULTAD REGIONAL RESISTENCIA</p>
+          <p className="uppercase">DE LA UNIVERSIDAD TECNOLÓGICA NACIONAL</p>
         </div>
-      </div>
-      
-      <div className="space-y-6 text-sm text-black">
-        <p className="font-medium">
-          Las partes celebran el presente convenio y acuerdan las siguientes cláusulas:
+
+        <p className="text-justify leading-relaxed">
+          Entre {data.entidad_nombre || '________________'}, en adelante "LA {data.entidad_tipo || '____'}", con domicilio en {data.entidad_domicilio || '________________'} de la Ciudad de {data.entidad_ciudad || '________________'}, CUIT Nº {data.entidad_cuit || '________________'}, representado en este acto por {data.entidad_representante || '________________'}, DNI Nº {data.entidad_dni || '________________'}, en su carácter de {data.entidad_cargo || '________________'}, y la FACULTAD REGIONAL RESISTENCIA de la UNIVERSIDAD TECNOLÓGICA NACIONAL, con domicilio en calle French 414 de la ciudad de Resistencia, en adelante "LA FACULTAD", representada en este acto por su Decano el Ing. Jorge Alejandro De Pedro, DNI 23.730.513, ad referéndum del Señor Rector Ing. Rubén Soro, DNI Nº 16.014.284, y teniendo en cuenta:
         </p>
-        
-        {clausulasArray.map((clausula: any, index: number) => {
-          // Asegurar que los valores existan
-          const texto = clausula?.texto || clausula?.contenido || "";
-          // Asegurarse de que clausula.titulo exista antes de llamar a toUpperCase()
-          const titulo = clausula?.titulo || "";
+
+        <p className="text-justify leading-relaxed">
+          Que "LA FACULTAD" dispone de los recursos humanos y la infraestructura necesaria para brindar servicios especializados en las áreas de Ingeniería, Gestión y Otras, mediante la implementación de acciones coordinadas que aseguren el máximo aprovechamiento de recursos humanos y tecnológicos.
+        </p>
+
+        <p className="text-justify leading-relaxed">
+          Que toda acción de colaboración representa un aporte ventajoso al proceso de integración científico-tecnológico de estas instituciones con objetivos comunes, orientados al desarrollo de la región.
+        </p>
+
+        <p className="text-justify leading-relaxed">
+          Que el objeto del presente convenio es la mutua cooperación entre las partes para desarrollar todas aquellas actividades que contribuyan al mejor cumplimiento de los fines de los signatarios y que permitan prestar servicios a la comunidad de sus respectivas jurisdicciones o áreas de influencia.
+        </p>
+
+        <p className="text-justify leading-relaxed">
+          Por todo ello, se acuerda suscribir el presente CONVENIO MARCO DE COOPERACION Y ASISTENCIA TÉCNICA que se regirá por las cláusulas siguientes:
+        </p>
+
+        {/* Cláusulas aquí - resumidas para mantener la claridad */}
+        <div className="space-y-4">
+          <div>
+            <p className="font-bold">PRIMERA:</p>
+            <p className="text-justify leading-relaxed">
+              "LA FACULTAD" y "LA {data.entidad_tipo || '____'}" en función de lo expresado, por vía de una concertación de acciones, esfuerzos y voluntades, que tiendan a la consecución de los objetivos expresados, convienen desarrollar un Programa de Cooperación y Asistencia Técnica, en el ámbito provincial para generar conocimientos, desarrollo tecnológico y transferencia de tecnologías que satisfagan metas acordadas de común acuerdo.
+            </p>
+          </div>
           
-          return (
-            <div className="mb-6" key={index}>
-              <p className="font-bold mb-2 text-primary">{`${index + 1 === 1 ? 'PRIMERA' : index + 1 === 2 ? 'SEGUNDA' : index + 1 === 3 ? 'TERCERA' : index + 1 === 4 ? 'CUARTA' : index + 1 === 5 ? 'QUINTA' : index + 1 === 6 ? 'SEXTA' : index + 1 === 7 ? 'SÉPTIMA' : index + 1 === 8 ? 'OCTAVA' : index + 1 === 9 ? 'NOVENA' : `CLÁUSULA ${index + 1}`}${titulo ? `: ${titulo.toUpperCase()}` : ''}`}</p>
-              <p>{texto}</p>
-          </div>
-          );
-        })}
-        
-        <div className="mt-12 grid grid-cols-2 gap-20 pt-16 text-center">
+          {/* Se pueden agregar más cláusulas si es necesario */}
+          
           <div>
-            <p className="border-t border-gray-300 pt-2">Por UTN-FRRe</p>
-            <p className="font-medium mt-1 text-black">Ing. José Leandro BASTERRA</p>
-            <p className="text-xs text-gray-600">Decano</p>
-          </div>
-          <div>
-            <p className="border-t border-gray-300 pt-2">Por {organizacion}</p>
-            <p className="font-medium mt-1 text-black">{representante}</p>
-            <p className="text-xs text-gray-600">Representante</p>
+            <p className="font-bold">DÉCIMO TERCERA:</p>
+            <p className="text-justify leading-relaxed">
+              El presente Convenio tendrá una duración de tres (3) años a partir de la fecha de su firma y se renovará automáticamente a su vencimiento por única vez y por igual período, salvo que fuere expresamente denunciado.
+            </p>
           </div>
         </div>
+
+        <p className="text-justify leading-relaxed mt-8">
+          En prueba de conformidad, las partes firman tres (3) ejemplares del mismo tenor, en la ciudad de Resistencia, Provincia de Chaco, a los {data.dia || '__'} días del mes de {data.mes || '__________'} de 2025.
+        </p>
       </div>
-    </>
+    </div>
   );
 };
 

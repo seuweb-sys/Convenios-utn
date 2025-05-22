@@ -11,31 +11,36 @@ const ENTIDAD_FIELDS = [
     name: "nombre",
     label: "Nombre de la entidad",
     type: "text" as const,
-    required: true
+    required: true,
+    placeholder: "Ingrese el nombre completo de la entidad"
   },
   {
     name: "tipo",
     label: "Tipo de entidad",
     type: "text" as const,
-    required: true
+    required: true,
+    placeholder: "Ej: EMPRESA, ORGANISMO, INSTITUCIÓN"
   },
   {
     name: "domicilio",
     label: "Domicilio",
     type: "text" as const,
-    required: true
+    required: true,
+    placeholder: "Domicilio completo de la entidad"
   },
   {
     name: "ciudad",
     label: "Ciudad",
     type: "text" as const,
-    required: true
+    required: true,
+    placeholder: "Ciudad donde se encuentra la entidad"
   },
   {
     name: "cuit",
     label: "CUIT (sin guiones)",
-    type: "number" as const,
-    required: true
+    type: "text" as const,
+    required: true,
+    placeholder: "Ej: 30123456789"
   }
 ];
 
@@ -44,21 +49,27 @@ export const EntidadForm = () => {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
   const handleFieldChange = (fieldName: string, value: string) => {
-    const old = convenioData.entidad || { nombre: '', tipo: '', domicilio: '', ciudad: '', cuit: '' };
-    const newEntidadData = {
-      nombre: fieldName === 'nombre' ? value : old.nombre || '',
-      tipo: fieldName === 'tipo' ? value : old.tipo || '',
-      domicilio: fieldName === 'domicilio' ? value : old.domicilio || '',
-      ciudad: fieldName === 'ciudad' ? value : old.ciudad || '',
-      cuit: fieldName === 'cuit' ? value : old.cuit || ''
+    // Obtener el estado actual o inicializar vacío si no existe
+    const currentEntidad = convenioData.entidad || {
+      nombre: '',
+      tipo: '',
+      domicilio: '',
+      ciudad: '',
+      cuit: ''
     };
 
-    // Validar el campo
-    const validation = validateEntidad(newEntidadData);
+    // Crear una copia con el nuevo valor
+    const updatedEntidad = {
+      ...currentEntidad,
+      [fieldName]: value
+    };
+
+    // Validar el formulario
+    const validation = validateEntidad(updatedEntidad);
     setErrors(validation.errors);
 
     // Actualizar el store
-    updateConvenioData('entidad', newEntidadData);
+    updateConvenioData('entidad', updatedEntidad);
   };
 
   return (
@@ -83,7 +94,7 @@ export const EntidadForm = () => {
             <DynamicField
               key={field.name}
               field={field}
-              value={convenioData.entidad?.[field.name as keyof typeof convenioData.entidad]}
+              value={convenioData.entidad?.[field.name as keyof typeof convenioData.entidad] || ''}
               onChange={(value) => handleFieldChange(field.name, value)}
               error={errors[field.name]}
             />

@@ -3,41 +3,41 @@
 import React from "react";
 import { CalendarIcon } from "lucide-react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
-import { DynamicField } from "./DynamicField";
 import { validateFechas } from "@/lib/types/convenio-marco";
+import { Label } from "@/components/ui/label";
 
-const FECHAS_FIELDS = [
-  {
-    name: "dia",
-    label: "Día",
-    type: "number" as const,
-    required: true
-  },
-  {
-    name: "mes",
-    label: "Mes",
-    type: "number" as const,
-    required: true
-  }
+const MESES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
 ];
 
 export const FechasForm = () => {
   const { convenioData, updateConvenioData } = useConvenioMarcoStore();
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  const handleFieldChange = (fieldName: string, value: string) => {
-    const old = convenioData.fechas || { dia: '', mes: '' };
-    const newFechasData = {
-      dia: fieldName === 'dia' ? value : old.dia || '',
-      mes: fieldName === 'mes' ? value : old.mes || ''
+  const handleDiaChange = (value: string) => {
+    const currentFechas = convenioData.fechas || { dia: '', mes: '' };
+    const updatedFechas = {
+      ...currentFechas,
+      dia: value
     };
-
-    // Validar el campo
-    const validation = validateFechas(newFechasData);
+    
+    const validation = validateFechas(updatedFechas);
     setErrors(validation.errors);
+    updateConvenioData('fechas', updatedFechas);
+  };
 
-    // Actualizar el store
-    updateConvenioData('fechas', newFechasData);
+  const handleMesChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    const currentFechas = convenioData.fechas || { dia: '', mes: '' };
+    const updatedFechas = {
+      ...currentFechas,
+      mes: value
+    };
+    
+    const validation = validateFechas(updatedFechas);
+    setErrors(validation.errors);
+    updateConvenioData('fechas', updatedFechas);
   };
 
   return (
@@ -51,22 +51,64 @@ export const FechasForm = () => {
           Fechas del Convenio
         </h2>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Ingresa la fecha de firma del convenio.
+          Ingresa la fecha de firma del convenio. Por defecto, la duración será de 3 años.
         </p>
       </div>
 
       {/* Contenedor principal */}
       <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-5 bg-white dark:bg-gray-900/60">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
-          {FECHAS_FIELDS.map((field) => (
-            <DynamicField
-              key={field.name}
-              field={field}
-              value={convenioData.fechas?.[field.name as keyof typeof convenioData.fechas]}
-              onChange={(value) => handleFieldChange(field.name, value)}
-              error={errors[field.name]}
+          <div>
+            <Label htmlFor="dia" className={errors.dia ? "text-destructive" : ""}>
+              Día de firma
+            </Label>
+            <input
+              type="number"
+              id="dia"
+              min="1"
+              max="31"
+              placeholder="Ej: 15"
+              className={`w-full mt-1.5 h-10 px-3 py-2 text-sm rounded-md border ${
+                errors.dia ? 'border-destructive' : 'border-input'
+              } bg-background`}
+              value={convenioData.fechas?.dia || ''}
+              onChange={(e) => handleDiaChange(e.target.value)}
             />
-          ))}
+            {errors.dia && <p className="text-destructive text-sm mt-1">{errors.dia}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="mes" className={errors.mes ? "text-destructive" : ""}>
+              Mes de firma
+            </Label>
+            <select
+              id="mes"
+              className={`w-full mt-1.5 h-10 px-3 py-2 text-sm rounded-md border ${
+                errors.mes ? 'border-destructive' : 'border-input'
+              } bg-background`}
+              value={convenioData.fechas?.mes || ''}
+              onChange={handleMesChange}
+            >
+              <option value="">Seleccione un mes</option>
+              {MESES.map((mes) => (
+                <option key={mes} value={mes}>
+                  {mes.charAt(0).toUpperCase() + mes.slice(1)}
+                </option>
+              ))}
+            </select>
+            {errors.mes && <p className="text-destructive text-sm mt-1">{errors.mes}</p>}
+          </div>
+
+          <div className="md:col-span-2">
+            <div className="rounded-md p-4 bg-muted/50 border border-muted mt-4">
+              <h3 className="text-sm font-medium mb-2">Información adicional</h3>
+              <ul className="text-xs text-muted-foreground space-y-1.5">
+                <li>• El convenio tendrá una duración de <strong>3 años</strong> desde su firma</li>
+                <li>• Se renovará automáticamente por única vez y por igual período</li>
+                <li>• Cualquiera de las partes podrá denunciarlo con preaviso de 6 meses</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </div>

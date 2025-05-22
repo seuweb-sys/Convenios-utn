@@ -9,21 +9,24 @@ import { validateRepresentante } from "@/lib/types/convenio-marco";
 const REPRESENTANTE_FIELDS = [
   {
     name: "nombre",
-    label: "Nombre completo",
+    label: "Nombre completo del Representante",
     type: "text" as const,
-    required: true
+    required: true,
+    placeholder: "Nombre y apellido completo del representante"
   },
   {
     name: "cargo",
     label: "Cargo",
     type: "text" as const,
-    required: true
+    required: true,
+    placeholder: "Ej: Presidente, Director, Gerente"
   },
   {
     name: "dni",
     label: "DNI (sin puntos)",
-    type: "number" as const,
-    required: true
+    type: "text" as const,
+    required: true,
+    placeholder: "Ej: 12345678"
   }
 ];
 
@@ -32,19 +35,25 @@ export const RepresentanteForm = () => {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
   const handleFieldChange = (fieldName: string, value: string) => {
-    const old = convenioData.representante || { nombre: '', dni: '', cargo: '' };
-    const newRepresentanteData = {
-      nombre: fieldName === 'nombre' ? value : old.nombre || '',
-      dni: fieldName === 'dni' ? value : old.dni || '',
-      cargo: fieldName === 'cargo' ? value : old.cargo || ''
+    // Obtener el estado actual o inicializar vacío si no existe
+    const currentRepresentante = convenioData.representante || {
+      nombre: '',
+      cargo: '',
+      dni: ''
     };
 
-    // Validar el campo
-    const validation = validateRepresentante(newRepresentanteData);
+    // Crear una copia con el nuevo valor
+    const updatedRepresentante = {
+      ...currentRepresentante,
+      [fieldName]: value
+    };
+
+    // Validar el formulario
+    const validation = validateRepresentante(updatedRepresentante);
     setErrors(validation.errors);
 
     // Actualizar el store
-    updateConvenioData('representante', newRepresentanteData);
+    updateConvenioData('representante', updatedRepresentante);
   };
 
   return (
@@ -69,7 +78,7 @@ export const RepresentanteForm = () => {
             <DynamicField
               key={field.name}
               field={field}
-              value={convenioData.representante?.[field.name as keyof typeof convenioData.representante]}
+              value={convenioData.representante?.[field.name as keyof typeof convenioData.representante] || ''}
               onChange={(value) => handleFieldChange(field.name, value)}
               error={errors[field.name]}
             />

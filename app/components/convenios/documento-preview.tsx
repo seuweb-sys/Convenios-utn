@@ -1,43 +1,43 @@
-import React, { useState } from "react";
-import { FileTextIcon, MaximizeIcon } from "lucide-react";
-import DocumentoPreviewContent from "./documento-preview-content";
-import FullScreenPreview from "./full-screen-preview";
-import { useConvenioStore } from "@/stores/convenioStore";
+"use client";
 
-export const DocumentoPreview = () => {
-  const [isFullScreen, setIsFullScreen] = useState(false);
-  const formData = useConvenioStore((state) => state.convenioData);
+import React from "react";
+import { DocumentoPreviewContent } from "./documento-preview-content";
+import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 
-  const openFullScreen = () => setIsFullScreen(true);
-  const closeFullScreen = () => setIsFullScreen(false);
+interface DocumentoPreviewProps {
+  className?: string;
+}
+
+export const DocumentoPreview = ({ className = "" }: DocumentoPreviewProps) => {
+  const { convenioData } = useConvenioMarcoStore();
+  
+  // Convertir el formato jerárquico al formato plano para la vista previa
+  const previewData = {
+    entidad_nombre: convenioData.entidad?.nombre || '',
+    entidad_tipo: convenioData.entidad?.tipo || '',
+    entidad_domicilio: convenioData.entidad?.domicilio || '',
+    entidad_ciudad: convenioData.entidad?.ciudad || '',
+    entidad_cuit: convenioData.entidad?.cuit || '',
+    entidad_representante: convenioData.representante?.nombre || '',
+    entidad_dni: convenioData.representante?.dni || '',
+    entidad_cargo: convenioData.representante?.cargo || '',
+    dia: convenioData.fechas?.dia || '',
+    mes: convenioData.fechas?.mes || ''
+  };
 
   return (
-    <div className="bg-background border border-border/60 rounded-md overflow-hidden shadow-sm max-h-[calc(100vh-200px)]">
-      <div className="bg-card/90 px-4 py-2 flex justify-between items-center border-b border-border/60">
-        <div className="flex items-center gap-2">
-          <FileTextIcon className="h-4 w-4 text-primary" />
-          <span className="text-sm text-foreground font-medium">Vista previa del documento</span>
-        </div>
-        <button 
-          onClick={openFullScreen}
-          className="bg-card/50 p-1.5 rounded-md border border-border/60 hover:bg-card/80 transition-colors flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <MaximizeIcon className="h-3.5 w-3.5" />
-          <span className="hidden md:inline">Pantalla completa</span>
-        </button>
+    <div 
+      className={`bg-white dark:bg-gray-900 border rounded-lg shadow-sm ${className}`}
+    >
+      <div className="p-4 border-b bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
+        <h3 className="font-medium">Vista previa del documento</h3>
       </div>
-
-      <div className="overflow-auto max-h-[calc(100vh-250px)]">
-        <div className="p-8 bg-white">
-          <DocumentoPreviewContent formData={formData} />
-        </div>
+      <div className="h-[600px] overflow-hidden">
+        <DocumentoPreviewContent 
+          data={previewData}
+          type="marco"
+        />
       </div>
-
-      <FullScreenPreview 
-        formData={formData} 
-        isOpen={isFullScreen} 
-        onClose={closeFullScreen} 
-      />
     </div>
   );
 };

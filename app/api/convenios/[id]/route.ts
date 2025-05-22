@@ -110,9 +110,8 @@ export async function PATCH(
 
     // Si se está cambiando el estado, registrar en activity_log
     if (body.status && body.status !== convenio.status) {
-      const { error: logError } = await supabase
-        .from('activity_log')
-        .insert({
+      try {
+        const activityData = {
           id: crypto.randomUUID(),
           convenio_id: params.id,
           user_id: user.id,
@@ -121,10 +120,18 @@ export async function PATCH(
           status_to: body.status,
           created_at: new Date().toISOString(),
           ip_address: request.headers.get('x-forwarded-for') || 'unknown'
-        });
+        };
+        
+        const { error: logError } = await supabase
+          .from('activity_log')
+          .insert(activityData);
 
-      if (logError) {
-        console.error('Error al registrar cambio de estado:', logError);
+        if (logError) {
+          console.error('Error al registrar cambio de estado:', logError);
+        }
+      } catch (logErr) {
+        console.error('Error al registrar actividad:', logErr);
+        // Continuamos el flujo aunque falle el registro
       }
     }
 

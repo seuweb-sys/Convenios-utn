@@ -170,7 +170,9 @@ export function ConvenioMarcoForm({
           updateConvenioData('entidad', {
             nombre: data.nombre_entidad,
             domicilio: data.direccion,
-            cuit: data.telefono
+            cuit: data.telefono,
+            tipo: data.tipo || 'Empresa',
+            ciudad: data.ciudad || 'Resistencia'
           });
           break;
         case 2:
@@ -182,8 +184,8 @@ export function ConvenioMarcoForm({
           break;
         case 3:
           updateConvenioData('fechas', {
-            dia: data.fecha_inicio,
-            mes: data.fecha_fin
+            dia: data.dia,
+            mes: data.mes
           });
           break;
       }
@@ -192,43 +194,36 @@ export function ConvenioMarcoForm({
       if (currentStep === 3) {
         setIsSubmitting(true);
         try {
+          // Obtener los datos del convenio en formato DB
+          const dbData = {
+            entidad_nombre: convenioData?.entidad?.nombre || '',
+            entidad_tipo: convenioData?.entidad?.tipo || '',
+            entidad_domicilio: convenioData?.entidad?.domicilio || '',
+            entidad_ciudad: convenioData?.entidad?.ciudad || '',
+            entidad_cuit: convenioData?.entidad?.cuit || '',
+            entidad_representante: convenioData?.representante?.nombre || '',
+            entidad_dni: convenioData?.representante?.dni || '',
+            entidad_cargo: convenioData?.representante?.cargo || '',
+            dia: data.dia || convenioData?.fechas?.dia || '',
+            mes: data.mes || convenioData?.fechas?.mes || ''
+          };
+          
           // Preparar los datos en el formato que la API espera
-          // Según la definición en route.ts, necesitamos title, convenio_type_id y content_data
-          const convenioData = {
-            title: `Convenio Marco - ${formState[1]?.nombre_entidad || 'Sin nombre'}`,
-            convenio_type_id: 1, // Asumimos que 1 es el tipo "marco" - Ajustar según la BD
-            content_data: {
-              entidad: {
-                nombre: formState[1]?.nombre_entidad || '',
-                domicilio: formState[1]?.direccion || '',
-                telefono: formState[1]?.telefono || '',
-                tipo: 'Empresa', // Valor por defecto
-                ciudad: 'Buenos Aires' // Valor por defecto
-              },
-              representante: {
-                nombre: formState[2]?.nombre_completo || '',
-                cargo: formState[2]?.cargo || '',
-                dni: formState[2]?.dni || '',
-                email: '' // Campo requerido en la BD pero no en el formulario
-              },
-              fechas: {
-                fecha_inicio: data.fecha_inicio,
-                fecha_fin: data.fecha_fin,
-                duracion: data.duracion
-              }
-            },
-            // Campos adicionales que puedan ser útiles
+          const requestData = {
+            title: `Convenio Marco - ${dbData.entidad_nombre}`,
+            convenio_type_id: 2, // Según el JSON, el tipo 2 es Convenio Marco
+            content_data: dbData,
             estado: 'borrador'
           };
 
-          console.log("Enviando datos al servidor:", convenioData);
+          console.log("Enviando datos al servidor:", requestData);
 
           const response = await fetch('/api/convenios', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(convenioData),
+            body: JSON.stringify(requestData),
           });
 
           const responseData = await response.json();
@@ -240,7 +235,7 @@ export function ConvenioMarcoForm({
           console.log("Convenio guardado exitosamente:", responseData);
           onError(null); // Limpiar cualquier error previo
           
-          // Redirigir a la página de convenios
+          // Redirigir a la página de convenios (corregido)
           router.push('/protected/convenios-lista');
         } catch (error) {
           console.error("Error guardando convenio:", error);
@@ -252,8 +247,8 @@ export function ConvenioMarcoForm({
         onStepChange(currentStep + 1);
       }
     } catch (error) {
-      onError(error instanceof Error ? error.message : 'Error inesperado');
-      setIsSubmitting(false);
+      console.error("Error en el formulario:", error);
+      onError("Ocurrió un error al procesar el formulario. Por favor verifica los datos.");
     }
   };
 

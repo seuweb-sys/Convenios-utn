@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 interface FieldConfig {
   name: string;
   label: string;
-  type: "text" | "number" | "date" | "textarea";
+  type: "text" | "number" | "date" | "textarea" | "email";
   required?: boolean;
+  placeholder?: string;
 }
 
 interface DynamicFieldProps {
@@ -45,8 +46,8 @@ export const DynamicField: React.FC<DynamicFieldProps> = ({
             id={field.name}
             value={value || ""}
             onChange={handleChange}
-            placeholder={`Ingrese ${field.label.toLowerCase()}`}
-            className={error ? "border-red-500" : ""}
+            placeholder={field.placeholder}
+            className={error ? "border-destructive" : ""}
           />
         );
       default:
@@ -56,8 +57,8 @@ export const DynamicField: React.FC<DynamicFieldProps> = ({
             type={field.type}
             value={value || ""}
             onChange={handleChange}
-            placeholder={`Ingrese ${field.label.toLowerCase()}`}
-            className={error ? "border-red-500" : ""}
+            placeholder={field.placeholder}
+            className={error ? "border-destructive" : ""}
           />
         );
     }
@@ -65,12 +66,15 @@ export const DynamicField: React.FC<DynamicFieldProps> = ({
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={field.name}>
+      <Label 
+        htmlFor={field.name}
+        className={error ? "text-destructive" : ""}
+      >
         {field.label}
-        {field.required && <span className="text-red-500 ml-1">*</span>}
+        {field.required && <span className="text-destructive ml-1">*</span>}
       </Label>
       {renderField()}
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && <p className="text-destructive text-xs mt-1">{error}</p>}
     </div>
   );
 }; 

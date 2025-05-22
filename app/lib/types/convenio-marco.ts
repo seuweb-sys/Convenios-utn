@@ -10,29 +10,31 @@ export interface RepresentanteData {
   nombre: string;
   cargo: string;
   dni: string;
-  email: string;
 }
 
-export interface ConvenioData {
-  numero: string;
-  fecha: string;
-  objeto: string;
-  duracion: string;
-  renovacion: boolean;
-}
-
-export interface ClausulasData {
-  obligaciones: string[];
-  confidencialidad: boolean;
-  propiedadIntelectual: boolean;
-  terminacion: boolean;
+export interface FechasData {
+  dia: string;
+  mes: string;
 }
 
 export interface ConvenioMarcoData {
   entidad: EntidadData;
   representante: RepresentanteData;
-  convenio: ConvenioData;
-  clausulas: ClausulasData;
+  fechas: FechasData;
+}
+
+// Estructura para mapear a la BD (formato plano)
+export interface ConvenioMarcoDB {
+  entidad_nombre: string;
+  entidad_tipo: string;
+  entidad_domicilio: string;
+  entidad_ciudad: string;
+  entidad_cuit: string;
+  entidad_representante: string;
+  entidad_dni: string;
+  entidad_cargo: string;
+  dia: string;
+  mes: string;
 }
 
 // Validadores
@@ -84,10 +86,25 @@ export const validateRepresentante = (data: Partial<RepresentanteData>) => {
     errors.dni = 'El DNI debe tener 7 u 8 dígitos';
   }
 
-  if (!data.email?.trim()) {
-    errors.email = 'El email es requerido';
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-    errors.email = 'El email no es válido';
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors
+  };
+};
+
+export const validateFechas = (data: Partial<FechasData>) => {
+  const errors: Record<string, string> = {};
+
+  if (!data.dia?.trim()) {
+    errors.dia = 'El día es requerido';
+  } else if (isNaN(Number(data.dia)) || Number(data.dia) < 1 || Number(data.dia) > 31) {
+    errors.dia = 'El día debe ser un número entre 1 y 31';
+  }
+
+  if (!data.mes?.trim()) {
+    errors.mes = 'El mes es requerido';
+  } else if (!['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'].includes(data.mes.toLowerCase())) {
+    errors.mes = 'Ingrese un mes válido (ej: enero, febrero)';
   }
 
   return {
@@ -96,27 +113,40 @@ export const validateRepresentante = (data: Partial<RepresentanteData>) => {
   };
 };
 
-export const validateConvenio = (data: Partial<ConvenioData>) => {
-  const errors: Record<string, string> = {};
-
-  if (!data.numero?.trim()) {
-    errors.numero = 'El número de convenio es requerido';
-  }
-
-  if (!data.fecha?.trim()) {
-    errors.fecha = 'La fecha es requerida';
-  }
-
-  if (!data.objeto?.trim()) {
-    errors.objeto = 'El objeto del convenio es requerido';
-  }
-
-  if (!data.duracion?.trim()) {
-    errors.duracion = 'La duración es requerida';
-  }
-
+// Función para convertir del formato jerárquico al formato plano (para la BD)
+export const toDbFormat = (data: ConvenioMarcoData): ConvenioMarcoDB => {
   return {
-    isValid: Object.keys(errors).length === 0,
-    errors
+    entidad_nombre: data.entidad.nombre,
+    entidad_tipo: data.entidad.tipo,
+    entidad_domicilio: data.entidad.domicilio,
+    entidad_ciudad: data.entidad.ciudad,
+    entidad_cuit: data.entidad.cuit,
+    entidad_representante: data.representante.nombre,
+    entidad_dni: data.representante.dni,
+    entidad_cargo: data.representante.cargo,
+    dia: data.fechas.dia,
+    mes: data.fechas.mes
+  };
+};
+
+// Función para convertir del formato plano al formato jerárquico
+export const fromDbFormat = (data: ConvenioMarcoDB): ConvenioMarcoData => {
+  return {
+    entidad: {
+      nombre: data.entidad_nombre,
+      tipo: data.entidad_tipo,
+      domicilio: data.entidad_domicilio,
+      ciudad: data.entidad_ciudad,
+      cuit: data.entidad_cuit
+    },
+    representante: {
+      nombre: data.entidad_representante,
+      dni: data.entidad_dni,
+      cargo: data.entidad_cargo
+    },
+    fechas: {
+      dia: data.dia,
+      mes: data.mes
+    }
   };
 }; 

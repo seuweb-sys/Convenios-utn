@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { ConvenioMarcoData } from '@/lib/types/convenio-marco';
+import { ConvenioMarcoData, ConvenioMarcoDB, fromDbFormat, toDbFormat } from '@/lib/types/convenio-marco';
 
 interface ConvenioMarcoState {
   convenioData: ConvenioMarcoData;
+  dbFormat: ConvenioMarcoDB;
   currentStep: number;
   updateConvenioData: <K extends keyof ConvenioMarcoData>(
     section: K,
@@ -10,6 +11,8 @@ interface ConvenioMarcoState {
   ) => void;
   setCurrentStep: (step: number) => void;
   resetStore: () => void;
+  getFormattedData: () => ConvenioMarcoDB;
+  loadFromDB: (data: ConvenioMarcoDB) => void;
 }
 
 const initialState: ConvenioMarcoData = {
@@ -22,8 +25,8 @@ const initialState: ConvenioMarcoData = {
   },
   representante: {
     nombre: '',
-    dni: '',
-    cargo: ''
+    cargo: '',
+    dni: ''
   },
   fechas: {
     dia: '',
@@ -31,16 +34,57 @@ const initialState: ConvenioMarcoData = {
   }
 };
 
-export const useConvenioMarcoStore = create<ConvenioMarcoState>((set) => ({
+export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
   convenioData: initialState,
-  currentStep: 0,
+  dbFormat: {
+    entidad_nombre: '',
+    entidad_tipo: '',
+    entidad_domicilio: '',
+    entidad_ciudad: '',
+    entidad_cuit: '',
+    entidad_representante: '',
+    entidad_dni: '',
+    entidad_cargo: '',
+    dia: '',
+    mes: ''
+  },
+  currentStep: 1,
   updateConvenioData: (section, data) =>
-    set((state) => ({
-      convenioData: {
-        ...state.convenioData,
-        [section]: data
-      }
-    })),
+    set((state) => {
+      const newState = {
+        convenioData: {
+          ...state.convenioData,
+          [section]: data
+        }
+      };
+      
+      // Actualizar también el formato DB
+      const dbFormat = toDbFormat(newState.convenioData);
+      return {
+        ...newState,
+        dbFormat
+      };
+    }),
   setCurrentStep: (step) => set({ currentStep: step }),
-  resetStore: () => set({ convenioData: initialState, currentStep: 0 })
+  resetStore: () => set({ 
+    convenioData: initialState,
+    currentStep: 1,
+    dbFormat: {
+      entidad_nombre: '',
+      entidad_tipo: '',
+      entidad_domicilio: '',
+      entidad_ciudad: '',
+      entidad_cuit: '',
+      entidad_representante: '',
+      entidad_dni: '',
+      entidad_cargo: '',
+      dia: '',
+      mes: ''
+    }
+  }),
+  getFormattedData: () => toDbFormat(get().convenioData),
+  loadFromDB: (data: ConvenioMarcoDB) => set({
+    convenioData: fromDbFormat(data),
+    dbFormat: data
+  })
 })); 
