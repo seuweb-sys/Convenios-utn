@@ -32,7 +32,7 @@ export const DocumentoPreviewContent = ({ data, type }: DocumentoPreviewContentP
       </div>
     );
   }
-  
+
   return (
     <div className="overflow-auto h-full">
       <div className="p-8 space-y-6 font-serif text-sm">
@@ -42,8 +42,8 @@ export const DocumentoPreviewContent = ({ data, type }: DocumentoPreviewContentP
           <p className="uppercase whitespace-pre-line mb-2">ENTRE {data.entidad_nombre || '________________'}</p>
           <p className="uppercase mb-2">Y LA FACULTAD REGIONAL RESISTENCIA</p>
           <p className="uppercase">DE LA UNIVERSIDAD TECNOLÓGICA NACIONAL</p>
-        </div>
-
+      </div>
+      
         <p className="text-justify leading-relaxed">
           Entre {data.entidad_nombre || '________________'}, en adelante "LA {data.entidad_tipo || '____'}", con domicilio en {data.entidad_domicilio || '________________'} de la Ciudad de {data.entidad_ciudad || '________________'}, CUIT Nº {data.entidad_cuit || '________________'}, representado en este acto por {data.entidad_representante || '________________'}, DNI Nº {data.entidad_dni || '________________'}, en su carácter de {data.entidad_cargo || '________________'}, y la FACULTAD REGIONAL RESISTENCIA de la UNIVERSIDAD TECNOLÓGICA NACIONAL, con domicilio en calle French 414 de la ciudad de Resistencia, en adelante "LA FACULTAD", representada en este acto por su Decano el Ing. Jorge Alejandro De Pedro, DNI 23.730.513, ad referéndum del Señor Rector Ing. Rubén Soro, DNI Nº 16.014.284, y teniendo en cuenta:
         </p>

@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileTextIcon, HomeIcon, ClockIcon, CheckCircleIcon, UserIcon, SettingsIcon } from "lucide-react";
+import { FileTextIcon, HomeIcon, ClockIcon, CheckCircleIcon, UserIcon, SettingsIcon, ShieldIcon } from "lucide-react";
 
-export function Navigation() {
+interface NavigationProps {
+  userRole?: string;
+}
+
+export function Navigation({ userRole }: NavigationProps) {
   const pathname = usePathname();
   const isActive = (path: string) => pathname === path;
+  const isAdmin = userRole === "admin";
 
   return (
     <>
@@ -62,6 +67,19 @@ export function Navigation() {
           Administración
         </div>
         <nav className="space-y-1">
+          {isAdmin && (
+            <Link 
+              href="/protected/admin" 
+              className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                isActive('/protected/admin') 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              }`}
+            >
+              <ShieldIcon className="h-4 w-4" />
+              Panel Admin
+            </Link>
+          )}
           <Link 
             href="/protected/usuarios" 
             className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${

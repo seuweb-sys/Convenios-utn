@@ -45,3 +45,7 @@ Contexto.txt
 *.md
 *.mdx
 *.mdx
+
+# Credenciales
+/credentials
+credentials/*.json

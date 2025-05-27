@@ -112,7 +112,7 @@ export default async function ProtectedLayout({
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Fijo a la izquierda */}
         <aside className="hidden md:flex flex-col w-64 border-r bg-card/50">
-          <Navigation />
+          <Navigation userRole={profile?.role} />
         </aside>
 
         {/* Content Area - Scrollable */}
