@@ -6,23 +6,23 @@ import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { DynamicField } from "./DynamicField";
 import { validateRepresentante } from "@/lib/types/convenio-marco";
 
-const REPRESENTANTE_FIELDS = [
+const representanteFields = [
   {
-    name: "nombre",
+    name: "representanteNombre",
     label: "Nombre completo del Representante",
     type: "text" as const,
     required: true,
     placeholder: "Nombre y apellido completo del representante"
   },
   {
-    name: "cargo",
+    name: "cargoRepresentante",
     label: "Cargo",
     type: "text" as const,
     required: true,
     placeholder: "Ej: Presidente, Director, Gerente"
   },
   {
-    name: "dni",
+    name: "representanteDni",
     label: "DNI (sin puntos)",
     type: "text" as const,
     required: true,
@@ -34,26 +34,10 @@ export const RepresentanteForm = () => {
   const { convenioData, updateConvenioData } = useConvenioMarcoStore();
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
+  const currentParte = (convenioData.partes?.[0] as Record<string, any>) || {};
   const handleFieldChange = (fieldName: string, value: string) => {
-    // Obtener el estado actual o inicializar vacío si no existe
-    const currentRepresentante = convenioData.representante || {
-      nombre: '',
-      cargo: '',
-      dni: ''
-    };
-
-    // Crear una copia con el nuevo valor
-    const updatedRepresentante = {
-      ...currentRepresentante,
-      [fieldName]: value
-    };
-
-    // Validar el formulario
-    const validation = validateRepresentante(updatedRepresentante);
-    setErrors(validation.errors);
-
-    // Actualizar el store
-    updateConvenioData('representante', updatedRepresentante);
+    const updatedParte = { ...currentParte, [fieldName]: value };
+    updateConvenioData('partes', [{ ...updatedParte }]);
   };
 
   return (
@@ -74,11 +58,11 @@ export const RepresentanteForm = () => {
       {/* Contenedor principal */}
       <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-5 bg-white dark:bg-gray-900/60">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
-          {REPRESENTANTE_FIELDS.map((field) => (
+          {representanteFields.map((field) => (
             <DynamicField
               key={field.name}
               field={field}
-              value={convenioData.representante?.[field.name as keyof typeof convenioData.representante] || ''}
+              value={currentParte[field.name] || ""}
               onChange={(value) => handleFieldChange(field.name, value)}
               error={errors[field.name]}
             />

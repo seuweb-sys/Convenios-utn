@@ -435,3 +435,19 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
 // NOTA: Asegúrate de crear/ajustar los tipos `ConvenioData` y `FieldDefinition`
 // en archivos apropiados (ej: /types/convenio.ts, /types/fieldDefinition.ts)
 // e importarlos aquí correctamente. 
+
+// Selector para obtener los fields planos a partir de formFields y convenioData
+export function getFieldsFromStore(convenioData: any, formFields: FieldDefinition[]): Record<string, string> {
+  return Object.fromEntries(
+    formFields.map(f => [
+      f.name,
+      // Busca el valor en todas las secciones posibles
+      convenioData.datosBasicos?.[f.name] ??
+      convenioData.partes?.[f.name] ??
+      convenioData.clausulas?.[f.name] ??
+      convenioData.anexos?.[f.name] ??
+      convenioData[f.name] ??
+      ""
+    ])
+  );
+} 

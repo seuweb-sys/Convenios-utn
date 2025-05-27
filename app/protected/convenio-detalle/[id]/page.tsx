@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useCallback } from "react";
 import { useSearchParams, useParams } from 'next/navigation';
 import { 
   ChevronLeftIcon, 
@@ -25,6 +25,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/app/components/ui/progress";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { cn } from "@/lib/utils";
+import { FullScreenPreview } from "@/app/components/convenios/full-screen-preview";
+import { useConvenioStore, getFieldsFromStore } from "@/stores/convenioStore";
 
 // Componente de esqueleto para el formulario
 const FormSkeleton = () => (
@@ -65,9 +67,34 @@ export default function ConvenioPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   // Store de Zustand para manejo de estado global
-  const { convenioData, updateConvenioData } = useConvenioMarcoStore();
+  const { convenioData, updateConvenioData, stepStates } = useConvenioMarcoStore();
+  const formFields = useConvenioStore((state) => state.formFields);
+
+  // Ejemplo de templateContent (ajustá según tu modelo real o traelo de la base)
+  const templateContent = {
+    title: "Convenio Marco",
+    subtitle: "Entre {entidad_nombre} y UTN-FRRe",
+    partes: [
+      "Por una parte, {entidad_nombre}, representada por {entidad_representante}...",
+      "Por la otra parte, la UTN-FRRe..."
+    ],
+    considerandos: [
+      "Que ambas partes desean cooperar...",
+      "Que existe interés mutuo..."
+    ],
+    clausulas: [
+      { titulo: "Primera", contenido: "El objeto del convenio es..." },
+      { titulo: "Segunda", contenido: "La duración será de..." }
+    ],
+    cierre: "En prueba de conformidad, firman..."
+  };
+
+  // Armá los fields a partir del store
+  const fields = getFieldsFromStore(convenioData, formFields);
 
   // Simulamos la carga inicial
   useEffect(() => {
@@ -99,6 +126,13 @@ export default function ConvenioPage() {
       description: "Vigencia y plazos",
       icon: <CalendarIcon className="h-5 w-5" />,
       status: currentStep === 3 ? "current" : currentStep > 3 ? "complete" : "upcoming"
+    },
+    {
+      id: 4,
+      title: "Revisión",
+      description: "Revisá y enviá tu convenio",
+      icon: <FileTextIcon className="h-5 w-5" />,
+      status: currentStep === 4 ? "current" : currentStep > 4 ? "complete" : "upcoming"
     }
   ];
 
@@ -118,6 +152,30 @@ export default function ConvenioPage() {
     }
   }, [currentStep, steps.length, formState, updateConvenioData]);
 
+  // Obtener el estado de validación de los pasos
+  const allStepsValid = [1,2,3].every(step => stepStates[step]?.isValid);
+  const status = convenioData?.status || 'borrador';
+
+  // Función para enviar el convenio (PATCH status a 'enviado')
+  const handleEnviarConvenio = useCallback(async () => {
+    if (!convenioData?.id) return;
+    setIsSending(true);
+    try {
+      const response = await fetch(`/api/convenios/${convenioData.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'enviado' })
+      });
+      if (!response.ok) throw new Error('Error al enviar el convenio');
+      // Opcional: recargar datos o mostrar feedback
+      window.location.reload();
+    } catch (e) {
+      alert('Error al enviar convenio');
+    } finally {
+      setIsSending(false);
+    }
+  }, [convenioData?.id]);
+
   if (isCreating && type === 'marco') {
     return (
       <>
@@ -133,17 +191,6 @@ export default function ConvenioPage() {
                   <ChevronLeftIcon className="h-4 w-4 mr-1" /> 
                   Volver al dashboard
                 </Link>
-                
-                <div className="flex items-center gap-3">
-                  <Button variant="ghost" size="sm" className="gap-2 text-sm">
-                    <EyeIcon className="h-4 w-4" />
-                    Vista previa
-                  </Button>
-                  <Button variant="outline" size="sm" className="gap-2 text-sm">
-                    <SaveIcon className="h-4 w-4" />
-                    Guardar borrador
-                  </Button>
-                </div>
               </div>
 
               <div className="mt-6">
@@ -224,51 +271,71 @@ export default function ConvenioPage() {
             <div className="space-y-6">
               <SectionContainer title="Progreso">
                 <div className="space-y-4">
-                  {steps.map((step) => (
-                    <div 
-                      key={step.id}
-                      className={cn(
-                        "p-4 rounded-lg border transition-all duration-300",
-                        step.status === "current" ? "bg-primary/5 border-primary/20 scale-105 shadow-sm" :
-                        step.status === "complete" ? "bg-green-500/5 border-green-500/20" :
-                        "bg-card border-border"
-                      )}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={cn(
-                          "p-2 rounded-lg",
-                          step.status === "current" ? "bg-primary/10" :
-                          step.status === "complete" ? "bg-green-500/10" :
-                          "bg-muted"
-                        )}>
-                          {step.status === "complete" ? (
-                            <CheckIcon className="h-5 w-5 text-green-500" />
-                          ) : (
-                            step.icon
-                          )}
-                        </div>
-                        <div>
-                          <h3 className={cn(
-                            "font-medium",
-                            step.status === "current" ? "text-primary" :
-                            step.status === "complete" ? "text-green-500" :
-                            "text-muted-foreground"
+                  {steps.map((step) => {
+                    // Permitir click solo si el paso es anterior o ya está completo
+                    const isClickable = step.id < currentStep || step.status === "complete";
+                    return (
+                      <button
+                        key={step.id}
+                        type="button"
+                        disabled={!isClickable}
+                        onClick={() => {
+                          if (isClickable) setCurrentStep(step.id);
+                        }}
+                        className={cn(
+                          "w-full text-left p-4 rounded-lg border transition-all duration-300 focus:outline-none",
+                          step.status === "current" ? "bg-primary/5 border-primary/20 scale-105 shadow-sm" :
+                          step.status === "complete" ? "bg-green-500/5 border-green-500/20" :
+                          "bg-card border-border",
+                          isClickable ? "cursor-pointer hover:ring-2 hover:ring-primary/30" : "opacity-60 cursor-not-allowed"
+                        )}
+                        tabIndex={isClickable ? 0 : -1}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "p-2 rounded-lg",
+                            step.status === "current" ? "bg-primary/10" :
+                            step.status === "complete" ? "bg-green-500/10" :
+                            "bg-muted"
                           )}>
-                            {step.title}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {step.description}
-                          </p>
+                            {step.status === "complete" ? (
+                              <CheckIcon className="h-5 w-5 text-green-500" />
+                            ) : (
+                              step.icon
+                            )}
+                          </div>
+                          <div>
+                            <h3 className={cn(
+                              "font-medium",
+                              step.status === "current" ? "text-primary" :
+                              step.status === "complete" ? "text-green-500" :
+                              "text-muted-foreground"
+                            )}>
+                              {step.title}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {step.description}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               </SectionContainer>
               
               <SectionContainer title="Acciones rápidas">
                 <div className="space-y-3">
-                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "w-full justify-start gap-2 text-sm transition-all",
+                      status === 'enviado' ? "border-primary text-primary hover:bg-primary/10" : "opacity-50 cursor-not-allowed"
+                    )}
+                    disabled={status !== 'enviado'}
+                    onClick={() => {}}
+                  >
                     <EyeIcon className="h-4 w-4" />
                     Vista previa completa
                   </Button>
@@ -281,6 +348,14 @@ export default function ConvenioPage() {
             </div>
           </div>
         </div>
+        {isFullScreen && (
+          <FullScreenPreview
+            templateContent={templateContent}
+            fields={fields}
+            isOpen={isFullScreen}
+            onClose={() => setIsFullScreen(false)}
+          />
+        )}
       </>
     );
   }

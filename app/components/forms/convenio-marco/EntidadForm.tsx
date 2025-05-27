@@ -2,74 +2,65 @@
 
 import React from "react";
 import { BuildingIcon } from "lucide-react";
-import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
+import { useConvenioStore } from "@/stores/convenioStore";
 import { DynamicField } from "./DynamicField";
 import { validateEntidad } from "@/lib/types/convenio-marco";
 
-const ENTIDAD_FIELDS = [
-  {
-    name: "nombre",
-    label: "Nombre de la entidad",
-    type: "text" as const,
-    required: true,
-    placeholder: "Ingrese el nombre completo de la entidad"
-  },
-  {
-    name: "tipo",
-    label: "Tipo de entidad",
-    type: "text" as const,
-    required: true,
-    placeholder: "Ej: EMPRESA, ORGANISMO, INSTITUCIÓN"
-  },
-  {
-    name: "domicilio",
-    label: "Domicilio",
-    type: "text" as const,
-    required: true,
-    placeholder: "Domicilio completo de la entidad"
-  },
-  {
-    name: "ciudad",
-    label: "Ciudad",
-    type: "text" as const,
-    required: true,
-    placeholder: "Ciudad donde se encuentra la entidad"
-  },
-  {
-    name: "cuit",
-    label: "CUIT (sin guiones)",
-    type: "text" as const,
-    required: true,
-    placeholder: "Ej: 30123456789"
-  }
-];
-
 export const EntidadForm = () => {
-  const { convenioData, updateConvenioData } = useConvenioMarcoStore();
+  const { convenioData, updateConvenioData } = useConvenioStore();
+  const formFields = useConvenioStore((state) => state.formFields);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
+  const entidadFields = [
+    {
+      name: "nombre",
+      label: "Nombre de la Entidad",
+      type: "text" as const,
+      required: true,
+      placeholder: "Ingrese el nombre de la entidad"
+    },
+    {
+      name: "tipo",
+      label: "Tipo de Entidad",
+      type: "text" as const,
+      required: true,
+      placeholder: "Ej: Empresa, ONG, etc."
+    },
+    {
+      name: "domicilio",
+      label: "Dirección",
+      type: "text" as const,
+      required: true,
+      placeholder: "Ingrese la dirección"
+    },
+    {
+      name: "ciudad",
+      label: "Ciudad",
+      type: "text" as const,
+      required: true,
+      placeholder: "Ingrese la ciudad"
+    },
+    {
+      name: "cuit",
+      label: "CUIT (sin guiones ni puntos)",
+      type: "text" as const,
+      required: true,
+      placeholder: "Ej: 20445041743 (sin guiones ni puntos)"
+    }
+  ];
+
+  const currentEntidad = (convenioData.partes?.[0] as Record<string, any>) || {};
   const handleFieldChange = (fieldName: string, value: string) => {
-    // Obtener el estado actual o inicializar vacío si no existe
-    const currentEntidad = convenioData.entidad || {
-      nombre: '',
-      tipo: '',
-      domicilio: '',
-      ciudad: '',
-      cuit: ''
-    };
-
-    // Crear una copia con el nuevo valor
-    const updatedEntidad = {
-      ...currentEntidad,
-      [fieldName]: value
-    };
-
-    // Validar el formulario
-    const validation = validateEntidad(updatedEntidad);
-    setErrors(validation.errors);
-
-    // Actualizar el store
-    updateConvenioData('entidad', updatedEntidad);
+    let newValue = value;
+    if (fieldName === 'tipo' && (!value || value === 'empresa')) {
+      newValue = 'Empresa';
+    }
+    if (fieldName === 'cuit') {
+      // Solo permitir números
+      newValue = value.replace(/[^0-9]/g, '');
+    }
+    const updatedEntidad = { ...currentEntidad, [fieldName]: newValue };
+    updateConvenioData('partes', [{ ...updatedEntidad }]);
   };
 
   return (
@@ -90,11 +81,11 @@ export const EntidadForm = () => {
       {/* Contenedor principal */}
       <div className="border border-gray-200 dark:border-gray-800 rounded-lg p-5 bg-white dark:bg-gray-900/60">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-5">
-          {ENTIDAD_FIELDS.map((field) => (
+          {entidadFields.map((field) => (
             <DynamicField
               key={field.name}
               field={field}
-              value={convenioData.entidad?.[field.name as keyof typeof convenioData.entidad] || ''}
+              value={currentEntidad[field.name] || ""}
               onChange={(value) => handleFieldChange(field.name, value)}
               error={errors[field.name]}
             />

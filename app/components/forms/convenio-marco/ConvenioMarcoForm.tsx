@@ -18,6 +18,7 @@ import {
 } from "@/app/components/ui/form";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
+import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { EntidadForm } from "./EntidadForm";
 import { RepresentanteForm } from "./RepresentanteForm";
 import { FechasForm } from "./FechasForm";
@@ -34,46 +35,37 @@ const STEPS = [
   {
     title: "Fechas del Convenio",
     component: FechasForm
+  },
+  {
+    title: "Revisión",
+    component: null // lo manejo aparte en renderStepContent
   }
 ];
 
 // Esquema de validación para cada paso
 const entidadSchema = z.object({
-  nombre_entidad: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  direccion: z.string().min(5, "La dirección debe tener al menos 5 caracteres"),
-  telefono: z.string().min(8, "El teléfono debe tener al menos 8 dígitos"),
+  nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+  tipo: z.string().min(2, "El tipo es requerido"),
+  domicilio: z.string().min(5, "La dirección debe tener al menos 5 caracteres"),
+  ciudad: z.string().min(2, "La ciudad es requerida"),
+  cuit: z.string().min(11, "El CUIT es obligatorio y debe tener al menos 11 dígitos"),
 });
 
 const representanteSchema = z.object({
-  nombre_completo: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  cargo: z.string().min(2, "El cargo debe tener al menos 2 caracteres"),
-  dni: z.string().min(7, "El DNI debe tener al menos 7 dígitos").max(8, "El DNI no puede tener más de 8 dígitos"),
+  representanteNombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
+  cargoRepresentante: z.string().min(2, "El cargo debe tener al menos 2 caracteres"),
+  representanteDni: z.string().min(7, "El DNI debe tener al menos 7 dígitos").max(8, "El DNI no puede tener más de 8 dígitos"),
 });
 
-// Función auxiliar para validar que fecha_fin sea posterior a fecha_inicio
-const validarFechas = (data: { fecha_inicio: string, fecha_fin: string }) => {
-  // Solo validar si ambas fechas existen
-  if (!data.fecha_inicio || !data.fecha_fin) return true;
-  
-  const inicio = new Date(data.fecha_inicio);
-  const fin = new Date(data.fecha_fin);
-  
-  return fin > inicio;
-};
-
 const fechasSchema = z.object({
-  fecha_inicio: z.string()
-    .min(1, "La fecha de inicio es requerida")
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "El formato de fecha debe ser AAAA-MM-DD"),
-  fecha_fin: z.string()
-    .min(1, "La fecha de fin es requerida")
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "El formato de fecha debe ser AAAA-MM-DD"),
-  duracion: z.string()
-    .min(1, "La duración es requerida")
-    .refine(val => !isNaN(Number(val)) && Number(val) > 0, "La duración debe ser un número positivo")
-}).refine(data => validarFechas(data), {
+  fechaInicio: z.string().min(1, "La fecha de inicio es requerida"),
+  fechaFin: z.string().min(1, "La fecha de fin es requerida"),
+}).refine(data => {
+  if (!data.fechaInicio || !data.fechaFin) return true;
+  return new Date(data.fechaFin) > new Date(data.fechaInicio);
+}, {
   message: "La fecha de fin debe ser posterior a la fecha de inicio",
-  path: ["fecha_fin"]
+  path: ["fechaFin"]
 });
 
 interface ConvenioMarcoFormProps {
@@ -118,26 +110,28 @@ export function ConvenioMarcoForm({
   const getDefaultValues = () => {
     if (formState[currentStep]) {
       return formState[currentStep];
-    } 
-    // Como respaldo, intentar obtener datos del store global según el paso
+    }
+    const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
+    const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
     switch(currentStep) {
       case 1:
         return {
-          nombre_entidad: convenioData?.entidad?.nombre || '',
-          direccion: convenioData?.entidad?.domicilio || '',
-          telefono: convenioData?.entidad?.cuit || ''
+          nombre: parte.nombre || '',
+          tipo: parte.tipo || '',
+          domicilio: parte.domicilio || '',
+          ciudad: parte.ciudad || '',
+          cuit: parte.cuit || ''
         };
       case 2:
         return {
-          nombre_completo: convenioData?.representante?.nombre || '',
-          cargo: convenioData?.representante?.cargo || '',
-          dni: convenioData?.representante?.dni || ''
+          representanteNombre: parte.representanteNombre || '',
+          cargoRepresentante: parte.cargoRepresentante || '',
+          representanteDni: parte.representanteDni || ''
         };
       case 3:
         return {
-          fecha_inicio: convenioData?.fechas?.dia || '',
-          fecha_fin: convenioData?.fechas?.mes || '',
-          duracion: ''
+          fechaInicio: datosBasicos?.fechaInicio || '',
+          fechaFin: datosBasicos?.fechaFin || ''
         };
       default:
         return {};
@@ -157,93 +151,43 @@ export function ConvenioMarcoForm({
 
   const onSubmit = async (data: z.infer<typeof validationSchema>) => {
     try {
-      // Guardar los datos del paso actual
       const newFormState = {
         ...formState,
         [currentStep]: data,
       };
       onFormStateChange(newFormState);
-      
-      // CORRECCIÓN: Actualizar el store global según el paso
+      const currentParte = (convenioData?.partes?.[0] as Record<string, any>) || {};
       switch(currentStep) {
         case 1:
-          updateConvenioData('entidad', {
-            nombre: data.nombre_entidad,
-            domicilio: data.direccion,
-            cuit: data.telefono,
-            tipo: data.tipo || 'Empresa',
-            ciudad: data.ciudad || 'Resistencia'
-          });
+          updateConvenioData('partes', [{
+            ...currentParte,
+            nombre: data.nombre,
+            tipo: data.tipo,
+            domicilio: data.domicilio,
+            ciudad: data.ciudad,
+            cuit: data.cuit
+          }]);
           break;
         case 2:
-          updateConvenioData('representante', {
-            nombre: data.nombre_completo,
-            cargo: data.cargo,
-            dni: data.dni
-          });
+          updateConvenioData('partes', [{
+            ...currentParte,
+            representanteNombre: data.representanteNombre,
+            cargoRepresentante: data.cargoRepresentante,
+            representanteDni: data.representanteDni
+          }]);
           break;
         case 3:
-          updateConvenioData('fechas', {
-            dia: data.dia,
-            mes: data.mes
+          updateConvenioData('datosBasicos', {
+            ...convenioData?.datosBasicos,
+            fechaInicio: data.fechaInicio || '',
+            fechaFin: data.fechaFin || ''
           });
+          // Avanzar al paso 4 sin guardar en la base
+          onStepChange(currentStep + 1);
           break;
       }
-
-      // Si es el último paso, enviar todo el formulario
-      if (currentStep === 3) {
-        setIsSubmitting(true);
-        try {
-          // Obtener los datos del convenio en formato DB
-          const dbData = {
-            entidad_nombre: convenioData?.entidad?.nombre || '',
-            entidad_tipo: convenioData?.entidad?.tipo || '',
-            entidad_domicilio: convenioData?.entidad?.domicilio || '',
-            entidad_ciudad: convenioData?.entidad?.ciudad || '',
-            entidad_cuit: convenioData?.entidad?.cuit || '',
-            entidad_representante: convenioData?.representante?.nombre || '',
-            entidad_dni: convenioData?.representante?.dni || '',
-            entidad_cargo: convenioData?.representante?.cargo || '',
-            dia: data.dia || convenioData?.fechas?.dia || '',
-            mes: data.mes || convenioData?.fechas?.mes || ''
-          };
-          
-          // Preparar los datos en el formato que la API espera
-          const requestData = {
-            title: `Convenio Marco - ${dbData.entidad_nombre}`,
-            convenio_type_id: 2, // Según el JSON, el tipo 2 es Convenio Marco
-            content_data: dbData,
-            estado: 'borrador'
-          };
-
-          console.log("Enviando datos al servidor:", requestData);
-
-          const response = await fetch('/api/convenios', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestData),
-          });
-
-          const responseData = await response.json();
-
-          if (!response.ok) {
-            throw new Error(responseData.error || 'Error al crear el convenio');
-          }
-
-          console.log("Convenio guardado exitosamente:", responseData);
-          onError(null); // Limpiar cualquier error previo
-          
-          // Redirigir a la página de convenios (corregido)
-          router.push('/protected/convenios-lista');
-        } catch (error) {
-          console.error("Error guardando convenio:", error);
-          onError(error instanceof Error ? error.message : 'Error inesperado al enviar el formulario');
-          setIsSubmitting(false);
-        }
-      } else {
-        // Avanzar al siguiente paso
+      // Avanzar al siguiente paso si no es el paso 3
+      if (currentStep !== 3) {
         onStepChange(currentStep + 1);
       }
     } catch (error) {
@@ -259,7 +203,7 @@ export function ConvenioMarcoForm({
           <>
             <FormField
               control={form.control}
-              name="nombre_entidad"
+              name="nombre"
               render={({ field }) => (
                 <FormItem className="mb-4">
                   <FormLabel className="text-foreground">Nombre de la Entidad</FormLabel>
@@ -272,7 +216,25 @@ export function ConvenioMarcoForm({
             />
             <FormField
               control={form.control}
-              name="direccion"
+              name="tipo"
+              render={({ field }) => (
+                <FormItem className="mb-4">
+                  <FormLabel className="text-foreground">Tipo de Entidad</FormLabel>
+                  <FormControl>
+                    <Input
+                      className="border-border focus-visible:ring-primary"
+                      placeholder="Ej: Empresa, ONG, etc."
+                      {...field}
+                      value={field.value === 'empresa' ? 'Empresa' : field.value}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="domicilio"
               render={({ field }) => (
                 <FormItem className="mb-4">
                   <FormLabel className="text-foreground">Dirección</FormLabel>
@@ -285,12 +247,25 @@ export function ConvenioMarcoForm({
             />
             <FormField
               control={form.control}
-              name="telefono"
+              name="ciudad"
               render={({ field }) => (
                 <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Teléfono</FormLabel>
+                  <FormLabel className="text-foreground">Ciudad</FormLabel>
                   <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese el teléfono" {...field} />
+                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese la ciudad" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="cuit"
+              render={({ field }) => (
+                <FormItem className="mb-4">
+                  <FormLabel className="text-foreground">CUIT (sin guiones ni puntos)</FormLabel>
+                  <FormControl>
+                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: 20445041743 (sin guiones ni puntos)" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -303,7 +278,7 @@ export function ConvenioMarcoForm({
           <>
             <FormField
               control={form.control}
-              name="nombre_completo"
+              name="representanteNombre"
               render={({ field }) => (
                 <FormItem className="mb-4">
                   <FormLabel className="text-foreground">Nombre completo</FormLabel>
@@ -316,7 +291,7 @@ export function ConvenioMarcoForm({
             />
             <FormField
               control={form.control}
-              name="cargo"
+              name="cargoRepresentante"
               render={({ field }) => (
                 <FormItem className="mb-4">
                   <FormLabel className="text-foreground">Cargo</FormLabel>
@@ -329,7 +304,7 @@ export function ConvenioMarcoForm({
             />
             <FormField
               control={form.control}
-              name="dni"
+              name="representanteDni"
               render={({ field }) => (
                 <FormItem className="mb-4">
                   <FormLabel className="text-foreground">DNI (sin puntos)</FormLabel>
@@ -347,7 +322,7 @@ export function ConvenioMarcoForm({
           <>
             <FormField
               control={form.control}
-              name="fecha_inicio"
+              name="fechaInicio"
               render={({ field }) => (
                 <FormItem className="mb-4">
                   <FormLabel className="text-foreground">Fecha de inicio</FormLabel>
@@ -356,22 +331,7 @@ export function ConvenioMarcoForm({
                       className="border-border focus-visible:ring-primary" 
                       type="date" 
                       {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                        // Si hay fecha de fin y fecha inicio, calculamos automáticamente la duración
-                        const fechaInicio = e.target.value;
-                        const fechaFin = form.getValues("fecha_fin");
-                        if (fechaInicio && fechaFin) {
-                          const inicio = new Date(fechaInicio);
-                          const fin = new Date(fechaFin);
-                          const diff = fin.getTime() - inicio.getTime();
-                          // Calcular diferencia en meses
-                          const diffMonths = Math.ceil(diff / (1000 * 60 * 60 * 24 * 30));
-                          if (diffMonths > 0) {
-                            form.setValue("duracion", String(diffMonths));
-                          }
-                        }
-                      }}
+                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -380,7 +340,7 @@ export function ConvenioMarcoForm({
             />
             <FormField
               control={form.control}
-              name="fecha_fin"
+              name="fechaFin"
               render={({ field }) => (
                 <FormItem className="mb-4">
                   <FormLabel className="text-foreground">Fecha de fin</FormLabel>
@@ -389,40 +349,7 @@ export function ConvenioMarcoForm({
                       className="border-border focus-visible:ring-primary" 
                       type="date" 
                       {...field}
-                      onChange={(e) => {
-                        field.onChange(e);
-                        // Si hay fecha de inicio y fecha fin, calculamos automáticamente la duración
-                        const fechaFin = e.target.value;
-                        const fechaInicio = form.getValues("fecha_inicio");
-                        if (fechaInicio && fechaFin) {
-                          const inicio = new Date(fechaInicio);
-                          const fin = new Date(fechaFin);
-                          const diff = fin.getTime() - inicio.getTime();
-                          // Calcular diferencia en meses
-                          const diffMonths = Math.ceil(diff / (1000 * 60 * 60 * 24 * 30));
-                          if (diffMonths > 0) {
-                            form.setValue("duracion", String(diffMonths));
-                          }
-                        }
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="duracion"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Duración (en meses)</FormLabel>
-                  <FormControl>
-                    <Input 
-                      className="border-border focus-visible:ring-primary" 
-                      type="number" 
-                      min="1"
-                      {...field} 
+                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -430,6 +357,45 @@ export function ConvenioMarcoForm({
               )}
             />
           </>
+        );
+      case 4:
+        // Paso de revisión visual con bloques glass/blur, verticales, colores legibles
+        const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
+        const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
+        return (
+          <div className="space-y-6 p-4 rounded-lg bg-background/80 border border-border backdrop-blur-md animate-in fade-in-50 max-h-[70vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold mb-6 text-primary">Revisión final del convenio</h2>
+            <div className="flex flex-col gap-6">
+              <div className="rounded-xl p-6 bg-blue-900/40 border border-blue-700/30 backdrop-blur-md shadow-md text-blue-100">
+                <h3 className="font-semibold text-blue-200 mb-3 text-lg">Entidad</h3>
+                <div className="text-base space-y-1">
+                  <div><b>Nombre:</b> <span className="text-blue-50">{parte.nombre}</span></div>
+                  <div><b>Tipo:</b> <span className="text-blue-50">{parte.tipo}</span></div>
+                  <div><b>Dirección:</b> <span className="text-blue-50">{parte.domicilio}</span></div>
+                  <div><b>Ciudad:</b> <span className="text-blue-50">{parte.ciudad}</span></div>
+                  <div><b>CUIT:</b> <span className="text-blue-50">{parte.cuit}</span></div>
+                </div>
+              </div>
+              <div className="rounded-xl p-6 bg-green-900/40 border border-green-700/30 backdrop-blur-md shadow-md text-green-100">
+                <h3 className="font-semibold text-green-200 mb-3 text-lg">Representante</h3>
+                <div className="text-base space-y-1">
+                  <div><b>Nombre:</b> <span className="text-green-50">{parte.representanteNombre}</span></div>
+                  <div><b>Cargo:</b> <span className="text-green-50">{parte.cargoRepresentante}</span></div>
+                  <div><b>DNI:</b> <span className="text-green-50">{parte.representanteDni}</span></div>
+                </div>
+              </div>
+              <div className="rounded-xl p-6 bg-yellow-700/30 border border-yellow-600/30 backdrop-blur-md shadow-md text-yellow-50">
+                <h3 className="font-semibold text-yellow-200 mb-3 text-lg">Fechas</h3>
+                <div className="text-base space-y-1">
+                  <div><b>Inicio:</b> <span className="text-yellow-50">{datosBasicos.fechaInicio}</span></div>
+                  <div><b>Fin:</b> <span className="text-yellow-50">{datosBasicos.fechaFin}</span></div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-8 text-center text-muted-foreground text-base">
+              Si los datos son correctos, podés guardar, finalizar y enviar el convenio.
+            </div>
+          </div>
         );
     }
   };
@@ -455,21 +421,142 @@ export function ConvenioMarcoForm({
                 Anterior
               </Button>
             )}
-            <Button 
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 transition-all"
-            >
-              {currentStep === 3 ? (
-                isSubmitting ? (
-                  <>Guardando...</>
-                ) : (
-                  <>Guardar Convenio</>
-                )
-              ) : (
-                <>Siguiente <ChevronRightIcon className="h-4 w-4 ml-1" /></>
-              )}
-            </Button>
+            {currentStep === 3 && (
+              <Button
+                type="submit"
+                variant="default"
+                disabled={Object.values(form.formState.errors).length > 0 || isSubmitting}
+                className="px-4 transition-all"
+              >
+                Siguiente <ChevronRightIcon className="h-4 w-4 ml-1" />
+              </Button>
+            )}
+            {currentStep === 4 && (
+              <>
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={isSubmitting}
+                  onClick={async () => {
+                    // Guardar como borrador (POST o PATCH)
+                    setIsSubmitting(true);
+                    try {
+                      const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
+                      const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
+                      const dbData = {
+                        entidad_nombre: parte.nombre || '',
+                        entidad_tipo: parte.tipo || 'empresa',
+                        entidad_domicilio: parte.domicilio || '',
+                        entidad_ciudad: parte.ciudad || '',
+                        entidad_cuit: parte.cuit || '',
+                        entidad_representante: parte.representanteNombre || '',
+                        entidad_dni: parte.representanteDni || '',
+                        entidad_cargo: parte.cargoRepresentante || '',
+                        fecha_inicio: datosBasicos?.fechaInicio || '',
+                        fecha_fin: datosBasicos?.fechaFin || ''
+                      };
+                      const requestData = {
+                        title: `Convenio Marco - ${dbData.entidad_nombre}`,
+                        convenio_type_id: 2,
+                        content_data: dbData,
+                        estado: 'borrador'
+                      };
+                      let response, responseData;
+                      if (!convenioData?.id) {
+                        response = await fetch('/api/convenios', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(requestData),
+                        });
+                      } else {
+                        response = await fetch(`/api/convenios/${convenioData.id}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(requestData),
+                        });
+                      }
+                      responseData = await response.json();
+                      if (!response.ok) {
+                        throw new Error(responseData.error || 'Error al guardar el convenio');
+                      }
+                      updateConvenioData('all', responseData);
+                      onError(null);
+                      alert('Convenio guardado como borrador.');
+                    } catch (error) {
+                      onError(error instanceof Error ? error.message : 'Error inesperado al guardar el convenio');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
+                  className="px-4 transition-all"
+                >
+                  Guardar como borrador
+                </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={isSubmitting || !convenioData?.id || convenioData?.status !== 'borrador'}
+                  onClick={async () => {
+                    if (!convenioData?.id) return;
+                    setIsSubmitting(true);
+                    try {
+                      const response = await fetch(`/api/convenios/${convenioData.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'finalizado' })
+                      });
+                      if (!response.ok) throw new Error('Error al finalizar el convenio');
+                      onError(null);
+                      alert('Convenio finalizado. Ahora podés enviarlo.');
+                      window.location.reload();
+                    } catch (e) {
+                      onError('Error al finalizar convenio');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
+                  className="px-4 transition-all"
+                >
+                  Finalizar convenio
+                </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  disabled={isSubmitting || !convenioData?.id || convenioData?.status !== 'finalizado'}
+                  onClick={async () => {
+                    if (!convenioData?.id) return;
+                    setIsSubmitting(true);
+                    try {
+                      const response = await fetch(`/api/convenios/${convenioData.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'enviado' })
+                      });
+                      if (!response.ok) throw new Error('Error al enviar el convenio');
+                      onError(null);
+                      alert('Convenio enviado correctamente.');
+                      window.location.reload();
+                    } catch (e) {
+                      onError('Error al enviar convenio');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
+                  className="px-4 transition-all"
+                >
+                  Enviar convenio
+                </Button>
+              </>
+            )}
+            {currentStep < 3 && (
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 transition-all"
+              >
+                Siguiente <ChevronRightIcon className="h-4 w-4 ml-1" />
+              </Button>
+            )}
           </div>
         </form>
       </Form>

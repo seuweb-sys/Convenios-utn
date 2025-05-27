@@ -2,17 +2,32 @@ import React, { useState } from "react";
 import { ChevronLeftIcon, ChevronRightIcon, XIcon, ZoomInIcon, ZoomOutIcon } from "lucide-react";
 import DocumentoPreviewContent from "./documento-preview-content";
 import { FileTextIcon } from "lucide-react";
+import { DocumentoPreview } from "./documento-preview";
+import { useConvenioStore } from "@/stores/convenioStore";
 
 interface FullScreenPreviewProps {
-  formData: any;
+  templateContent: {
+    title: string;
+    subtitle: string;
+    partes: string[];
+    considerandos: string[];
+    clausulas: { titulo: string; contenido: string }[];
+    cierre: string;
+  };
+  fields: Record<string, string>;
   isOpen: boolean;
   onClose: () => void;
 }
 
-export const FullScreenPreview = ({ formData, isOpen, onClose }: FullScreenPreviewProps) => {
+export const FullScreenPreview = ({
+  templateContent,
+  fields,
+  isOpen,
+  onClose
+}: FullScreenPreviewProps) => {
   const [scale, setScale] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = formData.clausulas?.length ? Math.ceil(formData.clausulas.length / 3) + 1 : 2;
+  const totalPages = templateContent.clausulas?.length ? Math.ceil(templateContent.clausulas.length / 3) + 1 : 2;
 
   const zoomIn = () => setScale(prev => Math.min(prev + 0.1, 2));
   const zoomOut = () => setScale(prev => Math.max(prev - 0.1, 0.5));
@@ -76,7 +91,7 @@ export const FullScreenPreview = ({ formData, isOpen, onClose }: FullScreenPrevi
           style={{ transform: `scale(${scale})`, transformOrigin: 'top center' }}
         >
           <div className="p-12"> 
-            <DocumentoPreviewContent formData={formData} isFullScreen={true} />
+            <DocumentoPreview templateContent={templateContent} fields={fields} />
           </div>
         </div>
       </div>
