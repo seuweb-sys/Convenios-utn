@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/components/ui/button";
 import { EyeIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 

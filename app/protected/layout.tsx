@@ -2,7 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/components/ui/button";
 import { signOutAction } from "@/app/actions";
 import { BellIcon, SearchIcon, MenuIcon } from "lucide-react";
 import { Navigation } from "@/app/components/layout/navigation";

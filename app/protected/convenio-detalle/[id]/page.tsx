@@ -21,7 +21,7 @@ import {
   SectionContainer 
 } from "@/app/components/dashboard";
 import { ConvenioMarcoForm } from '@/app/components/forms/convenio-marco/ConvenioMarcoForm';
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/components/ui/button";
 import { Progress } from "@/app/components/ui/progress";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { cn } from "@/lib/utils";
@@ -184,14 +184,14 @@ export default function ConvenioPage() {
           <Suspense fallback={<div className="h-24 w-full skeleton"></div>}>
             <div className="mb-8 border-b border-border/40 pb-6">
               <div className="flex items-center justify-between mb-2">
-                <Link
+          <Link
                   href="/protected"
                   className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ChevronLeftIcon className="h-4 w-4 mr-1" /> 
+          >
+            <ChevronLeftIcon className="h-4 w-4 mr-1" />
                   Volver al dashboard
-                </Link>
-              </div>
+          </Link>
+        </div>
 
               <div className="mt-6">
                 <h1 className="text-2xl font-bold">Nuevo Convenio Marco</h1>
@@ -382,7 +382,7 @@ export default function ConvenioPage() {
             </div>
           </SectionContainer>
         </div>
-      </div>
+    </div>
     </>
   );
 } 

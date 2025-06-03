@@ -1,5 +1,5 @@
 import React from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/components/ui/button";
 import { ChevronLeftIcon, ChevronRightIcon, SaveIcon, ClipboardCheckIcon } from "lucide-react";
 
 // Importar el store

@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/components/ui/button";
 import { ChevronLeftIcon, EyeIcon, SaveIcon } from "lucide-react";
 
 interface ConvenioHeaderProps {

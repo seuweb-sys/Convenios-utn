@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/app/components/ui/button";
 import { getConvenioTypes } from "@/app/lib/dashboard/get-convenio-types";
 import { DownloadButton } from "./download-button";
 

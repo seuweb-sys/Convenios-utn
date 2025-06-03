@@ -4,7 +4,7 @@ import React from "react";
 import { CalendarIcon } from "lucide-react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { validateFechas } from "@/lib/types/convenio-marco";
-import { Label } from "@/components/ui/label";
+import { Label } from "@/app/components/ui/label";
 
 const MESES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
