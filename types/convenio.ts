@@ -9,6 +9,8 @@ export interface DatosBasicosData {
     fechaInicio: string;
     fechaFin: string;
     confidencial?: boolean;
+    dia?: string;
+    mes?: string;
 }
 
 // Función simple de validación para DatosBasicos

@@ -17,12 +17,6 @@ export const DashboardHeader = ({
         <h1 className="text-2xl font-bold">{name}</h1>
         <p className="text-muted-foreground">{subtitle}</p>
       </div>
-      <Link href="/protected/convenio-detalle/nuevo">
-        <Button className="gap-2">
-          <PlusIcon className="h-4 w-4" />
-          Nuevo Convenio
-        </Button>
-      </Link>
     </div>
   );
 };

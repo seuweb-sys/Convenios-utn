@@ -22,6 +22,7 @@ import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { EntidadForm } from "./EntidadForm";
 import { RepresentanteForm } from "./RepresentanteForm";
 import { FechasForm } from "./FechasForm";
+import { Modal } from '@/app/components/ui/modal';
 
 const STEPS = [
   {
@@ -58,14 +59,8 @@ const representanteSchema = z.object({
 });
 
 const fechasSchema = z.object({
-  fechaInicio: z.string().min(1, "La fecha de inicio es requerida"),
-  fechaFin: z.string().min(1, "La fecha de fin es requerida"),
-}).refine(data => {
-  if (!data.fechaInicio || !data.fechaFin) return true;
-  return new Date(data.fechaFin) > new Date(data.fechaInicio);
-}, {
-  message: "La fecha de fin debe ser posterior a la fecha de inicio",
-  path: ["fechaFin"]
+  dia: z.string().min(1, "El día es requerido"),
+  mes: z.string().min(1, "El mes es requerido"),
 });
 
 interface ConvenioMarcoFormProps {
@@ -90,6 +85,8 @@ export function ConvenioMarcoForm({
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
   const [validationSchema, setValidationSchema] = useState<z.ZodTypeAny>(entidadSchema);
+  const [localStatus, setLocalStatus] = useState(convenioData?.status || 'borrador');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Configurar el esquema de validación según el paso actual
   useEffect(() => {
@@ -105,6 +102,10 @@ export function ConvenioMarcoForm({
         break;
     }
   }, [currentStep]);
+
+  useEffect(() => {
+    setLocalStatus(convenioData?.status || 'borrador');
+  }, [convenioData?.status]);
 
   // CORRECCIÓN: Inicializar el formulario con valores del store global o del estado pasado
   const getDefaultValues = () => {
@@ -130,8 +131,8 @@ export function ConvenioMarcoForm({
         };
       case 3:
         return {
-          fechaInicio: datosBasicos?.fechaInicio || '',
-          fechaFin: datosBasicos?.fechaFin || ''
+          dia: datosBasicos?.dia || '',
+          mes: datosBasicos?.mes || ''
         };
       default:
         return {};
@@ -179,8 +180,8 @@ export function ConvenioMarcoForm({
         case 3:
           updateConvenioData('datosBasicos', {
             ...convenioData?.datosBasicos,
-            fechaInicio: data.fechaInicio || '',
-            fechaFin: data.fechaFin || ''
+            dia: data.dia || '',
+            mes: data.mes || ''
           });
           // Avanzar al paso 4 sin guardar en la base
           onStepChange(currentStep + 1);
@@ -322,16 +323,18 @@ export function ConvenioMarcoForm({
           <>
             <FormField
               control={form.control}
-              name="fechaInicio"
+              name="dia"
               render={({ field }) => (
                 <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Fecha de inicio</FormLabel>
+                  <FormLabel className="text-foreground">Día de firma</FormLabel>
                   <FormControl>
-                    <Input 
-                      className="border-border focus-visible:ring-primary" 
-                      type="date" 
+                    <Input
+                      className="border-border focus-visible:ring-primary"
+                      type="number"
+                      min={1}
+                      max={31}
+                      placeholder="Ej: 15"
                       {...field}
-                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -340,16 +343,16 @@ export function ConvenioMarcoForm({
             />
             <FormField
               control={form.control}
-              name="fechaFin"
+              name="mes"
               render={({ field }) => (
                 <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Fecha de fin</FormLabel>
+                  <FormLabel className="text-foreground">Mes de firma</FormLabel>
                   <FormControl>
-                    <Input 
-                      className="border-border focus-visible:ring-primary" 
-                      type="date" 
+                    <Input
+                      className="border-border focus-visible:ring-primary"
+                      type="text"
+                      placeholder="Ej: Marzo"
                       {...field}
-                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -387,8 +390,8 @@ export function ConvenioMarcoForm({
               <div className="rounded-xl p-6 bg-yellow-700/30 border border-yellow-600/30 backdrop-blur-md shadow-md text-yellow-50">
                 <h3 className="font-semibold text-yellow-200 mb-3 text-lg">Fechas</h3>
                 <div className="text-base space-y-1">
-                  <div><b>Inicio:</b> <span className="text-yellow-50">{datosBasicos.fechaInicio}</span></div>
-                  <div><b>Fin:</b> <span className="text-yellow-50">{datosBasicos.fechaFin}</span></div>
+                  <div><b>Día de firma:</b> <span className="text-yellow-50">{datosBasicos.dia}</span></div>
+                  <div><b>Mes de firma:</b> <span className="text-yellow-50">{datosBasicos.mes}</span></div>
                 </div>
               </div>
             </div>
@@ -433,119 +436,89 @@ export function ConvenioMarcoForm({
             )}
             {currentStep === 4 && (
               <>
-                <Button
-                  type="button"
-                  variant="default"
-                  disabled={isSubmitting}
-                  onClick={async () => {
-                    // Guardar como borrador (POST o PATCH)
-                    setIsSubmitting(true);
-                    try {
-                      const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
-                      const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
-                      const dbData = {
-                        entidad_nombre: parte.nombre || '',
-                        entidad_tipo: parte.tipo || 'empresa',
-                        entidad_domicilio: parte.domicilio || '',
-                        entidad_ciudad: parte.ciudad || '',
-                        entidad_cuit: parte.cuit || '',
-                        entidad_representante: parte.representanteNombre || '',
-                        entidad_dni: parte.representanteDni || '',
-                        entidad_cargo: parte.cargoRepresentante || '',
-                        fecha_inicio: datosBasicos?.fechaInicio || '',
-                        fecha_fin: datosBasicos?.fechaFin || ''
-                      };
-                      const requestData = {
-                        title: `Convenio Marco - ${dbData.entidad_nombre}`,
-                        convenio_type_id: 2,
-                        content_data: dbData,
-                        estado: 'borrador'
-                      };
-                      let response, responseData;
-                      if (!convenioData?.id) {
-                        response = await fetch('/api/convenios', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(requestData),
-                        });
-                      } else {
-                        response = await fetch(`/api/convenios/${convenioData.id}`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(requestData),
-                        });
-                      }
-                      responseData = await response.json();
-                      if (!response.ok) {
-                        throw new Error(responseData.error || 'Error al guardar el convenio');
-                      }
-                      updateConvenioData('all', responseData);
-                      onError(null);
-                      alert('Convenio guardado como borrador.');
-                    } catch (error) {
-                      onError(error instanceof Error ? error.message : 'Error inesperado al guardar el convenio');
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                  className="px-4 transition-all"
-                >
-                  Guardar como borrador
-                </Button>
-                <Button
-                  type="button"
-                  variant="default"
-                  disabled={isSubmitting || !convenioData?.id || convenioData?.status !== 'borrador'}
-                  onClick={async () => {
-                    if (!convenioData?.id) return;
-                    setIsSubmitting(true);
-                    try {
-                      const response = await fetch(`/api/convenios/${convenioData.id}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: 'finalizado' })
-                      });
-                      if (!response.ok) throw new Error('Error al finalizar el convenio');
-                      onError(null);
-                      alert('Convenio finalizado. Ahora podés enviarlo.');
-                      window.location.reload();
-                    } catch (e) {
-                      onError('Error al finalizar convenio');
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                  className="px-4 transition-all"
-                >
-                  Finalizar convenio
-                </Button>
-                <Button
-                  type="button"
-                  variant="default"
-                  disabled={isSubmitting || !convenioData?.id || convenioData?.status !== 'finalizado'}
-                  onClick={async () => {
-                    if (!convenioData?.id) return;
-                    setIsSubmitting(true);
-                    try {
-                      const response = await fetch(`/api/convenios/${convenioData.id}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: 'enviado' })
-                      });
-                      if (!response.ok) throw new Error('Error al enviar el convenio');
-                      onError(null);
-                      alert('Convenio enviado correctamente.');
-                      window.location.reload();
-                    } catch (e) {
-                      onError('Error al enviar convenio');
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                  className="px-4 transition-all"
-                >
-                  Enviar convenio
-                </Button>
+                {convenioData?.status === 'enviado' ? (
+                  <div className="w-full text-center mt-2">
+                    <span className="text-xs text-muted-foreground">Este convenio ya fue enviado y no puede modificarse.</span>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="default"
+                    disabled={isSubmitting}
+                    onClick={() => setShowConfirmModal(true)}
+                    className="px-4 transition-all"
+                  >
+                    Guardar y Enviar convenio
+                  </Button>
+                )}
+                {showConfirmModal && (
+                  <Modal onClose={() => setShowConfirmModal(false)}>
+                    <div className="p-6">
+                      <h2 className="text-lg font-semibold mb-4">Confirmar envío</h2>
+                      <p className="mb-6">¿Deseas enviar este convenio? Una vez enviado no podrás volver a modificarlo.</p>
+                      <div className="flex justify-end gap-2">
+                        <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
+                          Volver
+                        </Button>
+                        <Button
+                          variant="default"
+                          onClick={async () => {
+                            setIsSubmitting(true);
+                            try {
+                              const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
+                              const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
+                              const dbData = {
+                                entidad_nombre: parte.nombre || '',
+                                entidad_tipo: parte.tipo || 'empresa',
+                                entidad_domicilio: parte.domicilio || '',
+                                entidad_ciudad: parte.ciudad || '',
+                                entidad_cuit: parte.cuit || '',
+                                entidad_representante: parte.representanteNombre || '',
+                                entidad_dni: parte.representanteDni || '',
+                                entidad_cargo: parte.cargoRepresentante || '',
+                                dia: datosBasicos.dia || '',
+                                mes: datosBasicos.mes || ''
+                              };
+                              const requestData = {
+                                title: `Convenio Marco - ${dbData.entidad_nombre}`,
+                                convenio_type_id: 2,
+                                content_data: dbData,
+                                status: 'pendiente'
+                              };
+                              let response, responseData;
+                              if (!convenioData?.id) {
+                                response = await fetch('/api/convenios', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(requestData),
+                                });
+                              } else {
+                                response = await fetch(`/api/convenios/${convenioData.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify(requestData),
+                                });
+                              }
+                              responseData = await response.json();
+                              if (!response.ok) {
+                                throw new Error(responseData.error || 'Error al enviar el convenio');
+                              }
+                              updateConvenioData('all', responseData);
+                              setShowConfirmModal(false);
+                              router.push('/protected/dashboard');
+                            } catch (error) {
+                              alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
+                            } finally {
+                              setIsSubmitting(false);
+                            }
+                          }}
+                        >
+                          Sí, enviar
+                        </Button>
+                      </div>
+                    </div>
+                  </Modal>
+                )}
               </>
             )}
             {currentStep < 3 && (

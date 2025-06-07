@@ -14,9 +14,35 @@ export interface ActivityData {
   convenio_title: string;
   convenio_serial: string;
   user_name: string;
+  title: string;
+  description: string;
+  time: string;
+  type: ActivityType;
+  icon: React.ReactNode;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
+
+export type ActivityType = "info" | "success" | "warning" | "error";
+
+function mapActionToType(action: string): ActivityType {
+  switch (action) {
+    case "created":
+    case "nuevo":
+      return "info";
+    case "approved":
+    case "finalizado":
+      return "success";
+    case "warning":
+    case "observado":
+      return "warning";
+    case "rejected":
+    case "error":
+      return "error";
+    default:
+      return "info";
+  }
+}
 
 export async function getRecentActivity(limit: number = 3): Promise<ActivityData[]> {
   try {
@@ -34,7 +60,14 @@ export async function getRecentActivity(limit: number = 3): Promise<ActivityData
     }
 
     const data = await response.json();
-    return data;
+    return data.map((item: any) => ({
+      ...item,
+      title: item.convenio_title,
+      description: `${item.user_name} realizó la acción ${item.action}`,
+      time: formatTimeAgo(item.created_at),
+      type: mapActionToType(item.action),
+      icon: getIconByName(item.action)
+    }));
   } catch (error) {
     console.error("Error fetching recent activity:", error);
     return [];

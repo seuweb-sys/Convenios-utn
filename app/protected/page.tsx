@@ -44,8 +44,8 @@ export default async function Dashboard() {
     getRecentActivity(3) // Limitar a 3 actividades recientes
   ]);
 
-  // Filtrar solo el tipo Convenio Marco (azul)
-  const convenioMarco = convenioTypes.find((type) => type.title.toLowerCase().includes("marco"));
+  // Filtrar los tipos de convenio marco
+  const conveniosMarco = convenioTypes.filter((type) => type.title.toLowerCase().includes("marco"));
 
   return (
     <>
@@ -120,32 +120,20 @@ export default async function Dashboard() {
           <div className="space-y-6">
             <SectionContainer title="Crear Nuevo Convenio">
               <p className="text-sm text-muted-foreground mb-5">
-                Selecciona un modelo para comenzar. <span className="font-semibold text-primary">Solo disponible Convenio Marco.</span>
+                Selecciona un modelo para comenzar. <span className="font-semibold text-primary">Disponibles: Convenio Marco y Convenio Marco Práctica Supervisada.</span>
               </p>
-              <div className="space-y-4">
-                {convenioMarco && (
+              <div className="max-h-80 overflow-y-auto space-y-4 pr-2">
+                {conveniosMarco.map((tipo) => (
                   <ConvenioTypeCard
-                    key={convenioMarco.id}
-                    title={convenioMarco.title}
-                    description={convenioMarco.description}
-                    icon={convenioMarco.icon}
-                    color={convenioMarco.color as ConvenioColor}
-                    previewUrl={convenioMarco.previewUrl}
-                    typeId={convenioMarco.id}
+                    key={tipo.id}
+                    title={tipo.title}
+                    description={tipo.description}
+                    icon={tipo.icon}
+                    color={tipo.color as ConvenioColor}
+                    previewUrl={tipo.previewUrl}
+                    typeId={tipo.id}
                   />
-                )}
-              </div>
-              <div className="mt-8">
-                <button
-                  className="w-full py-3 rounded-lg border border-dashed border-primary/40 bg-background text-primary font-semibold text-lg cursor-not-allowed opacity-60"
-                  disabled
-                  title="Debes elegir un modelo para crear un convenio"
-                >
-                  + Nuevo Convenio
-                </button>
-                <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Para crear un convenio, seleccioná primero un modelo disponible.
-                </p>
+                ))}
               </div>
             </SectionContainer>
           </div>

@@ -182,12 +182,6 @@ export default function ConveniosPage() {
                 </div>
               )}
             </SectionContainer>
-            <SectionContainer title="Acciones">
-              <Button className="w-full gap-2">
-                <PlusIcon className="h-4 w-4" />
-                Nuevo Convenio
-              </Button>
-            </SectionContainer>
           </div>
         </div>
       </div>

@@ -158,6 +158,17 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
   updateConvenioData: (section, data) => {
     set((state) => {
       let newData = data;
+      let newConvenioData = { ...state.convenioData };
+      // Si la sección es 'all', reemplaza todo el convenioData y asegura id y status
+      if (section === 'all') {
+        newConvenioData = { ...data };
+        if (data.id) newConvenioData.id = data.id;
+        if (data.status || data.estado) newConvenioData.status = data.status || data.estado;
+        return {
+          convenioData: newConvenioData,
+          updateLogTimestamp: Date.now(),
+        };
+      }
       // Si la sección es 'partes', solo actualiza partes
       if (section === 'partes') {
         newData = Array.isArray(data) ? data.map(item => ({ ...item })) : [{ ...data }];

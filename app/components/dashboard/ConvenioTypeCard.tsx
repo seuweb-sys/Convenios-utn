@@ -12,6 +12,7 @@ export interface ConvenioTypeCardProps {
   color: ConvenioColor;
   previewUrl: string;
   typeId: string | number;
+  iconName?: string;
 }
 
 export const ConvenioTypeCard = ({ 
@@ -20,7 +21,8 @@ export const ConvenioTypeCard = ({
   icon,
   color = "cyan",
   previewUrl,
-  typeId
+  typeId,
+  iconName
 }: ConvenioTypeCardProps) => {
   const iconGlowClasses = {
     blue: "bg-blue-500/20 dark:bg-blue-500/30",

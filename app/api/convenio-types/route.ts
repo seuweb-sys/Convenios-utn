@@ -27,6 +27,14 @@ const defaultConvenioTypes: ConvenioTypeApiData[] = [
     previewUrl: "/plantillas/marco/preview" // Asegúrate que estas rutas existan
   },
   {
+    id: 4,
+    title: "Convenio Marco Práctica Supervisada",
+    description: "Establece las condiciones generales para la realización de prácticas supervisadas de estudiantes entre la Facultad y una entidad externa.",
+    iconName: "graduation-cap",
+    colorName: "purple",
+    previewUrl: "/plantillas/practica-marco/preview"
+  },
+  {
     id: 2,
     title: "Prácticas Profesionales",
     description: "Para realizar prácticas laborales en organizaciones.",
