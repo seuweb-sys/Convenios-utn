@@ -93,10 +93,9 @@ export const columns: ColumnDef<Convenio>[] = [
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
       const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-        pending: { label: "Pendiente", variant: "secondary" },
-        approved: { label: "Aprobado", variant: "default" },
-        rejected: { label: "Rechazado", variant: "destructive" },
-        correction_pending: { label: "Corrección", variant: "outline" },
+        enviado: { label: "Enviado", variant: "secondary" },
+        aceptado: { label: "Aceptado", variant: "default" },
+        rechazado: { label: "Rechazado", variant: "destructive" },
       };
 
       const { label, variant } = statusMap[status] || { label: status, variant: "secondary" };

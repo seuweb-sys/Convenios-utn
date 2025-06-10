@@ -16,7 +16,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/app/components/ui/form";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, BuildingIcon, UserIcon, CalendarIcon, CheckIcon } from "lucide-react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
@@ -83,7 +83,7 @@ export function ConvenioPracticaMarcoForm({
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
   const [validationSchema, setValidationSchema] = useState<z.ZodTypeAny>(entidadSchema);
-  const [localStatus, setLocalStatus] = useState(convenioData?.status || 'borrador');
+  const [localStatus, setLocalStatus] = useState(convenioData?.status || 'enviado');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Configurar el esquema de validación según el paso actual
@@ -102,7 +102,7 @@ export function ConvenioPracticaMarcoForm({
   }, [currentStep]);
 
   useEffect(() => {
-    setLocalStatus(convenioData?.status || 'borrador');
+    setLocalStatus(convenioData?.status || 'enviado');
   }, [convenioData?.status]);
 
   // Inicializar el formulario con valores del store global
@@ -201,216 +201,260 @@ export function ConvenioPracticaMarcoForm({
     switch (currentStep) {
       case 1:
         return (
-          <>
-            <FormField
-              control={form.control}
-              name="nombre"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Nombre de la Entidad</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese el nombre de la entidad" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="tipo"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Tipo de Entidad</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      placeholder="Ej: Empresa, ONG, etc."
-                      {...field}
-                      value={field.value === 'empresa' ? 'Empresa' : field.value}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="domicilio"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Dirección</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese la dirección" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="ciudad"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Ciudad</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese la ciudad" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cuit"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">CUIT (sin guiones ni puntos)</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: 20445041743 (sin guiones ni puntos)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="rubro"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Rubro/actividad de la entidad</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: Software, Construcción, etc." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-purple-500/20 text-purple-600">
+                  <BuildingIcon className="h-5 w-5" />
+                </div>
+                Datos de la Entidad
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Información de la entidad que firmará el convenio de práctica supervisada.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nombre">Nombre de la Entidad *</Label>
+                  <Input
+                    id="nombre"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Nombre completo de la entidad"
+                    {...form.register("nombre")}
+                  />
+                  {form.formState.errors.nombre?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.nombre.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tipo">Tipo de Entidad *</Label>
+                  <Input
+                    id="tipo"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: Empresa, ONG, etc."
+                    {...form.register("tipo")}
+                  />
+                  {form.formState.errors.tipo?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.tipo.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="domicilio">Dirección *</Label>
+                  <Input
+                    id="domicilio"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Dirección completa"
+                    {...form.register("domicilio")}
+                  />
+                  {form.formState.errors.domicilio?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.domicilio.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ciudad">Ciudad *</Label>
+                  <Input
+                    id="ciudad"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ciudad"
+                    {...form.register("ciudad")}
+                  />
+                  {form.formState.errors.ciudad?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.ciudad.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cuit">CUIT (sin guiones) *</Label>
+                  <Input
+                    id="cuit"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="20445041743"
+                    {...form.register("cuit")}
+                  />
+                  {form.formState.errors.cuit?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.cuit.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="rubro">Rubro/Actividad *</Label>
+                  <Input
+                    id="rubro"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: Software, Construcción"
+                    {...form.register("rubro")}
+                  />
+                  {form.formState.errors.rubro?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.rubro.message)}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         );
       case 2:
         return (
-          <>
-            <FormField
-              control={form.control}
-              name="representanteNombre"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Nombre completo del representante</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese nombre completo" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cargoRepresentante"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Cargo del representante</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: Director, Gerente, etc." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="representanteDni"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">DNI del representante (sin puntos)</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: 12345678 (sin puntos)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-purple-500/20 text-purple-600">
+                  <UserIcon className="h-5 w-5" />
+                </div>
+                Datos del Representante
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Información del representante legal de la entidad.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="representanteNombre">Nombre Completo *</Label>
+                  <Input
+                    id="representanteNombre"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Nombre completo del representante"
+                    {...form.register("representanteNombre")}
+                  />
+                  {form.formState.errors.representanteNombre?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.representanteNombre.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cargoRepresentante">Cargo *</Label>
+                  <Input
+                    id="cargoRepresentante"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: Director, Gerente"
+                    {...form.register("cargoRepresentante")}
+                  />
+                  {form.formState.errors.cargoRepresentante?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.cargoRepresentante.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="representanteDni">DNI *</Label>
+                  <Input
+                    id="representanteDni"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Sin puntos ni guiones"
+                    {...form.register("representanteDni")}
+                  />
+                  {form.formState.errors.representanteDni?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.representanteDni.message)}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         );
       case 3:
         return (
-          <>
-            <FormField
-              control={form.control}
-              name="dia"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Día de firma</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      type="number"
-                      min={1}
-                      max={31}
-                      placeholder="Ej: 15"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="mes"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Mes de firma</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      type="text"
-                      placeholder="Ej: Marzo"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-purple-500/20 text-purple-600">
+                  <CalendarIcon className="h-5 w-5" />
+                </div>
+                Fechas del Convenio
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Información para la fecha de firma del convenio.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dia">Día de Firma *</Label>
+                  <Input
+                    id="dia"
+                    type="number"
+                    min={1}
+                    max={31}
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: 15"
+                    {...form.register("dia")}
+                  />
+                  {form.formState.errors.dia?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.dia.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="mes">Mes de Firma *</Label>
+                  <Input
+                    id="mes"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: junio"
+                    {...form.register("mes")}
+                  />
+                  {form.formState.errors.mes?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.mes.message)}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         );
       case 4:
         // Paso de revisión visual con bloques glass/blur, verticales, colores legibles
         const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
         const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
         return (
-          <div className="space-y-6 p-4 rounded-lg bg-background/80 border border-border backdrop-blur-md animate-in fade-in-50 max-h-[70vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-6 text-primary">Revisión final del convenio de práctica supervisada</h2>
-            <div className="flex flex-col gap-6">
-              <div className="rounded-xl p-6 bg-purple-900/40 border border-purple-700/30 backdrop-blur-md shadow-md text-purple-100">
-                <h3 className="font-semibold text-purple-200 mb-3 text-lg">Entidad</h3>
-                <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span className="text-purple-50">{parte.nombre}</span></div>
-                  <div><b>Tipo:</b> <span className="text-purple-50">{parte.tipo}</span></div>
-                  <div><b>Dirección:</b> <span className="text-purple-50">{parte.domicilio}</span></div>
-                  <div><b>Ciudad:</b> <span className="text-purple-50">{parte.ciudad}</span></div>
-                  <div><b>CUIT:</b> <span className="text-purple-50">{parte.cuit}</span></div>
-                  <div><b>Rubro:</b> <span className="text-purple-50">{parte.rubro}</span></div>
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-purple-500/20 text-purple-600">
+                  <CheckIcon className="h-5 w-5" />
                 </div>
-              </div>
-              <div className="rounded-xl p-6 bg-emerald-900/40 border border-emerald-700/30 backdrop-blur-md shadow-md text-emerald-100">
-                <h3 className="font-semibold text-emerald-200 mb-3 text-lg">Representante</h3>
-                <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span className="text-emerald-50">{parte.representanteNombre}</span></div>
-                  <div><b>Cargo:</b> <span className="text-emerald-50">{parte.cargoRepresentante}</span></div>
-                  <div><b>DNI:</b> <span className="text-emerald-50">{parte.representanteDni}</span></div>
-                </div>
-              </div>
-              <div className="rounded-xl p-6 bg-amber-700/30 border border-amber-600/30 backdrop-blur-md shadow-md text-amber-50">
-                <h3 className="font-semibold text-amber-200 mb-3 text-lg">Fechas</h3>
-                <div className="text-base space-y-1">
-                  <div><b>Día de firma:</b> <span className="text-amber-50">{datosBasicos.dia}</span></div>
-                  <div><b>Mes de firma:</b> <span className="text-amber-50">{datosBasicos.mes}</span></div>
-                </div>
-              </div>
+                Revisión Final
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Revisá todos los datos antes de enviar el convenio de práctica supervisada.
+              </p>
             </div>
-            <div className="mt-8 text-center text-muted-foreground text-base">
-              Si los datos son correctos, podés guardar, finalizar y enviar el convenio de práctica supervisada.
+
+            <div className="space-y-6 p-4 rounded-lg bg-background/80 border border-border backdrop-blur-md max-h-[70vh] overflow-y-auto">
+              <div className="flex flex-col gap-6">
+                <div className="rounded-xl p-6 bg-purple-900/40 border border-purple-700/30 backdrop-blur-md shadow-md text-purple-100">
+                  <h3 className="font-semibold text-purple-200 mb-3 text-lg">Entidad</h3>
+                  <div className="text-base space-y-1">
+                    <div><b>Nombre:</b> <span className="text-purple-50">{parte.nombre}</span></div>
+                    <div><b>Tipo:</b> <span className="text-purple-50">{parte.tipo}</span></div>
+                    <div><b>Dirección:</b> <span className="text-purple-50">{parte.domicilio}</span></div>
+                    <div><b>Ciudad:</b> <span className="text-purple-50">{parte.ciudad}</span></div>
+                    <div><b>CUIT:</b> <span className="text-purple-50">{parte.cuit}</span></div>
+                    <div><b>Rubro:</b> <span className="text-purple-50">{parte.rubro}</span></div>
+                  </div>
+                </div>
+                <div className="rounded-xl p-6 bg-emerald-900/40 border border-emerald-700/30 backdrop-blur-md shadow-md text-emerald-100">
+                  <h3 className="font-semibold text-emerald-200 mb-3 text-lg">Representante</h3>
+                  <div className="text-base space-y-1">
+                    <div><b>Nombre:</b> <span className="text-emerald-50">{parte.representanteNombre}</span></div>
+                    <div><b>Cargo:</b> <span className="text-emerald-50">{parte.cargoRepresentante}</span></div>
+                    <div><b>DNI:</b> <span className="text-emerald-50">{parte.representanteDni}</span></div>
+                  </div>
+                </div>
+                <div className="rounded-xl p-6 bg-amber-700/30 border border-amber-600/30 backdrop-blur-md shadow-md text-amber-50">
+                  <h3 className="font-semibold text-amber-200 mb-3 text-lg">Fechas</h3>
+                  <div className="text-base space-y-1">
+                    <div><b>Día de firma:</b> <span className="text-amber-50">{datosBasicos.dia}</span></div>
+                    <div><b>Mes de firma:</b> <span className="text-amber-50">{datosBasicos.mes}</span></div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-8 text-center text-muted-foreground text-base">
+                Si los datos son correctos, podés guardar, finalizar y enviar el convenio de práctica supervisada.
+              </div>
             </div>
           </div>
         );

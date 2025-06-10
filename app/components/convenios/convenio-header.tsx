@@ -27,7 +27,7 @@ export const ConvenioHeader = ({ title, subtitle }: ConvenioHeaderProps) => {
           </button>
           <Button variant="outline" size="sm" className="gap-2 text-sm">
             <SaveIcon className="h-4 w-4" />
-            Guardar borrador
+            Enviar convenio
           </Button>
         </div>
       </div>

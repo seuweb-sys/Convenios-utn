@@ -18,17 +18,7 @@ import {
   DashboardHeader
 } from "@/app/components/dashboard";
 import { ActivityType } from "@/lib/types";
-
-interface ActivityData {
-  id: string;
-  action: string;
-  status_from: string | null;
-  status_to: string | null;
-  created_at: string;
-  convenio_title: string;
-  convenio_serial: string;
-  user_name: string;
-}
+import type { ActivityApiData } from "@/app/api/activity/route";
 
 // Componente de esqueleto para los items de actividad
 const ActivityItemSkeleton = () => (
@@ -46,26 +36,23 @@ const ActivityItemSkeleton = () => (
   </div>
 );
 
-// Componente de esqueleto para los filtros
+// Componente de esqueleto para filtros
 const FiltersSkeleton = () => (
-  <div className="flex flex-wrap gap-4 p-2 bg-card rounded-lg">
-    {[1, 2, 3].map((i) => (
-      <div key={i} className="flex items-center gap-2">
-        <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-        <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-      </div>
-    ))}
+  <div className="space-y-4">
+    <div className="h-4 w-full bg-muted animate-pulse rounded" />
+    <div className="h-4 w-3/4 bg-muted animate-pulse rounded" />
+    <div className="h-4 w-1/2 bg-muted animate-pulse rounded" />
   </div>
 );
 
 export default function ActividadPage() {
-  const [activities, setActivities] = useState<ActivityData[]>([]);
+  const [activities, setActivities] = useState<ActivityApiData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/activity")
       .then(res => res.json())
-      .then(data => {
+      .then((data: ActivityApiData[]) => {
         setActivities(data);
         setLoading(false);
       })
@@ -93,49 +80,38 @@ export default function ActividadPage() {
                 </div>
               ) : activities.length > 0 ? (
                 <div className="space-y-4">
-                  {activities.map((activity) => {
+                  {activities.map((activity, index) => {
+                    // Mapear iconName a icono React
                     let icon = <FileTextIcon className="h-5 w-5" />;
-                    let type: ActivityType = "info";
-                    let title = "Actividad en convenio";
-                    let description = "";
-
-                    switch(activity.action) {
-                      case "create":
+                    
+                    switch(activity.iconName) {
+                      case "file-plus":
                         icon = <FilePlusIcon className="h-5 w-5" />;
-                        title = "Nuevo convenio creado";
-                        description = `Se ha creado el convenio "${activity.convenio_title}" (${activity.convenio_serial})`;
                         break;
-                      case "update":
+                      case "edit":
                         icon = <EditIcon className="h-5 w-5" />;
-                        title = "Convenio actualizado";
-                        description = `Se han realizado cambios en "${activity.convenio_title}"`;
                         break;
-                      case "update_status":
-                        if (activity.status_to === "aprobado") {
-                          icon = <CheckCircleIcon className="h-5 w-5" />;
-                          type = "success";
-                          title = "Convenio aprobado";
-                          description = `El convenio "${activity.convenio_title}" ha sido aprobado`;
-                        } else if (activity.status_to === "rechazado") {
-                          icon = <AlertCircleIcon className="h-5 w-5" />;
-                          type = "error";
-                          title = "Convenio rechazado";
-                          description = `El convenio "${activity.convenio_title}" ha sido rechazado`;
-                        } else if (activity.status_to === "revision") {
-                          icon = <ClockIcon className="h-5 w-5" />;
-                          title = "Convenio enviado a revisión";
-                          description = `El convenio "${activity.convenio_title}" está siendo revisado`;
-                        }
+                      case "check":
+                        icon = <CheckCircleIcon className="h-5 w-5" />;
+                        break;
+                      case "alert-circle":
+                        icon = <AlertCircleIcon className="h-5 w-5" />;
+                        break;
+                      case "clock":
+                        icon = <ClockIcon className="h-5 w-5" />;
+                        break;
+                      default:
+                        icon = <FileTextIcon className="h-5 w-5" />;
                         break;
                     }
 
                     return (
                       <ActivityItem
-                        key={activity.id}
-                        title={title}
-                        description={description}
-                        time={new Date(activity.created_at).toLocaleString()}
-                        type={type}
+                        key={index}
+                        title={activity.title}
+                        description={activity.description}
+                        time={activity.time}
+                        type={activity.type}
                         icon={icon}
                       />
                     );

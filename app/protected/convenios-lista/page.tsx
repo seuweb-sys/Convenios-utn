@@ -22,9 +22,9 @@ import { cn } from "@/lib/utils";
 interface ConvenioData {
   id: string;
   title: string;
-  convenio_type_id: string;
+  type: string;
   status: string;
-  created_at: string;
+  date: string;
 }
 
 // Componente de esqueleto para los items de convenio
@@ -77,27 +77,27 @@ export default function ConveniosPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
-      case "aprobado":
+      case "aceptado":
         return <CheckCircleIcon className="h-4 w-4 text-green-500" />;
-      case "revision":
-        return <ClockIcon className="h-4 w-4 text-amber-500" />;
+      case "enviado":
+        return <ClockIcon className="h-4 w-4 text-blue-500" />;
       case "rechazado":
         return <AlertCircleIcon className="h-4 w-4 text-red-500" />;
       default:
-        return <FileTextIcon className="h-4 w-4 text-blue-500" />;
+        return <FileTextIcon className="h-4 w-4 text-gray-500" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case "aprobado":
+      case "aceptado":
         return "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400";
-      case "revision":
-        return "bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400";
+      case "enviado":
+        return "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400";
       case "rechazado":
         return "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400";
       default:
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400";
+        return "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400";
     }
   };
 
@@ -131,7 +131,7 @@ export default function ConveniosPage() {
                         <div>
                           <h3 className="font-medium">{convenio.title}</h3>
                           <p className="text-sm text-muted-foreground">
-                            Tipo: {convenio.convenio_type_id}
+                            Tipo: {convenio.type}
                           </p>
                         </div>
                       </div>
@@ -144,7 +144,7 @@ export default function ConveniosPage() {
                           {convenio.status}
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(convenio.created_at).toLocaleDateString()}
+                          {convenio.date}
                         </p>
                       </div>
                     </div>

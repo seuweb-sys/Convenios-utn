@@ -182,7 +182,6 @@ export default function ConvenioParticularForm({
         body: JSON.stringify({
           ...convenioData,
           convenio_type_id: 1, // ID para Convenio Particular de Práctica Supervisada
-          status: "borrador"
         }),
       });
 

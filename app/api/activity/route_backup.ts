@@ -82,43 +82,20 @@ export async function GET(request: NextRequest) {
 
     let responseData: ActivityApiData[];
 
-    if (!activityData || activityData.length === 0) {
+    if (!data || data.length === 0) {
       responseData = defaultActivity;
     } else {
-      // 4. Obtener datos relacionados
-      const convenioIds = activityData.map(a => a.convenio_id).filter(Boolean);
-      const userIds = activityData.map(a => a.user_id).filter(Boolean);
-
-      // Consultas para obtener datos relacionados
-      const [conveniosResult, profilesResult] = await Promise.all([
-        supabase
-          .from('convenios')
-          .select('id, title, serial_number')
-          .in('id', convenioIds),
-        supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds)
-      ]);
-
-      const conveniosData = conveniosResult.data || [];
-      const profilesData = profilesResult.data || [];
-
-      // 5. Formatear los datos combinando las consultas
-      responseData = activityData.map(activity => {
-        const convenio = conveniosData.find(c => c.id === activity.convenio_id);
-        const profile = profilesData.find(p => p.id === activity.user_id);
-
+      // 4. Formatear los datos directamente en la API
+      responseData = (data as unknown as ActivityLogFromDB[]).map(activity => {
+        // Armá el título y descripción según la acción
         let type: ApiActivityType = "info";
         let iconName = "file";
         let title = "Actividad en convenio";
         let description = "";
-        
-        const convenioTitle = convenio?.title || "Convenio";
-        const convenioSerial = convenio?.serial_number || "Sin número";
-        const userName = profile?.full_name || "Usuario";
+        const convenioTitle = activity.convenios?.title || "Convenio";
+        const convenioSerial = activity.convenios?.serial_number || "Sin número";
+        const userName = activity.profiles?.full_name || "Usuario";
 
-        // Armá el título y descripción según la acción
         switch(activity.action) {
           case "create":
             title = `Nuevo convenio creado`;
@@ -164,7 +141,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 6. Devolver datos formateados
+    // 5. Devolver datos formateados
     return NextResponse.json(responseData);
 
   } catch (e: any) {

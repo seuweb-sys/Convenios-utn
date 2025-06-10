@@ -158,7 +158,7 @@ export default function ConvenioPage() {
 
   // Obtener el estado de validación de los pasos
   const allStepsValid = [1,2,3].every(step => stepStates[step]?.isValid);
-  const status = convenioData?.status || 'borrador';
+  const status = convenioData?.status || 'enviado';
 
   // Función para enviar el convenio (PATCH status a 'enviado')
   const handleEnviarConvenio = useCallback(async () => {

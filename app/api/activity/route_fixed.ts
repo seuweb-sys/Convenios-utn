@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
 import { type NextRequest } from 'next/server';
-import { formatTimeAgo } from "@/app/lib/dashboard/utils"; // Reutilizamos la función de formato de tiempo
+import { formatTimeAgo } from "@/app/lib/dashboard/utils";
 
 // Tipos para la respuesta de la API
 export type ApiActivityType = "info" | "success" | "warning" | "error";
@@ -11,26 +11,7 @@ export interface ActivityApiData {
   description: string;
   time: string;
   type: ApiActivityType;
-  iconName: string; // Nombre del icono (ej: 'file', 'check', 'alert')
-}
-
-// Estructura de datos esperada de Supabase
-interface ActivityLogFromDB {
-  id: string;
-  action: string;
-  status_from: string | null;
-  status_to: string | null;
-  created_at: string;
-  convenio_id: string;
-  user_id: string;
-  // Supabase devuelve objetos únicos para relaciones 1:1, no arrays
-  convenios: {
-    title: string;
-    serial_number: string;
-  } | null;
-  profiles: {
-    full_name: string;
-  } | null;
+  iconName: string;
 }
 
 // Datos de fallback si no hay actividad
@@ -40,7 +21,7 @@ const defaultActivity: ActivityApiData[] = [
     description: "Aquí verás la actividad reciente relacionada con tus convenios.",
     time: "Ahora",
     type: "info",
-    iconName: "file" // Mapear a FileTextIcon en el frontend
+    iconName: "file"
   }
 ];
 
@@ -62,13 +43,13 @@ export async function GET(request: NextRequest) {
     // 2. Obtener parámetro 'limit'
     const searchParams = request.nextUrl.searchParams;
     const limitParam = searchParams.get('limit');
-    const limit = limitParam ? parseInt(limitParam, 10) : 50; // Default a 50
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
 
     if (isNaN(limit) || limit <= 0) {
       return NextResponse.json({ error: 'Parámetro limit inválido' }, { status: 400 });
     }
 
-    // 3. Consultar actividad con JOINs manuales
+    // 3. Consultar actividad
     const { data: activityData, error: dbError } = await supabase
       .from('activity_log')
       .select('*')
@@ -104,7 +85,7 @@ export async function GET(request: NextRequest) {
       const conveniosData = conveniosResult.data || [];
       const profilesData = profilesResult.data || [];
 
-      // 5. Formatear los datos combinando las consultas
+      // 5. Formatear los datos
       responseData = activityData.map(activity => {
         const convenio = conveniosData.find(c => c.id === activity.convenio_id);
         const profile = profilesData.find(p => p.id === activity.user_id);
@@ -118,7 +99,6 @@ export async function GET(request: NextRequest) {
         const convenioSerial = convenio?.serial_number || "Sin número";
         const userName = profile?.full_name || "Usuario";
 
-        // Armá el título y descripción según la acción
         switch(activity.action) {
           case "create":
             title = `Nuevo convenio creado`;
@@ -130,7 +110,7 @@ export async function GET(request: NextRequest) {
             description = `Se han realizado cambios en "${convenioTitle}" (N° ${convenioSerial})`;
             iconName = "edit";
             break;
-          case "status_change":
+          case "update_status":
             if (activity.status_to === "aprobado") {
               type = "success";
               iconName = "check";
@@ -145,6 +125,11 @@ export async function GET(request: NextRequest) {
               title = `Convenio enviado a revisión`;
               description = `El convenio "${convenioTitle}" está siendo revisado`;
               iconName = "clock";
+            } else if (activity.status_to === "finalizado") {
+              type = "success";
+              iconName = "check";
+              title = `Convenio finalizado`;
+              description = `El convenio "${convenioTitle}" ha sido finalizado`;
             }
             break;
           default:

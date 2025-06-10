@@ -1,19 +1,10 @@
-import { formatTimeAgo, getIconByName } from "./utils";
-import { FileTextIcon, ClockIcon, CheckIcon, AlertCircleIcon } from "lucide-react";
+import { getIconByName } from "./utils";
 import { ReactNode } from "react";
-import type { ActivityApiData, ApiActivityType } from "@/app/api/activity/route";
+import type { ActivityApiData } from "@/app/api/activity/route";
 import { headers } from 'next/headers';
 import { getApiUrl } from "../utils/api";
 
 export interface ActivityData {
-  id: string;
-  action: string;
-  status_from: string | null;
-  status_to: string | null;
-  created_at: string;
-  convenio_title: string;
-  convenio_serial: string;
-  user_name: string;
   title: string;
   description: string;
   time: string;
@@ -30,8 +21,7 @@ function mapActionToType(action: string): ActivityType {
     case "created":
     case "nuevo":
       return "info";
-    case "approved":
-    case "finalizado":
+    case "aceptado":
       return "success";
     case "warning":
     case "observado":
@@ -59,14 +49,15 @@ export async function getRecentActivity(limit: number = 3): Promise<ActivityData
       return [];
     }
 
-    const data = await response.json();
-    return data.map((item: any) => ({
-      ...item,
-      title: item.convenio_title,
-      description: `${item.user_name} realizó la acción ${item.action}`,
-      time: formatTimeAgo(item.created_at),
-      type: mapActionToType(item.action),
-      icon: getIconByName(item.action)
+    const data: ActivityApiData[] = await response.json();
+    
+    // Los datos ya vienen formateados desde la API, solo necesitamos agregar el icono
+    return data.map((item) => ({
+      title: item.title,
+      description: item.description,
+      time: item.time,
+      type: item.type,
+      icon: getIconByName(item.iconName)
     }));
   } catch (error) {
     console.error("Error fetching recent activity:", error);

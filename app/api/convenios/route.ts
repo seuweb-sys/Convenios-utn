@@ -77,13 +77,30 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. Transformar los datos al formato deseado por la API
-    const responseData = (data as unknown as ConvenioFromDB[]).map(convenio => ({
-      id: convenio.id,
-      title: convenio.title || "Sin título",
-      date: new Date(convenio.created_at).toLocaleDateString('es-AR'),
-      type: getConvenioTypeName(convenio.convenio_type_id, convenio.convenio_types?.name),
-      status: convenio.status || "Desconocido"
-    }));
+    const responseData = (data as unknown as ConvenioFromDB[]).map(convenio => {
+      // Formatear fecha de forma más robusta
+      let formattedDate = "Sin fecha";
+      try {
+        const date = new Date(convenio.created_at);
+        if (!isNaN(date.getTime())) {
+          formattedDate = date.toLocaleDateString('es-AR', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric'
+          });
+        }
+      } catch (error) {
+        console.error('Error formatting date:', error);
+      }
+
+      return {
+        id: convenio.id,
+        title: convenio.title || "Sin título",
+        date: formattedDate,
+        type: getConvenioTypeName(convenio.convenio_type_id, convenio.convenio_types?.name),
+        status: convenio.status || "Desconocido"
+      };
+    });
 
     // 5. Devolver los datos
     return NextResponse.json(responseData);
@@ -163,7 +180,7 @@ export async function POST(request: Request) {
         title: body.title,
         convenio_type_id: body.convenio_type_id,
         content_data: body.content_data,
-        status: 'borrador',
+        status: 'enviado',
         user_id: user.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -187,7 +204,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         action: 'create',
         status_from: null,
-        status_to: 'borrador',
+        status_to: 'enviado',
         created_at: new Date().toISOString(),
         ip_address: request.headers.get('x-forwarded-for') || 'unknown'
       };

@@ -16,7 +16,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/app/components/ui/form";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { BuildingIcon, UserIcon, FileTextIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
@@ -84,7 +84,7 @@ export function ConvenioEspecificoForm({
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
   const [validationSchema, setValidationSchema] = useState<z.ZodTypeAny>(entidadSchema);
-  const [localStatus, setLocalStatus] = useState(convenioData?.status || 'borrador');
+  const [localStatus, setLocalStatus] = useState(convenioData?.status || 'enviado');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Configurar el esquema de validación según el paso actual
@@ -103,7 +103,7 @@ export function ConvenioEspecificoForm({
   }, [currentStep]);
 
   useEffect(() => {
-    setLocalStatus(convenioData?.status || 'borrador');
+    setLocalStatus(convenioData?.status || 'enviado');
   }, [convenioData?.status]);
 
   // Inicializar el formulario con valores del store global
@@ -204,202 +204,222 @@ export function ConvenioEspecificoForm({
     switch (currentStep) {
       case 1:
         return (
-          <>
-            <FormField
-              control={form.control}
-              name="nombre"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Nombre de la Entidad</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese el nombre de la entidad" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="domicilio"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Domicilio de la entidad</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese el domicilio legal" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cuit"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">CUIT (sin guiones ni puntos)</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: 20445041743 (sin guiones ni puntos)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-orange-500/20 text-orange-600">
+                  <BuildingIcon className="h-5 w-5" />
+                </div>
+                Datos de la Entidad
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Información de la entidad que firmará el convenio específico.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nombre">Nombre de la Entidad *</Label>
+                  <Input
+                    id="nombre"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Nombre completo de la entidad"
+                    {...form.register("nombre")}
+                  />
+                  {form.formState.errors.nombre && (
+                    <p className="text-sm text-red-500">{form.formState.errors.nombre.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="domicilio">Domicilio *</Label>
+                  <Input
+                    id="domicilio"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Domicilio legal de la entidad"
+                    {...form.register("domicilio")}
+                  />
+                  {form.formState.errors.domicilio && (
+                    <p className="text-sm text-red-500">{form.formState.errors.domicilio.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="cuit">CUIT (sin guiones) *</Label>
+                  <Input
+                    id="cuit"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="20445041743"
+                    {...form.register("cuit")}
+                  />
+                  {form.formState.errors.cuit && (
+                    <p className="text-sm text-red-500">{form.formState.errors.cuit.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         );
       case 2:
         return (
-          <>
-            <FormField
-              control={form.control}
-              name="representanteNombre"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Nombre completo del representante</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese nombre completo" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cargoRepresentante"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Cargo del representante</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: Director, Gerente, etc." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="representanteDni"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">DNI del representante (sin puntos)</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: 12345678 (sin puntos)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-orange-500/20 text-orange-600">
+                  <UserIcon className="h-5 w-5" />
+                </div>
+                Datos del Representante
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Información del representante legal de la entidad.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="representanteNombre">Nombre Completo *</Label>
+                  <Input
+                    id="representanteNombre"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Nombre completo del representante"
+                    {...form.register("representanteNombre")}
+                  />
+                  {form.formState.errors.representanteNombre?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.representanteNombre.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cargoRepresentante">Cargo *</Label>
+                  <Input
+                    id="cargoRepresentante"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: Director, Gerente"
+                    {...form.register("cargoRepresentante")}
+                  />
+                  {form.formState.errors.cargoRepresentante?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.cargoRepresentante.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="representanteDni">DNI *</Label>
+                  <Input
+                    id="representanteDni"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Sin puntos ni guiones"
+                    {...form.register("representanteDni")}
+                  />
+                  {form.formState.errors.representanteDni?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.representanteDni.message)}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         );
       case 3:
         return (
-          <>
-            <FormField
-              control={form.control}
-              name="convenioMarcoFecha"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Fecha del convenio marco</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      type="date"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="convenioEspecificoTipo"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Tipo de convenio específico</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      placeholder="Ej: Asistencia Técnica, Colaboración, Capacitación"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="unidadEjecutoraFacultad"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Unidad ejecutora de la Facultad</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      placeholder="Ej: Departamento de Ingeniería en Sistemas"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="unidadEjecutoraEntidad"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Unidad ejecutora de la entidad</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      placeholder="Ej: Departamento de Desarrollo, Área de RRHH"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="dia"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Día de firma</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      type="number"
-                      min={1}
-                      max={31}
-                      placeholder="Ej: 15"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="mes"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Mes de firma</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      type="text"
-                      placeholder="Ej: Marzo"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-orange-500/20 text-orange-600">
+                  <FileTextIcon className="h-5 w-5" />
+                </div>
+                Detalles del Convenio
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Información específica del convenio y fechas de firma.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="convenioMarcoFecha">Fecha del Convenio Marco *</Label>
+                  <Input
+                    id="convenioMarcoFecha"
+                    type="date"
+                    className="border-border focus-visible:ring-primary"
+                    {...form.register("convenioMarcoFecha")}
+                  />
+                  {form.formState.errors.convenioMarcoFecha?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.convenioMarcoFecha.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="convenioEspecificoTipo">Tipo de Convenio Específico *</Label>
+                  <Input
+                    id="convenioEspecificoTipo"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: Asistencia Técnica, Colaboración"
+                    {...form.register("convenioEspecificoTipo")}
+                  />
+                  {form.formState.errors.convenioEspecificoTipo?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.convenioEspecificoTipo.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="unidadEjecutoraFacultad">Unidad Ejecutora Facultad *</Label>
+                  <Input
+                    id="unidadEjecutoraFacultad"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: Departamento de Ingeniería en Sistemas"
+                    {...form.register("unidadEjecutoraFacultad")}
+                  />
+                  {form.formState.errors.unidadEjecutoraFacultad?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.unidadEjecutoraFacultad.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="unidadEjecutoraEntidad">Unidad Ejecutora Entidad *</Label>
+                  <Input
+                    id="unidadEjecutoraEntidad"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: Departamento de Desarrollo"
+                    {...form.register("unidadEjecutoraEntidad")}
+                  />
+                  {form.formState.errors.unidadEjecutoraEntidad?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.unidadEjecutoraEntidad.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dia">Día de Firma *</Label>
+                  <Input
+                    id="dia"
+                    type="number"
+                    min={1}
+                    max={31}
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: 15"
+                    {...form.register("dia")}
+                  />
+                  {form.formState.errors.dia?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.dia.message)}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="mes">Mes de Firma *</Label>
+                  <Input
+                    id="mes"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: junio"
+                    {...form.register("mes")}
+                  />
+                  {form.formState.errors.mes?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.mes.message)}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         );
       case 4:
         // Paso de revisión visual con bloques glass/blur

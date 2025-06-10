@@ -16,30 +16,27 @@ import {
   FormLabel,
   FormMessage,
 } from "@/app/components/ui/form";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { BuildingIcon, UserIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
-import { EntidadForm } from "./EntidadForm";
-import { RepresentanteForm } from "./RepresentanteForm";
-import { FechasForm } from "./FechasForm";
 import { Modal } from '@/app/components/ui/modal';
 
 const STEPS = [
   {
     title: "Datos de la Entidad",
-    component: EntidadForm
+    component: null
   },
   {
-    title: "Datos del Representante",
-    component: RepresentanteForm
+    title: "Datos del Representante", 
+    component: null
   },
   {
     title: "Fechas del Convenio",
-    component: FechasForm
+    component: null
   },
   {
     title: "Revisión",
-    component: null // lo manejo aparte en renderStepContent
+    component: null
   }
 ];
 
@@ -85,7 +82,7 @@ export function ConvenioMarcoForm({
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
   const [validationSchema, setValidationSchema] = useState<z.ZodTypeAny>(entidadSchema);
-  const [localStatus, setLocalStatus] = useState(convenioData?.status || 'borrador');
+  const [localStatus, setLocalStatus] = useState(convenioData?.status || 'enviado');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   // Configurar el esquema de validación según el paso actual
@@ -104,7 +101,7 @@ export function ConvenioMarcoForm({
   }, [currentStep]);
 
   useEffect(() => {
-    setLocalStatus(convenioData?.status || 'borrador');
+    setLocalStatus(convenioData?.status || 'enviado');
   }, [convenioData?.status]);
 
   // CORRECCIÓN: Inicializar el formulario con valores del store global o del estado pasado
@@ -201,202 +198,266 @@ export function ConvenioMarcoForm({
     switch (currentStep) {
       case 1:
         return (
-          <>
-            <FormField
-              control={form.control}
-              name="nombre"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Nombre de la Entidad</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese el nombre de la entidad" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="tipo"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Tipo de Entidad</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      placeholder="Ej: Empresa, ONG, etc."
-                      {...field}
-                      value={field.value === 'empresa' ? 'Empresa' : field.value}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="domicilio"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Dirección</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese la dirección" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="ciudad"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Ciudad</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese la ciudad" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cuit"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">CUIT (sin guiones ni puntos)</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: 20445041743 (sin guiones ni puntos)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        );
-      case 2:
-        return (
-          <>
-            <FormField
-              control={form.control}
-              name="representanteNombre"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Nombre completo</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese nombre completo" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="cargoRepresentante"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Cargo</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese cargo" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="representanteDni"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">DNI (sin puntos)</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese dni (sin puntos)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        );
-      case 3:
-        return (
-          <>
-            <FormField
-              control={form.control}
-              name="dia"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Día de firma</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      type="number"
-                      min={1}
-                      max={31}
-                      placeholder="Ej: 15"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="mes"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Mes de firma</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      type="text"
-                      placeholder="Ej: Marzo"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        );
-      case 4:
-        // Paso de revisión visual con bloques glass/blur, verticales, colores legibles
-        const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
-        const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
-        return (
-          <div className="space-y-6 p-4 rounded-lg bg-background/80 border border-border backdrop-blur-md animate-in fade-in-50 max-h-[70vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-6 text-primary">Revisión final del convenio</h2>
-            <div className="flex flex-col gap-6">
-              <div className="rounded-xl p-6 bg-blue-900/40 border border-blue-700/30 backdrop-blur-md shadow-md text-blue-100">
-                <h3 className="font-semibold text-blue-200 mb-3 text-lg">Entidad</h3>
-                <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span className="text-blue-50">{parte.nombre}</span></div>
-                  <div><b>Tipo:</b> <span className="text-blue-50">{parte.tipo}</span></div>
-                  <div><b>Dirección:</b> <span className="text-blue-50">{parte.domicilio}</span></div>
-                  <div><b>Ciudad:</b> <span className="text-blue-50">{parte.ciudad}</span></div>
-                  <div><b>CUIT:</b> <span className="text-blue-50">{parte.cuit}</span></div>
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-blue-500/20 text-blue-600">
+                  <BuildingIcon className="h-5 w-5" />
                 </div>
-              </div>
-              <div className="rounded-xl p-6 bg-green-900/40 border border-green-700/30 backdrop-blur-md shadow-md text-green-100">
-                <h3 className="font-semibold text-green-200 mb-3 text-lg">Representante</h3>
-                <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span className="text-green-50">{parte.representanteNombre}</span></div>
-                  <div><b>Cargo:</b> <span className="text-green-50">{parte.cargoRepresentante}</span></div>
-                  <div><b>DNI:</b> <span className="text-green-50">{parte.representanteDni}</span></div>
+                Datos de la Entidad
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Información de la entidad que firmará el convenio marco.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="nombre">Nombre de la Entidad *</Label>
+                  <Input
+                    id="nombre"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Nombre completo de la entidad"
+                    {...form.register("nombre")}
+                  />
+                  {form.formState.errors.nombre && (
+                    <p className="text-sm text-red-500">{form.formState.errors.nombre.message}</p>
+                  )}
                 </div>
-              </div>
-              <div className="rounded-xl p-6 bg-yellow-700/30 border border-yellow-600/30 backdrop-blur-md shadow-md text-yellow-50">
-                <h3 className="font-semibold text-yellow-200 mb-3 text-lg">Fechas</h3>
-                <div className="text-base space-y-1">
-                  <div><b>Día de firma:</b> <span className="text-yellow-50">{datosBasicos.dia}</span></div>
-                  <div><b>Mes de firma:</b> <span className="text-yellow-50">{datosBasicos.mes}</span></div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="tipo">Tipo de Entidad *</Label>
+                  <Input
+                    id="tipo"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: Empresa, ONG, etc."
+                    {...form.register("tipo")}
+                  />
+                  {form.formState.errors.tipo && (
+                    <p className="text-sm text-red-500">{form.formState.errors.tipo.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="domicilio">Dirección *</Label>
+                  <Input
+                    id="domicilio"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Dirección completa"
+                    {...form.register("domicilio")}
+                  />
+                  {form.formState.errors.domicilio && (
+                    <p className="text-sm text-red-500">{form.formState.errors.domicilio.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="ciudad">Ciudad *</Label>
+                  <Input
+                    id="ciudad"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ciudad"
+                    {...form.register("ciudad")}
+                  />
+                  {form.formState.errors.ciudad && (
+                    <p className="text-sm text-red-500">{form.formState.errors.ciudad.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="cuit">CUIT (sin guiones) *</Label>
+                  <Input
+                    id="cuit"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="20445041743"
+                    {...form.register("cuit")}
+                  />
+                  {form.formState.errors.cuit && (
+                    <p className="text-sm text-red-500">{form.formState.errors.cuit.message}</p>
+                  )}
                 </div>
               </div>
             </div>
-            <div className="mt-8 text-center text-muted-foreground text-base">
-              Si los datos son correctos, podés guardar, finalizar y enviar el convenio.
+          </div>
+        );
+      case 2:
+        return (
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-blue-500/20 text-blue-600">
+                  <UserIcon className="h-5 w-5" />
+                </div>
+                Datos del Representante
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Información del representante legal de la entidad.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="representanteNombre">Nombre Completo *</Label>
+                  <Input
+                    id="representanteNombre"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Nombre completo del representante"
+                    {...form.register("representanteNombre")}
+                  />
+                  {form.formState.errors.representanteNombre && (
+                    <p className="text-sm text-red-500">{form.formState.errors.representanteNombre.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="cargoRepresentante">Cargo *</Label>
+                  <Input
+                    id="cargoRepresentante"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: Gerente, Director"
+                    {...form.register("cargoRepresentante")}
+                  />
+                  {form.formState.errors.cargoRepresentante && (
+                    <p className="text-sm text-red-500">{form.formState.errors.cargoRepresentante.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="representanteDni">DNI *</Label>
+                  <Input
+                    id="representanteDni"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Sin puntos ni guiones"
+                    {...form.register("representanteDni")}
+                  />
+                  {form.formState.errors.representanteDni && (
+                    <p className="text-sm text-red-500">{form.formState.errors.representanteDni.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 3:
+        return (
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-blue-500/20 text-blue-600">
+                  <CalendarIcon className="h-5 w-5" />
+                </div>
+                Fechas del Convenio
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Información para la fecha de firma del convenio.
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="dia">Día de Firma *</Label>
+                  <Input
+                    id="dia"
+                    className="border-border focus-visible:ring-primary"
+                    type="number"
+                    min={1}
+                    max={31}
+                    placeholder="Ej: 15"
+                    {...form.register("dia")}
+                  />
+                  {form.formState.errors.dia && (
+                    <p className="text-sm text-red-500">{form.formState.errors.dia.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="mes">Mes de Firma *</Label>
+                  <Input
+                    id="mes"
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Ej: junio"
+                    {...form.register("mes")}
+                  />
+                  {form.formState.errors.mes && (
+                    <p className="text-sm text-red-500">{form.formState.errors.mes.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      case 4:
+        // Paso de revisión con efectos glassmorphism mejorados
+        const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
+        const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
+        return (
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-blue-500/20 text-blue-600">
+                  <CheckIcon className="h-5 w-5" />
+                </div>
+                Revisión y Finalización
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Revisa toda la información antes de crear el convenio.
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              {/* Datos de la Entidad */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-blue-500/10 to-blue-600/10 rounded-xl blur-xl"></div>
+                <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-blue-600 mb-4 flex items-center gap-2">
+                    <BuildingIcon className="h-5 w-5" />
+                    Datos de la Entidad
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><span className="font-medium">Entidad:</span> {parte.nombre}</div>
+                    <div><span className="font-medium">Tipo:</span> {parte.tipo}</div>
+                    <div><span className="font-medium">Dirección:</span> {parte.domicilio}</div>
+                    <div><span className="font-medium">Ciudad:</span> {parte.ciudad}</div>
+                    <div><span className="font-medium">CUIT:</span> {parte.cuit}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Datos del Representante */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-blue-500/10 to-blue-600/10 rounded-xl blur-xl"></div>
+                <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-teal-600 mb-4 flex items-center gap-2">
+                    <UserIcon className="h-5 w-5" />
+                    Datos del Representante
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><span className="font-medium">Representante:</span> {parte.representanteNombre}</div>
+                    <div><span className="font-medium">Cargo:</span> {parte.cargoRepresentante}</div>
+                    <div><span className="font-medium">DNI:</span> {parte.representanteDni}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fechas */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-blue-500/10 to-blue-600/10 rounded-xl blur-xl"></div>
+                <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-indigo-600 mb-4 flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5" />
+                    Fechas del Convenio
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div><span className="font-medium">Día de Firma:</span> {datosBasicos.dia}</div>
+                      <div><span className="font-medium">Mes de Firma:</span> {datosBasicos.mes}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         );

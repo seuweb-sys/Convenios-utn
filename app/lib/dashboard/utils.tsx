@@ -133,7 +133,7 @@ export function getIconByName(iconName: string | undefined | null): ReactNode {
     case "nuevo":
       return <ClockIcon {...iconProps} />;
     case "check":
-    case "approved":
+    case "aceptado":
     case "finalizado":
       return <CheckIcon {...iconProps} />;
     case "alert-circle":

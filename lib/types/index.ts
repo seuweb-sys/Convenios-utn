@@ -8,7 +8,7 @@ export interface User {
   created_at: string
 }
 
-export type ConvenioStatus = 'borrador' | 'pendiente' | 'aprobado' | 'rechazado' | 'finalizado'
+export type ConvenioStatus = 'enviado' | 'aceptado' | 'rechazado'
 
 export interface Convenio {
   id: string

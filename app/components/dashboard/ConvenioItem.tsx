@@ -9,7 +9,7 @@ import {
   ClipboardCheckIcon
 } from "lucide-react";
 
-export type ConvenioStatus = "borrador" | "enviado" | "revision" | "aprobado" | "rechazado";
+export type ConvenioStatus = "enviado" | "aceptado" | "rechazado";
 
 export interface ConvenioItemProps { 
   id?: string;
@@ -27,26 +27,20 @@ export const ConvenioItem = ({
   status 
 }: ConvenioItemProps) => {
   const statusColors = {
-    borrador: "bg-amber-500/10 text-amber-500 border-amber-500/20",
     enviado: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-    revision: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-    aprobado: "bg-green-500/10 text-green-500 border-green-500/20",
+    aceptado: "bg-green-500/10 text-green-500 border-green-500/20",
     rechazado: "bg-red-500/10 text-red-500 border-red-500/20"
   };
 
   const statusLabels = {
-    borrador: "Borrador",
     enviado: "Enviado",
-    revision: "En revisión",
-    aprobado: "Aprobado",
+    aceptado: "Aceptado",
     rechazado: "Rechazado"
   };
 
   const statusIcons = {
-    borrador: <FilePenIcon className="w-3 h-3" />,
     enviado: <ClockIcon className="w-3 h-3" />,
-    revision: <ClipboardCheckIcon className="w-3 h-3" />,
-    aprobado: <CheckIcon className="w-3 h-3" />,
+    aceptado: <CheckIcon className="w-3 h-3" />,
     rechazado: <AlertCircleIcon className="w-3 h-3" />
   };
 

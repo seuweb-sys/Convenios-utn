@@ -123,7 +123,7 @@ export interface ClausulasFormData {
 export interface ConvenioData {
     id?: number; // ID del convenio en la BBDD
     typeId: number; // ID del tipo de convenio
-    status?: string; // Ej: 'borrador', 'activo', 'finalizado'
+    status?: string; // Ej: 'enviado', 'aceptado', 'rechazado'
     createdAt?: string | Date;
     updatedAt?: string | Date;
 

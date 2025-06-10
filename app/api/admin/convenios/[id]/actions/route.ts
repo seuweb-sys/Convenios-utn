@@ -52,11 +52,11 @@ export async function POST(
 
     switch (action) {
       case "approve":
-        newStatus = "approved";
-        actionDetails = "Convenio aprobado";
+        newStatus = "aceptado";
+        actionDetails = "Convenio aceptado";
         break;
       case "reject":
-        newStatus = "rejected";
+        newStatus = "rechazado";
         actionDetails = "Convenio rechazado";
         break;
       case "correct":
@@ -66,7 +66,7 @@ export async function POST(
             { status: 400 }
           );
         }
-        newStatus = "correction_pending";
+        newStatus = "enviado";
         actionDetails = "Corrección solicitada";
         break;
       default:
