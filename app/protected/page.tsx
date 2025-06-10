@@ -44,9 +44,6 @@ export default async function Dashboard() {
     getRecentActivity(3) // Limitar a 3 actividades recientes
   ]);
 
-  // Filtrar los tipos de convenio marco
-  const conveniosMarco = convenioTypes.filter((type) => type.title.toLowerCase().includes("marco"));
-
   return (
     <>
       {/* Fondo con patrón de puntos estático */}
@@ -120,10 +117,10 @@ export default async function Dashboard() {
           <div className="space-y-6">
             <SectionContainer title="Crear Nuevo Convenio">
               <p className="text-sm text-muted-foreground mb-5">
-                Selecciona un modelo para comenzar. <span className="font-semibold text-primary">Disponibles: Convenio Marco y Convenio Marco Práctica Supervisada.</span>
+                Selecciona un modelo para comenzar. <span className="font-semibold text-primary">Disponibles: Convenio Marco, Convenio Marco Práctica Supervisada, Convenio Específico, Convenio Particular de Práctica Supervisada y Acuerdo de Colaboración.</span>
               </p>
-              <div className="max-h-80 overflow-y-auto space-y-4 pr-2">
-                {conveniosMarco.map((tipo) => (
+              <div className="space-y-4">
+                {convenioTypes.map((tipo) => (
                   <ConvenioTypeCard
                     key={tipo.id}
                     title={tipo.title}
@@ -131,7 +128,6 @@ export default async function Dashboard() {
                     icon={tipo.icon}
                     color={tipo.color as ConvenioColor}
                     previewUrl={tipo.previewUrl}
-                    typeId={tipo.id}
                   />
                 ))}
               </div>

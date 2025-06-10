@@ -1,14 +1,19 @@
 // Exportamos todos los componentes desde un solo punto
-export { default as ConvenioItem } from './ConvenioItem';
-export { default as ConvenioTypeCard } from './ConvenioTypeCard';
-export { default as ActivityItem } from './ActivityItem';
-export { default as DashboardHeader } from './DashboardHeader';
-export { default as SectionContainer } from './SectionContainer';
-export { default as BackgroundPattern } from './BackgroundPattern';
+export { ConvenioItem } from './ConvenioItem';
+export { ConvenioTypeCard } from './ConvenioTypeCard';
+export { ActivityItem } from './ActivityItem';
+export { DashboardHeader } from './DashboardHeader';
+export { SectionContainer } from './SectionContainer';
+export { BackgroundPattern } from './BackgroundPattern';
 
 // También exportamos los tipos
-export type { ConvenioStatus, ConvenioItemProps } from './ConvenioItem';
-export type { ConvenioColor, ConvenioTypeCardProps } from './ConvenioTypeCard';
+export type { ConvenioStatus } from './ConvenioItem';
+export type { ConvenioColor } from './ConvenioTypeCard';
+export type { ConvenioItemProps } from './ConvenioItem';
+export type { ConvenioTypeCardProps } from './ConvenioTypeCard';
 export type { ActivityType, ActivityItemProps } from './ActivityItem';
 export type { DashboardHeaderProps } from './DashboardHeader';
-export type { SectionContainerProps } from './SectionContainer'; 
+export type { SectionContainerProps } from './SectionContainer';
+
+// Exportar utilidades
+export { formatTimeAgo, getIconForType, getColorForType } from '../../lib/dashboard/utils'; 

@@ -505,7 +505,7 @@ export function ConvenioMarcoForm({
                               }
                               updateConvenioData('all', responseData);
                               setShowConfirmModal(false);
-                              router.push('/protected/dashboard');
+                              router.push('/protected');
                             } catch (error) {
                               alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
                             } finally {

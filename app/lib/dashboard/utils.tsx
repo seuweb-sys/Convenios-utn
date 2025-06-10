@@ -14,7 +14,7 @@ import {
   InfoIcon
 } from "lucide-react";
 
-export type ConvenioColor = "blue" | "green" | "amber" | "purple" | "rose" | "cyan";
+export type ConvenioColor = "blue" | "green" | "amber" | "purple" | "rose" | "cyan" | "orange" | "red";
 
 /**
  * Asigna un icono según el tipo de convenio
@@ -45,16 +45,30 @@ export function getIconForType(typeName: string): ReactNode {
 export function getColorForType(typeName: string): ConvenioColor {
   const type = typeName.toLowerCase().trim();
   
+  // Mapeo específico por nombre exacto primero
+  if (type === "convenio marco") {
+    return "blue";
+  } else if (type === "convenio marco práctica supervisada" || type === "convenio marco practica supervisada") {
+    return "purple";
+  } else if (type === "convenio específico" || type === "convenio especifico") {
+    return "orange";
+  } else if (type === "convenio particular de práctica supervisada" || type === "convenio particular de practica supervisada") {
+    return "green";
+  } else if (type === "acuerdo de colaboración" || type === "acuerdo de colaboracion") {
+    return "red";
+  }
+  
+  // Fallback por palabras clave
   if (type.includes("marco")) {
     return "blue";
   } else if (type.includes("práctica") || type.includes("practica") || type.includes("pasantía") || type.includes("pasantia")) {
     return "green";
   } else if (type.includes("específico") || type.includes("especifico")) {
-    return "amber";
+    return "orange";
   } else if (type.includes("académico") || type.includes("academico") || type.includes("educativo")) {
     return "purple";
   } else if (type.includes("colaboración") || type.includes("colaboracion")) {
-    return "rose";
+    return "red";
   }
   
   // Color predeterminado para cualquier otro tipo
@@ -102,26 +116,51 @@ export function formatTimeAgo(dateString: string): string {
  * @param iconName - El nombre del icono (ej: 'file', 'check').
  * @returns El componente ReactNode del icono o un icono por defecto.
  */
-export function getIconByName(iconName: string): ReactNode {
+export function getIconByName(iconName: string | undefined | null): ReactNode {
   const iconProps = { className: "h-4 w-4" }; // Propiedades comunes para los iconos
 
-  switch (iconName?.toLowerCase()) {
+  // Manejar valores nulos, undefined o vacíos
+  if (!iconName || iconName.trim() === "") {
+    return <InfoIcon {...iconProps} />;
+  }
+
+  switch (iconName.toLowerCase().trim()) {
     case "file":
-    case "info": // Agrupamos info con file por defecto
+    case "info": 
       return <FileTextIcon {...iconProps} />;
     case "clock":
+    case "created":
+    case "nuevo":
       return <ClockIcon {...iconProps} />;
     case "check":
+    case "approved":
+    case "finalizado":
       return <CheckIcon {...iconProps} />;
     case "alert-circle":
+    case "warning":
+    case "observado":
       return <AlertCircleIcon {...iconProps} />;
-    case "file-plus": // Icono para 'create'
+    case "file-plus":
+    case "create":
       return <FilePlusIcon {...iconProps} />;
-    case "edit": // Icono para 'update'
+    case "edit":
+    case "update":
       return <EditIcon {...iconProps} />;
-    // Añade más casos según los iconName definidos en la API de actividad
+    // Mapeo para convenio types
+    case "marco":
+      return <BuildingIcon {...iconProps} />;
+    case "graduation-cap":
+    case "practicas":
+      return <UsersIcon {...iconProps} />;
+    case "especifico":
+      return <ClipboardCheckIcon {...iconProps} />;
+    case "colaboracion":
+      return <HeartHandshakeIcon {...iconProps} />;
     default:
-      console.warn(`Icono no encontrado para el nombre: ${iconName}`);
+      // No mostrar warning si es un icono específico que no necesitamos mapear
+      if (!["undefined", "null", ""].includes(iconName.toLowerCase())) {
+        console.warn(`Icono no encontrado para el nombre: ${iconName}`);
+      }
       return <InfoIcon {...iconProps} />; // Icono por defecto si no se encuentra
   }
 } 

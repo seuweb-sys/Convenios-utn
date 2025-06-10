@@ -31,7 +31,7 @@ const STEPS = [
     component: null
   },
   {
-    title: "Fechas del Convenio",
+    title: "Detalles del Convenio",
     component: null
   },
   {
@@ -43,11 +43,8 @@ const STEPS = [
 // Esquemas de validación para cada paso
 const entidadSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
-  tipo: z.string().min(2, "El tipo es requerido"),
   domicilio: z.string().min(5, "La dirección debe tener al menos 5 caracteres"),
-  ciudad: z.string().min(2, "La ciudad es requerida"),
   cuit: z.string().min(11, "El CUIT es obligatorio y debe tener al menos 11 dígitos"),
-  rubro: z.string().min(2, "El rubro/actividad es requerido"),
 });
 
 const representanteSchema = z.object({
@@ -56,12 +53,16 @@ const representanteSchema = z.object({
   representanteDni: z.string().min(7, "El DNI debe tener al menos 7 dígitos").max(8, "El DNI no puede tener más de 8 dígitos"),
 });
 
-const fechasSchema = z.object({
+const detallesSchema = z.object({
+  convenioMarcoFecha: z.string().min(1, "La fecha del convenio marco es requerida"),
+  convenioEspecificoTipo: z.string().min(2, "El tipo de convenio específico es requerido"),
+  unidadEjecutoraFacultad: z.string().min(2, "La unidad ejecutora de la facultad es requerida"),
+  unidadEjecutoraEntidad: z.string().min(2, "La unidad ejecutora de la entidad es requerida"),
   dia: z.string().min(1, "El día es requerido"),
   mes: z.string().min(1, "El mes es requerido"),
 });
 
-interface ConvenioPracticaMarcoFormProps {
+interface ConvenioEspecificoFormProps {
   currentStep: number;
   onStepChange: (step: number) => void;
   formState: Record<string, any>;
@@ -71,7 +72,7 @@ interface ConvenioPracticaMarcoFormProps {
   setIsSubmitting: (isSubmitting: boolean) => void;
 }
 
-export function ConvenioPracticaMarcoForm({
+export function ConvenioEspecificoForm({
   currentStep,
   onStepChange,
   formState,
@@ -79,7 +80,7 @@ export function ConvenioPracticaMarcoForm({
   onError,
   isSubmitting,
   setIsSubmitting
-}: ConvenioPracticaMarcoFormProps) {
+}: ConvenioEspecificoFormProps) {
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
   const [validationSchema, setValidationSchema] = useState<z.ZodTypeAny>(entidadSchema);
@@ -96,7 +97,7 @@ export function ConvenioPracticaMarcoForm({
         setValidationSchema(representanteSchema);
         break;
       case 3:
-        setValidationSchema(fechasSchema);
+        setValidationSchema(detallesSchema);
         break;
     }
   }, [currentStep]);
@@ -116,11 +117,8 @@ export function ConvenioPracticaMarcoForm({
       case 1:
         return {
           nombre: parte.nombre || '',
-          tipo: parte.tipo || '',
           domicilio: parte.domicilio || '',
-          ciudad: parte.ciudad || '',
-          cuit: parte.cuit || '',
-          rubro: parte.rubro || ''
+          cuit: parte.cuit || ''
         };
       case 2:
         return {
@@ -130,6 +128,10 @@ export function ConvenioPracticaMarcoForm({
         };
       case 3:
         return {
+          convenioMarcoFecha: datosBasicos?.convenioMarcoFecha || '',
+          convenioEspecificoTipo: datosBasicos?.convenioEspecificoTipo || '',
+          unidadEjecutoraFacultad: datosBasicos?.unidadEjecutoraFacultad || '',
+          unidadEjecutoraEntidad: datosBasicos?.unidadEjecutoraEntidad || '',
           dia: datosBasicos?.dia || '',
           mes: datosBasicos?.mes || ''
         };
@@ -162,11 +164,8 @@ export function ConvenioPracticaMarcoForm({
           updateConvenioData('partes', [{
             ...currentParte,
             nombre: data.nombre,
-            tipo: data.tipo,
             domicilio: data.domicilio,
-            ciudad: data.ciudad,
-            cuit: data.cuit,
-            rubro: data.rubro
+            cuit: data.cuit
           }]);
           break;
         case 2:
@@ -180,6 +179,10 @@ export function ConvenioPracticaMarcoForm({
         case 3:
           updateConvenioData('datosBasicos', {
             ...convenioData?.datosBasicos,
+            convenioMarcoFecha: data.convenioMarcoFecha || '',
+            convenioEspecificoTipo: data.convenioEspecificoTipo || '',
+            unidadEjecutoraFacultad: data.unidadEjecutoraFacultad || '',
+            unidadEjecutoraEntidad: data.unidadEjecutoraEntidad || '',
             dia: data.dia || '',
             mes: data.mes || ''
           });
@@ -217,43 +220,12 @@ export function ConvenioPracticaMarcoForm({
             />
             <FormField
               control={form.control}
-              name="tipo"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Tipo de Entidad</FormLabel>
-                  <FormControl>
-                    <Input
-                      className="border-border focus-visible:ring-primary"
-                      placeholder="Ej: Empresa, ONG, etc."
-                      {...field}
-                      value={field.value === 'empresa' ? 'Empresa' : field.value}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="domicilio"
               render={({ field }) => (
                 <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Dirección</FormLabel>
+                  <FormLabel className="text-foreground">Domicilio de la entidad</FormLabel>
                   <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese la dirección" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="ciudad"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Ciudad</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese la ciudad" {...field} />
+                    <Input className="border-border focus-visible:ring-primary" placeholder="Ingrese el domicilio legal" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -267,19 +239,6 @@ export function ConvenioPracticaMarcoForm({
                   <FormLabel className="text-foreground">CUIT (sin guiones ni puntos)</FormLabel>
                   <FormControl>
                     <Input className="border-border focus-visible:ring-primary" placeholder="Ej: 20445041743 (sin guiones ni puntos)" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="rubro"
-              render={({ field }) => (
-                <FormItem className="mb-4">
-                  <FormLabel className="text-foreground">Rubro/actividad de la entidad</FormLabel>
-                  <FormControl>
-                    <Input className="border-border focus-visible:ring-primary" placeholder="Ej: Software, Construcción, etc." {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -336,6 +295,74 @@ export function ConvenioPracticaMarcoForm({
           <>
             <FormField
               control={form.control}
+              name="convenioMarcoFecha"
+              render={({ field }) => (
+                <FormItem className="mb-4">
+                  <FormLabel className="text-foreground">Fecha del convenio marco</FormLabel>
+                  <FormControl>
+                    <Input
+                      className="border-border focus-visible:ring-primary"
+                      type="date"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="convenioEspecificoTipo"
+              render={({ field }) => (
+                <FormItem className="mb-4">
+                  <FormLabel className="text-foreground">Tipo de convenio específico</FormLabel>
+                  <FormControl>
+                    <Input
+                      className="border-border focus-visible:ring-primary"
+                      placeholder="Ej: Asistencia Técnica, Colaboración, Capacitación"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="unidadEjecutoraFacultad"
+              render={({ field }) => (
+                <FormItem className="mb-4">
+                  <FormLabel className="text-foreground">Unidad ejecutora de la Facultad</FormLabel>
+                  <FormControl>
+                    <Input
+                      className="border-border focus-visible:ring-primary"
+                      placeholder="Ej: Departamento de Ingeniería en Sistemas"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="unidadEjecutoraEntidad"
+              render={({ field }) => (
+                <FormItem className="mb-4">
+                  <FormLabel className="text-foreground">Unidad ejecutora de la entidad</FormLabel>
+                  <FormControl>
+                    <Input
+                      className="border-border focus-visible:ring-primary"
+                      placeholder="Ej: Departamento de Desarrollo, Área de RRHH"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="dia"
               render={({ field }) => (
                 <FormItem className="mb-4">
@@ -375,42 +402,43 @@ export function ConvenioPracticaMarcoForm({
           </>
         );
       case 4:
-        // Paso de revisión visual con bloques glass/blur, verticales, colores legibles
+        // Paso de revisión visual con bloques glass/blur
         const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
         const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
         return (
           <div className="space-y-6 p-4 rounded-lg bg-background/80 border border-border backdrop-blur-md animate-in fade-in-50 max-h-[70vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-6 text-primary">Revisión final del convenio de práctica supervisada</h2>
+            <h2 className="text-2xl font-bold mb-6 text-primary">Revisión final del convenio específico</h2>
             <div className="flex flex-col gap-6">
-              <div className="rounded-xl p-6 bg-purple-900/40 border border-purple-700/30 backdrop-blur-md shadow-md text-purple-100">
-                <h3 className="font-semibold text-purple-200 mb-3 text-lg">Entidad</h3>
+              <div className="rounded-xl p-6 bg-orange-900/40 border border-orange-700/30 backdrop-blur-md shadow-md text-orange-100">
+                <h3 className="font-semibold text-orange-200 mb-3 text-lg">Entidad</h3>
                 <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span className="text-purple-50">{parte.nombre}</span></div>
-                  <div><b>Tipo:</b> <span className="text-purple-50">{parte.tipo}</span></div>
-                  <div><b>Dirección:</b> <span className="text-purple-50">{parte.domicilio}</span></div>
-                  <div><b>Ciudad:</b> <span className="text-purple-50">{parte.ciudad}</span></div>
-                  <div><b>CUIT:</b> <span className="text-purple-50">{parte.cuit}</span></div>
-                  <div><b>Rubro:</b> <span className="text-purple-50">{parte.rubro}</span></div>
+                  <div><b>Nombre:</b> <span className="text-orange-50">{parte.nombre}</span></div>
+                  <div><b>Domicilio:</b> <span className="text-orange-50">{parte.domicilio}</span></div>
+                  <div><b>CUIT:</b> <span className="text-orange-50">{parte.cuit}</span></div>
                 </div>
               </div>
-              <div className="rounded-xl p-6 bg-emerald-900/40 border border-emerald-700/30 backdrop-blur-md shadow-md text-emerald-100">
-                <h3 className="font-semibold text-emerald-200 mb-3 text-lg">Representante</h3>
+              <div className="rounded-xl p-6 bg-teal-900/40 border border-teal-700/30 backdrop-blur-md shadow-md text-teal-100">
+                <h3 className="font-semibold text-teal-200 mb-3 text-lg">Representante</h3>
                 <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span className="text-emerald-50">{parte.representanteNombre}</span></div>
-                  <div><b>Cargo:</b> <span className="text-emerald-50">{parte.cargoRepresentante}</span></div>
-                  <div><b>DNI:</b> <span className="text-emerald-50">{parte.representanteDni}</span></div>
+                  <div><b>Nombre:</b> <span className="text-teal-50">{parte.representanteNombre}</span></div>
+                  <div><b>Cargo:</b> <span className="text-teal-50">{parte.cargoRepresentante}</span></div>
+                  <div><b>DNI:</b> <span className="text-teal-50">{parte.representanteDni}</span></div>
                 </div>
               </div>
-              <div className="rounded-xl p-6 bg-amber-700/30 border border-amber-600/30 backdrop-blur-md shadow-md text-amber-50">
-                <h3 className="font-semibold text-amber-200 mb-3 text-lg">Fechas</h3>
+              <div className="rounded-xl p-6 bg-indigo-900/40 border border-indigo-700/30 backdrop-blur-md shadow-md text-indigo-100">
+                <h3 className="font-semibold text-indigo-200 mb-3 text-lg">Detalles del Convenio</h3>
                 <div className="text-base space-y-1">
-                  <div><b>Día de firma:</b> <span className="text-amber-50">{datosBasicos.dia}</span></div>
-                  <div><b>Mes de firma:</b> <span className="text-amber-50">{datosBasicos.mes}</span></div>
+                  <div><b>Fecha convenio marco:</b> <span className="text-indigo-50">{datosBasicos.convenioMarcoFecha}</span></div>
+                  <div><b>Tipo específico:</b> <span className="text-indigo-50">{datosBasicos.convenioEspecificoTipo}</span></div>
+                  <div><b>Unidad ejecutora facultad:</b> <span className="text-indigo-50">{datosBasicos.unidadEjecutoraFacultad}</span></div>
+                  <div><b>Unidad ejecutora entidad:</b> <span className="text-indigo-50">{datosBasicos.unidadEjecutoraEntidad}</span></div>
+                  <div><b>Día de firma:</b> <span className="text-indigo-50">{datosBasicos.dia}</span></div>
+                  <div><b>Mes de firma:</b> <span className="text-indigo-50">{datosBasicos.mes}</span></div>
                 </div>
               </div>
             </div>
             <div className="mt-8 text-center text-muted-foreground text-base">
-              Si los datos son correctos, podés guardar, finalizar y enviar el convenio de práctica supervisada.
+              Si los datos son correctos, podés guardar, finalizar y enviar el convenio específico.
             </div>
           </div>
         );
@@ -419,7 +447,6 @@ export function ConvenioPracticaMarcoForm({
 
   return (
     <div className="space-y-6">
-      {/* Formulario actual */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="space-y-1 mb-8">
@@ -469,7 +496,7 @@ export function ConvenioPracticaMarcoForm({
                   <Modal onClose={() => setShowConfirmModal(false)}>
                     <div className="p-6">
                       <h2 className="text-lg font-semibold mb-4">Confirmar envío</h2>
-                      <p className="mb-6">¿Deseas enviar este convenio de práctica supervisada? Una vez enviado no podrás volver a modificarlo.</p>
+                      <p className="mb-6">¿Deseas enviar este convenio específico? Una vez enviado no podrás volver a modificarlo.</p>
                       <div className="flex justify-end gap-2">
                         <Button variant="secondary" onClick={() => setShowConfirmModal(false)}>
                           Volver
@@ -483,20 +510,21 @@ export function ConvenioPracticaMarcoForm({
                               const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
                               const dbData = {
                                 entidad_nombre: parte.nombre || '',
-                                entidad_tipo: parte.tipo || 'empresa',
                                 entidad_domicilio: parte.domicilio || '',
-                                entidad_ciudad: parte.ciudad || '',
                                 entidad_cuit: parte.cuit || '',
-                                entidad_rubro: parte.rubro || '',
                                 entidad_representante: parte.representanteNombre || '',
                                 entidad_dni: parte.representanteDni || '',
                                 entidad_cargo: parte.cargoRepresentante || '',
+                                convenio_marco_fecha: datosBasicos.convenioMarcoFecha || '',
+                                convenio_especifico_tipo: datosBasicos.convenioEspecificoTipo || '',
+                                unidad_ejecutora_facultad: datosBasicos.unidadEjecutoraFacultad || '',
+                                unidad_ejecutora_entidad: datosBasicos.unidadEjecutoraEntidad || '',
                                 dia: datosBasicos.dia || '',
                                 mes: datosBasicos.mes || ''
                               };
                               const requestData = {
-                                title: `Convenio Marco Práctica Supervisada - ${dbData.entidad_nombre}`,
-                                convenio_type_id: 5, // ID específico para práctica supervisada
+                                title: `Convenio Específico - ${dbData.entidad_nombre}`,
+                                convenio_type_id: 4, // ID del convenio específico según base de datos
                                 content_data: dbData,
                                 status: 'pendiente'
                               };
@@ -552,4 +580,4 @@ export function ConvenioPracticaMarcoForm({
   );
 }
 
-export default ConvenioPracticaMarcoForm;
+export default ConvenioEspecificoForm; 

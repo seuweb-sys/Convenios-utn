@@ -28,6 +28,9 @@ import { cn } from "@/lib/utils";
 import { FullScreenPreview } from "@/app/components/convenios/full-screen-preview";
 import { useConvenioStore, getFieldsFromStore } from "@/stores/convenioStore";
 import ConvenioPracticaMarcoForm from '@/app/components/forms/convenio-practica-marco/ConvenioPracticaMarcoForm';
+import ConvenioEspecificoForm from '@/app/components/forms/convenio-especifico/ConvenioEspecificoForm';
+import ConvenioParticularForm from '@/app/components/forms/convenio-particular/ConvenioParticularForm';
+import AcuerdoColaboracionForm from '@/app/components/forms/acuerdo-colaboracion/AcuerdoColaboracionForm';
 
 // Componente de esqueleto para el formulario
 const FormSkeleton = () => (
@@ -435,7 +438,15 @@ export default function ConvenioPage() {
                   <FormSkeleton />
                 ) : (
                   <div className="p-6 animate-in fade-in-50 duration-300 slide-in-from-bottom-2">
-                    <ConvenioPracticaMarcoForm />
+                    <ConvenioPracticaMarcoForm 
+                      currentStep={currentStep}
+                      onStepChange={setCurrentStep}
+                      formState={formState}
+                      onFormStateChange={setFormState}
+                      onError={setError}
+                      isSubmitting={isSubmitting}
+                      setIsSubmitting={setIsSubmitting}
+                    />
                   </div>
                 )}
               </div>
@@ -446,6 +457,627 @@ export default function ConvenioPage() {
               <SectionContainer title="Progreso">
                 <div className="space-y-4">
                   {steps.map((step) => {
+                    // Permitir click solo si el paso es anterior o ya está completo
+                    const isClickable = step.id < currentStep || step.status === "complete";
+                    return (
+                      <button
+                        key={step.id}
+                        type="button"
+                        disabled={!isClickable}
+                        onClick={() => {
+                          if (isClickable) setCurrentStep(step.id);
+                        }}
+                        className={cn(
+                          "w-full text-left p-4 rounded-lg border transition-all duration-300 focus:outline-none",
+                          step.status === "current" ? "bg-primary/5 border-primary/20 scale-105 shadow-sm" :
+                          step.status === "complete" ? "bg-green-500/5 border-green-500/20" :
+                          "bg-card border-border",
+                          isClickable ? "cursor-pointer hover:ring-2 hover:ring-primary/30" : "opacity-60 cursor-not-allowed"
+                        )}
+                        tabIndex={isClickable ? 0 : -1}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "p-2 rounded-lg",
+                            step.status === "current" ? "bg-primary/10" :
+                            step.status === "complete" ? "bg-green-500/10" :
+                            "bg-muted"
+                          )}>
+                            {step.status === "complete" ? (
+                              <CheckIcon className="h-5 w-5 text-green-500" />
+                            ) : (
+                              step.icon
+                            )}
+                          </div>
+                          <div>
+                            <h3 className={cn(
+                              "font-medium",
+                              step.status === "current" ? "text-primary" :
+                              step.status === "complete" ? "text-green-500" :
+                              "text-muted-foreground"
+                            )}>
+                              {step.title}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {step.description}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </SectionContainer>
+              
+              <SectionContainer title="Acciones rápidas">
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "w-full justify-start gap-2 text-sm transition-all",
+                      status === 'enviado' ? "border-primary text-primary hover:bg-primary/10" : "opacity-50 cursor-not-allowed"
+                    )}
+                    disabled={status !== 'enviado'}
+                    onClick={() => {}}
+                  >
+                    <EyeIcon className="h-4 w-4" />
+                    Vista previa completa
+                  </Button>
+                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-sm">
+                    <SaveIcon className="h-4 w-4" />
+                    Guardar y continuar después
+                  </Button>
+                </div>
+              </SectionContainer>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (isCreating && type === 'especifico') {
+    // Actualizar los pasos para el convenio específico
+    const stepsEspecifico: Step[] = [
+      {
+        id: 1,
+        title: "Datos de la Entidad",
+        description: "Información básica de la entidad",
+        icon: <BuildingIcon className="h-5 w-5" />,
+        status: currentStep === 1 ? "current" : currentStep > 1 ? "complete" : "upcoming"
+      },
+      {
+        id: 2,
+        title: "Datos del Representante",
+        description: "Información del representante legal",
+        icon: <UserIcon className="h-5 w-5" />,
+        status: currentStep === 2 ? "current" : currentStep > 2 ? "complete" : "upcoming"
+      },
+      {
+        id: 3,
+        title: "Detalles del Convenio",
+        description: "Información específica del convenio",
+        icon: <CalendarIcon className="h-5 w-5" />,
+        status: currentStep === 3 ? "current" : currentStep > 3 ? "complete" : "upcoming"
+      },
+      {
+        id: 4,
+        title: "Revisión",
+        description: "Revisá y enviá tu convenio",
+        icon: <FileTextIcon className="h-5 w-5" />,
+        status: currentStep === 4 ? "current" : currentStep > 4 ? "complete" : "upcoming"
+      }
+    ];
+
+    return (
+      <>
+        <BackgroundPattern />
+        <div className="p-8 w-full relative">
+          <Suspense fallback={<div className="h-24 w-full skeleton"></div>}>
+            <div className="mb-8 border-b border-border/40 pb-6">
+              <div className="flex items-center justify-between mb-2">
+                <Link
+                  href="/protected"
+                  className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronLeftIcon className="h-4 w-4 mr-1" />
+                  Volver al dashboard
+                </Link>
+              </div>
+              <div className="mt-6">
+                <h1 className="text-2xl font-bold">Nuevo Convenio Específico</h1>
+                <p className="text-muted-foreground mt-1">Completá la información del convenio específico paso a paso</p>
+              </div>
+            </div>
+          </Suspense>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-2">
+            {/* Contenido Principal */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-card rounded-lg border shadow-sm animate-in fade-in-50 duration-300">
+                {/* Stepper con animaciones */}
+                <div className="p-6 border-b border-border/60">
+                  <div className="flex items-center gap-4">
+                    {stepsEspecifico.map((step, idx) => (
+                      <React.Fragment key={step.id}>
+                        <div className={cn(
+                          "flex items-center gap-2 transition-all duration-300",
+                          step.status === "current" ? "text-primary font-medium" :
+                          step.status === "complete" ? "text-green-500" :
+                          "text-muted-foreground"
+                        )}>
+                          <div className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300",
+                            step.status === "current" ? "border-primary bg-primary/10" :
+                            step.status === "complete" ? "border-green-500 bg-green-500/10" :
+                            "border-muted-foreground/30 bg-background"
+                          )}>
+                            {step.status === "complete" ? (
+                              <CheckIcon className="h-4 w-4" />
+                            ) : (
+                              <span>{step.id}</span>
+                            )}
+                          </div>
+                          <span className="hidden md:inline text-sm">{step.title}</span>
+                        </div>
+                        {idx < stepsEspecifico.length - 1 && (
+                          <div className={cn(
+                            "h-0.5 flex-grow max-w-16 transition-all duration-500",
+                            step.status === "complete" ? "bg-green-500" : "bg-muted"
+                          )}></div>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <Progress value={(currentStep / stepsEspecifico.length) * 100} className="h-1 mt-4" />
+                </div>
+
+                {/* Error y carga */}
+                {error && (
+                  <div className="mx-6 mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive animate-in slide-in-from-top-4 duration-300">
+                    <AlertCircleIcon className="h-5 w-5 flex-shrink-0" />
+                    <p>{error}</p>
+                  </div>
+                )}
+
+                {loading ? (
+                  <FormSkeleton />
+                ) : (
+                  <div className="p-6 animate-in fade-in-50 duration-300 slide-in-from-bottom-2">
+                    <ConvenioEspecificoForm 
+                      currentStep={currentStep}
+                      onStepChange={setCurrentStep}
+                      formState={formState}
+                      onFormStateChange={setFormState}
+                      onError={setError}
+                      isSubmitting={isSubmitting}
+                      setIsSubmitting={setIsSubmitting}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              <SectionContainer title="Progreso">
+                <div className="space-y-4">
+                  {stepsEspecifico.map((step) => {
+                    // Permitir click solo si el paso es anterior o ya está completo
+                    const isClickable = step.id < currentStep || step.status === "complete";
+                    return (
+                      <button
+                        key={step.id}
+                        type="button"
+                        disabled={!isClickable}
+                        onClick={() => {
+                          if (isClickable) setCurrentStep(step.id);
+                        }}
+                        className={cn(
+                          "w-full text-left p-4 rounded-lg border transition-all duration-300 focus:outline-none",
+                          step.status === "current" ? "bg-primary/5 border-primary/20 scale-105 shadow-sm" :
+                          step.status === "complete" ? "bg-green-500/5 border-green-500/20" :
+                          "bg-card border-border",
+                          isClickable ? "cursor-pointer hover:ring-2 hover:ring-primary/30" : "opacity-60 cursor-not-allowed"
+                        )}
+                        tabIndex={isClickable ? 0 : -1}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "p-2 rounded-lg",
+                            step.status === "current" ? "bg-primary/10" :
+                            step.status === "complete" ? "bg-green-500/10" :
+                            "bg-muted"
+                          )}>
+                            {step.status === "complete" ? (
+                              <CheckIcon className="h-5 w-5 text-green-500" />
+                            ) : (
+                              step.icon
+                            )}
+                          </div>
+                          <div>
+                            <h3 className={cn(
+                              "font-medium",
+                              step.status === "current" ? "text-primary" :
+                              step.status === "complete" ? "text-green-500" :
+                              "text-muted-foreground"
+                            )}>
+                              {step.title}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {step.description}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </SectionContainer>
+              
+              <SectionContainer title="Acciones rápidas">
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "w-full justify-start gap-2 text-sm transition-all",
+                      status === 'enviado' ? "border-primary text-primary hover:bg-primary/10" : "opacity-50 cursor-not-allowed"
+                    )}
+                    disabled={status !== 'enviado'}
+                    onClick={() => {}}
+                  >
+                    <EyeIcon className="h-4 w-4" />
+                    Vista previa completa
+                  </Button>
+                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-sm">
+                    <SaveIcon className="h-4 w-4" />
+                    Guardar y continuar después
+                  </Button>
+                </div>
+              </SectionContainer>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (isCreating && type === 'particular') {
+    // Actualizar los pasos para el convenio particular
+    const stepsParticular: Step[] = [
+      {
+        id: 1,
+        title: "Datos de la Empresa",
+        description: "Información de la empresa",
+        icon: <BuildingIcon className="h-5 w-5" />,
+        status: currentStep === 1 ? "current" : currentStep > 1 ? "complete" : "upcoming"
+      },
+      {
+        id: 2,
+        title: "Datos del Alumno",
+        description: "Información del estudiante",
+        icon: <UserIcon className="h-5 w-5" />,
+        status: currentStep === 2 ? "current" : currentStep > 2 ? "complete" : "upcoming"
+      },
+      {
+        id: 3,
+        title: "Detalles de la Práctica",
+        description: "Información de la práctica supervisada",
+        icon: <CalendarIcon className="h-5 w-5" />,
+        status: currentStep === 3 ? "current" : currentStep > 3 ? "complete" : "upcoming"
+      },
+      {
+        id: 4,
+        title: "Revisión",
+        description: "Revisá y enviá tu convenio",
+        icon: <FileTextIcon className="h-5 w-5" />,
+        status: currentStep === 4 ? "current" : currentStep > 4 ? "complete" : "upcoming"
+      }
+    ];
+
+    return (
+      <>
+        <BackgroundPattern />
+        <div className="p-8 w-full relative">
+          <Suspense fallback={<div className="h-24 w-full skeleton"></div>}>
+            <div className="mb-8 border-b border-border/40 pb-6">
+              <div className="flex items-center justify-between mb-2">
+                <Link
+                  href="/protected"
+                  className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronLeftIcon className="h-4 w-4 mr-1" />
+                  Volver al dashboard
+                </Link>
+              </div>
+              <div className="mt-6">
+                <h1 className="text-2xl font-bold">Nuevo Convenio Particular de Práctica Supervisada</h1>
+                <p className="text-muted-foreground mt-1">Completá la información del convenio particular paso a paso</p>
+              </div>
+            </div>
+          </Suspense>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-2">
+            {/* Contenido Principal */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-card rounded-lg border shadow-sm animate-in fade-in-50 duration-300">
+                {/* Stepper con animaciones */}
+                <div className="p-6 border-b border-border/60">
+                  <div className="flex items-center gap-4">
+                    {stepsParticular.map((step, idx) => (
+                      <React.Fragment key={step.id}>
+                        <div className={cn(
+                          "flex items-center gap-2 transition-all duration-300",
+                          step.status === "current" ? "text-primary font-medium" :
+                          step.status === "complete" ? "text-green-500" :
+                          "text-muted-foreground"
+                        )}>
+                          <div className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300",
+                            step.status === "current" ? "border-primary bg-primary/10" :
+                            step.status === "complete" ? "border-green-500 bg-green-500/10" :
+                            "border-muted-foreground/30 bg-background"
+                          )}>
+                            {step.status === "complete" ? (
+                              <CheckIcon className="h-4 w-4" />
+                            ) : (
+                              <span>{step.id}</span>
+                            )}
+                          </div>
+                          <span className="hidden md:inline text-sm">{step.title}</span>
+                        </div>
+                        {idx < stepsParticular.length - 1 && (
+                          <div className={cn(
+                            "h-0.5 flex-grow max-w-16 transition-all duration-500",
+                            step.status === "complete" ? "bg-green-500" : "bg-muted"
+                          )}></div>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <Progress value={(currentStep / stepsParticular.length) * 100} className="h-1 mt-4" />
+                </div>
+
+                {/* Error y carga */}
+                {error && (
+                  <div className="mx-6 mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive animate-in slide-in-from-top-4 duration-300">
+                    <AlertCircleIcon className="h-5 w-5 flex-shrink-0" />
+                    <p>{error}</p>
+                  </div>
+                )}
+
+                {loading ? (
+                  <FormSkeleton />
+                ) : (
+                  <div className="p-6 animate-in fade-in-50 duration-300 slide-in-from-bottom-2">
+                    <ConvenioParticularForm 
+                      currentStep={currentStep}
+                      onStepChange={setCurrentStep}
+                      formState={formState}
+                      onFormStateChange={setFormState}
+                      onError={setError}
+                      isSubmitting={isSubmitting}
+                      setIsSubmitting={setIsSubmitting}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              <SectionContainer title="Progreso">
+                <div className="space-y-4">
+                  {stepsParticular.map((step) => {
+                    // Permitir click solo si el paso es anterior o ya está completo
+                    const isClickable = step.id < currentStep || step.status === "complete";
+                    return (
+                      <button
+                        key={step.id}
+                        type="button"
+                        disabled={!isClickable}
+                        onClick={() => {
+                          if (isClickable) setCurrentStep(step.id);
+                        }}
+                        className={cn(
+                          "w-full text-left p-4 rounded-lg border transition-all duration-300 focus:outline-none",
+                          step.status === "current" ? "bg-primary/5 border-primary/20 scale-105 shadow-sm" :
+                          step.status === "complete" ? "bg-green-500/5 border-green-500/20" :
+                          "bg-card border-border",
+                          isClickable ? "cursor-pointer hover:ring-2 hover:ring-primary/30" : "opacity-60 cursor-not-allowed"
+                        )}
+                        tabIndex={isClickable ? 0 : -1}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "p-2 rounded-lg",
+                            step.status === "current" ? "bg-primary/10" :
+                            step.status === "complete" ? "bg-green-500/10" :
+                            "bg-muted"
+                          )}>
+                            {step.status === "complete" ? (
+                              <CheckIcon className="h-5 w-5 text-green-500" />
+                            ) : (
+                              step.icon
+                            )}
+                          </div>
+                          <div>
+                            <h3 className={cn(
+                              "font-medium",
+                              step.status === "current" ? "text-primary" :
+                              step.status === "complete" ? "text-green-500" :
+                              "text-muted-foreground"
+                            )}>
+                              {step.title}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {step.description}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </SectionContainer>
+              
+              <SectionContainer title="Acciones rápidas">
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "w-full justify-start gap-2 text-sm transition-all",
+                      status === 'enviado' ? "border-primary text-primary hover:bg-primary/10" : "opacity-50 cursor-not-allowed"
+                    )}
+                    disabled={status !== 'enviado'}
+                    onClick={() => {}}
+                  >
+                    <EyeIcon className="h-4 w-4" />
+                    Vista previa completa
+                  </Button>
+                  <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-sm">
+                    <SaveIcon className="h-4 w-4" />
+                    Guardar y continuar después
+                  </Button>
+                </div>
+              </SectionContainer>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (isCreating && type === 'acuerdo') {
+    // Actualizar los pasos para el acuerdo de colaboración
+    const stepsAcuerdo: Step[] = [
+      {
+        id: 1,
+        title: "Datos de la Entidad",
+        description: "Información de la entidad",
+        icon: <BuildingIcon className="h-5 w-5" />,
+        status: currentStep === 1 ? "current" : currentStep > 1 ? "complete" : "upcoming"
+      },
+      {
+        id: 2,
+        title: "Datos del Representante",
+        description: "Información del representante legal",
+        icon: <UserIcon className="h-5 w-5" />,
+        status: currentStep === 2 ? "current" : currentStep > 2 ? "complete" : "upcoming"
+      },
+      {
+        id: 3,
+        title: "Datos de Firma",
+        description: "Fecha de firma del acuerdo",
+        icon: <CalendarIcon className="h-5 w-5" />,
+        status: currentStep === 3 ? "current" : currentStep > 3 ? "complete" : "upcoming"
+      },
+      {
+        id: 4,
+        title: "Revisión",
+        description: "Revisá y enviá tu acuerdo",
+        icon: <FileTextIcon className="h-5 w-5" />,
+        status: currentStep === 4 ? "current" : currentStep > 4 ? "complete" : "upcoming"
+      }
+    ];
+
+    return (
+      <>
+        <BackgroundPattern />
+        <div className="p-8 w-full relative">
+          <Suspense fallback={<div className="h-24 w-full skeleton"></div>}>
+            <div className="mb-8 border-b border-border/40 pb-6">
+              <div className="flex items-center justify-between mb-2">
+                <Link
+                  href="/protected"
+                  className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ChevronLeftIcon className="h-4 w-4 mr-1" />
+                  Volver al dashboard
+                </Link>
+              </div>
+              <div className="mt-6">
+                <h1 className="text-2xl font-bold">Nuevo Acuerdo de Colaboración</h1>
+                <p className="text-muted-foreground mt-1">Completá la información del acuerdo de colaboración paso a paso</p>
+              </div>
+            </div>
+          </Suspense>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-2">
+            {/* Contenido Principal */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-card rounded-lg border shadow-sm animate-in fade-in-50 duration-300">
+                {/* Stepper con animaciones */}
+                <div className="p-6 border-b border-border/60">
+                  <div className="flex items-center gap-4">
+                    {stepsAcuerdo.map((step, idx) => (
+                      <React.Fragment key={step.id}>
+                        <div className={cn(
+                          "flex items-center gap-2 transition-all duration-300",
+                          step.status === "current" ? "text-primary font-medium" :
+                          step.status === "complete" ? "text-green-500" :
+                          "text-muted-foreground"
+                        )}>
+                          <div className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300",
+                            step.status === "current" ? "border-primary bg-primary/10" :
+                            step.status === "complete" ? "border-green-500 bg-green-500/10" :
+                            "border-muted-foreground/30 bg-background"
+                          )}>
+                            {step.status === "complete" ? (
+                              <CheckIcon className="h-4 w-4" />
+                            ) : (
+                              <span>{step.id}</span>
+                            )}
+                          </div>
+                          <span className="hidden md:inline text-sm">{step.title}</span>
+                        </div>
+                        {idx < stepsAcuerdo.length - 1 && (
+                          <div className={cn(
+                            "h-0.5 flex-grow max-w-16 transition-all duration-500",
+                            step.status === "complete" ? "bg-green-500" : "bg-muted"
+                          )}></div>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <Progress value={(currentStep / stepsAcuerdo.length) * 100} className="h-1 mt-4" />
+                </div>
+
+                {/* Error y carga */}
+                {error && (
+                  <div className="mx-6 mt-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg flex items-center gap-2 text-destructive animate-in slide-in-from-top-4 duration-300">
+                    <AlertCircleIcon className="h-5 w-5 flex-shrink-0" />
+                    <p>{error}</p>
+                  </div>
+                )}
+
+                {loading ? (
+                  <FormSkeleton />
+                ) : (
+                  <div className="p-6 animate-in fade-in-50 duration-300 slide-in-from-bottom-2">
+                    <AcuerdoColaboracionForm 
+                      currentStep={currentStep}
+                      onStepChange={setCurrentStep}
+                      formState={formState}
+                      onFormStateChange={setFormState}
+                      onError={setError}
+                      isSubmitting={isSubmitting}
+                      setIsSubmitting={setIsSubmitting}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-6">
+              <SectionContainer title="Progreso">
+                <div className="space-y-4">
+                  {stepsAcuerdo.map((step) => {
                     // Permitir click solo si el paso es anterior o ya está completo
                     const isClickable = step.id < currentStep || step.status === "complete";
                     return (

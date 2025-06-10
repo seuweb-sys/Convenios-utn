@@ -9,9 +9,27 @@ interface ConvenioFromDB {
   title: string;
   status: string;
   created_at: string;
+  convenio_type_id: number;
   convenio_types: {
     name: string;
   } | null;
+}
+
+// Helper function para mapear convenio_type_id a nombres correctos
+function getConvenioTypeName(typeId: number | null, dbName?: string): string {
+  const typeMap: Record<number, string> = {
+    1: "Convenio Particular de Práctica Supervisada",
+    2: "Convenio Marco",
+    3: "Acuerdo de Colaboración",
+    4: "Convenio Específico",
+    5: "Convenio Marco Práctica Supervisada"
+  };
+  
+  if (typeId && typeMap[typeId]) {
+    return typeMap[typeId];
+  }
+  
+  return dbName || "Sin tipo";
 }
 
 export async function GET(request: NextRequest) {
@@ -46,6 +64,7 @@ export async function GET(request: NextRequest) {
         title,
         status,
         created_at,
+        convenio_type_id,
         convenio_types!inner(name)
       `)
       .eq('user_id', user.id) // Filtrar por el ID del usuario autenticado
@@ -62,7 +81,7 @@ export async function GET(request: NextRequest) {
       id: convenio.id,
       title: convenio.title || "Sin título",
       date: new Date(convenio.created_at).toLocaleDateString('es-AR'),
-      type: convenio.convenio_types?.name || "Sin tipo",
+      type: getConvenioTypeName(convenio.convenio_type_id, convenio.convenio_types?.name),
       status: convenio.status || "Desconocido"
     }));
 

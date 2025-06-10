@@ -40,7 +40,34 @@ const initialState: Omit<ConvenioMarcoState, 'initialize' | 'updateConvenioData'
 
 interface ConvenioMarcoState {
   // Datos del convenio
-  convenioData: Partial<ConvenioData>;
+  convenioData: Partial<ConvenioData> & {
+    // Campos específicos para convenio particular
+    empresa_nombre?: string;
+    empresa_cuit?: string;
+    empresa_representante_nombre?: string;
+    empresa_representante_caracter?: string;
+    empresa_direccion_calle?: string;
+    empresa_direccion_ciudad?: string;
+    empresa_tutor_nombre?: string;
+    alumno_carrera?: string;
+    alumno_dni?: string;
+    alumno_legajo?: string;
+    fecha_inicio?: string;
+    fecha_fin?: string;
+    practica_tematica?: string;
+    facultad_docente_tutor_nombre?: string;
+    fecha_firma?: string;
+    // Campos específicos para acuerdo de colaboración
+    entidad_nombre?: string;
+    entidad_domicilio?: string;
+    entidad_ciudad?: string;
+    entidad_cuit?: string;
+    entidad_representante?: string;
+    entidad_dni?: string;
+    entidad_cargo?: string;
+    dia?: string;
+    mes?: string;
+  };
   initialConvenioData: Partial<ConvenioData> | null;
   convenioId: number | null;
   
