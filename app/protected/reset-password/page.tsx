@@ -1,15 +1,41 @@
 import { resetPasswordAction } from "@/app/actions";
-import { FormMessage, Message } from "@/components/form-message";
-import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
+import { Button } from "@/app/components/ui/button";
+
+type Message =
+  | { success: string }
+  | { error: string }
+  | { message: string };
+
+function FormMessage({ message }: { message: Message }) {
+  return (
+    <div className="flex flex-col gap-2 w-full max-w-md text-sm">
+      {"success" in message && (
+        <div className="text-foreground border-l-2 border-foreground px-4">
+          {message.success}
+        </div>
+      )}
+      {"error" in message && (
+        <div className="text-destructive border-l-2 border-destructive px-4">
+          {message.error}
+        </div>
+      )}
+      {"message" in message && (
+        <div className="text-foreground border-l-2 border-foreground px-4">
+          {message.message}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default async function ResetPassword(props: {
   searchParams: Promise<Message>;
 }) {
   const searchParams = await props.searchParams;
   return (
-    <form className="flex flex-col w-full max-w-md p-4 gap-2 [&>input]:mb-4">
+    <form action={resetPasswordAction} className="flex flex-col w-full max-w-md p-4 gap-2 [&>input]:mb-4">
       <h1 className="text-2xl font-medium">Reset password</h1>
       <p className="text-sm text-foreground/60">
         Please enter your new password below.
@@ -28,9 +54,9 @@ export default async function ResetPassword(props: {
         placeholder="Confirm password"
         required
       />
-      <SubmitButton formAction={resetPasswordAction}>
+      <Button type="submit">
         Reset password
-      </SubmitButton>
+      </Button>
       <FormMessage message={searchParams} />
     </form>
   );

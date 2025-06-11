@@ -222,7 +222,7 @@ export function ConvenioMarcoForm({
                     {...form.register("nombre")}
                   />
                   {form.formState.errors.nombre && (
-                    <p className="text-sm text-red-500">{form.formState.errors.nombre.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.nombre.message)}</p>
                   )}
                 </div>
 
@@ -235,7 +235,7 @@ export function ConvenioMarcoForm({
                     {...form.register("tipo")}
                   />
                   {form.formState.errors.tipo && (
-                    <p className="text-sm text-red-500">{form.formState.errors.tipo.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.tipo.message)}</p>
                   )}
                 </div>
 
@@ -248,7 +248,7 @@ export function ConvenioMarcoForm({
                     {...form.register("domicilio")}
                   />
                   {form.formState.errors.domicilio && (
-                    <p className="text-sm text-red-500">{form.formState.errors.domicilio.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.domicilio.message)}</p>
                   )}
                 </div>
 
@@ -261,7 +261,7 @@ export function ConvenioMarcoForm({
                     {...form.register("ciudad")}
                   />
                   {form.formState.errors.ciudad && (
-                    <p className="text-sm text-red-500">{form.formState.errors.ciudad.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.ciudad.message)}</p>
                   )}
                 </div>
 
@@ -274,7 +274,7 @@ export function ConvenioMarcoForm({
                     {...form.register("cuit")}
                   />
                   {form.formState.errors.cuit && (
-                    <p className="text-sm text-red-500">{form.formState.errors.cuit.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.cuit.message)}</p>
                   )}
                 </div>
               </div>
@@ -307,7 +307,7 @@ export function ConvenioMarcoForm({
                     {...form.register("representanteNombre")}
                   />
                   {form.formState.errors.representanteNombre && (
-                    <p className="text-sm text-red-500">{form.formState.errors.representanteNombre.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.representanteNombre.message)}</p>
                   )}
                 </div>
 
@@ -320,7 +320,7 @@ export function ConvenioMarcoForm({
                     {...form.register("cargoRepresentante")}
                   />
                   {form.formState.errors.cargoRepresentante && (
-                    <p className="text-sm text-red-500">{form.formState.errors.cargoRepresentante.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.cargoRepresentante.message)}</p>
                   )}
                 </div>
 
@@ -333,7 +333,7 @@ export function ConvenioMarcoForm({
                     {...form.register("representanteDni")}
                   />
                   {form.formState.errors.representanteDni && (
-                    <p className="text-sm text-red-500">{form.formState.errors.representanteDni.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.representanteDni.message)}</p>
                   )}
                 </div>
               </div>
@@ -369,7 +369,7 @@ export function ConvenioMarcoForm({
                     {...form.register("dia")}
                   />
                   {form.formState.errors.dia && (
-                    <p className="text-sm text-red-500">{form.formState.errors.dia.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.dia.message)}</p>
                   )}
                 </div>
 
@@ -382,7 +382,7 @@ export function ConvenioMarcoForm({
                     {...form.register("mes")}
                   />
                   {form.formState.errors.mes && (
-                    <p className="text-sm text-red-500">{form.formState.errors.mes.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.mes.message)}</p>
                   )}
                 </div>
               </div>

@@ -228,7 +228,7 @@ export function ConvenioEspecificoForm({
                     {...form.register("nombre")}
                   />
                   {form.formState.errors.nombre && (
-                    <p className="text-sm text-red-500">{form.formState.errors.nombre.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.nombre.message)}</p>
                   )}
                 </div>
 
@@ -241,7 +241,7 @@ export function ConvenioEspecificoForm({
                     {...form.register("domicilio")}
                   />
                   {form.formState.errors.domicilio && (
-                    <p className="text-sm text-red-500">{form.formState.errors.domicilio.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.domicilio.message)}</p>
                   )}
                 </div>
 
@@ -254,7 +254,7 @@ export function ConvenioEspecificoForm({
                     {...form.register("cuit")}
                   />
                   {form.formState.errors.cuit && (
-                    <p className="text-sm text-red-500">{form.formState.errors.cuit.message}</p>
+                    <p className="text-sm text-red-500">{String(form.formState.errors.cuit.message)}</p>
                   )}
                 </div>
               </div>
@@ -422,43 +422,61 @@ export function ConvenioEspecificoForm({
           </div>
         );
       case 4:
-        // Paso de revisión visual con bloques glass/blur
+        // Paso de revisión con efectos glassmorphism mejorados
         const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
         const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
         return (
-          <div className="space-y-6 p-4 rounded-lg bg-background/80 border border-border backdrop-blur-md animate-in fade-in-50 max-h-[70vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-6 text-primary">Revisión final del convenio específico</h2>
-            <div className="flex flex-col gap-6">
-              <div className="rounded-xl p-6 bg-orange-900/40 border border-orange-700/30 backdrop-blur-md shadow-md text-orange-100">
-                <h3 className="font-semibold text-orange-200 mb-3 text-lg">Entidad</h3>
-                <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span className="text-orange-50">{parte.nombre}</span></div>
-                  <div><b>Domicilio:</b> <span className="text-orange-50">{parte.domicilio}</span></div>
-                  <div><b>CUIT:</b> <span className="text-orange-50">{parte.cuit}</span></div>
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-blue-500/20 text-blue-600">
+                  <CheckIcon className="h-5 w-5" />
                 </div>
-              </div>
-              <div className="rounded-xl p-6 bg-teal-900/40 border border-teal-700/30 backdrop-blur-md shadow-md text-teal-100">
-                <h3 className="font-semibold text-teal-200 mb-3 text-lg">Representante</h3>
-                <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span className="text-teal-50">{parte.representanteNombre}</span></div>
-                  <div><b>Cargo:</b> <span className="text-teal-50">{parte.cargoRepresentante}</span></div>
-                  <div><b>DNI:</b> <span className="text-teal-50">{parte.representanteDni}</span></div>
-                </div>
-              </div>
-              <div className="rounded-xl p-6 bg-indigo-900/40 border border-indigo-700/30 backdrop-blur-md shadow-md text-indigo-100">
-                <h3 className="font-semibold text-indigo-200 mb-3 text-lg">Detalles del Convenio</h3>
-                <div className="text-base space-y-1">
-                  <div><b>Fecha convenio marco:</b> <span className="text-indigo-50">{datosBasicos.convenioMarcoFecha}</span></div>
-                  <div><b>Tipo específico:</b> <span className="text-indigo-50">{datosBasicos.convenioEspecificoTipo}</span></div>
-                  <div><b>Unidad ejecutora facultad:</b> <span className="text-indigo-50">{datosBasicos.unidadEjecutoraFacultad}</span></div>
-                  <div><b>Unidad ejecutora entidad:</b> <span className="text-indigo-50">{datosBasicos.unidadEjecutoraEntidad}</span></div>
-                  <div><b>Día de firma:</b> <span className="text-indigo-50">{datosBasicos.dia}</span></div>
-                  <div><b>Mes de firma:</b> <span className="text-indigo-50">{datosBasicos.mes}</span></div>
-                </div>
-              </div>
+                Revisión y Finalización
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Revisa toda la información antes de crear el convenio específico.
+              </p>
             </div>
-            <div className="mt-8 text-center text-muted-foreground text-base">
-              Si los datos son correctos, podés guardar, finalizar y enviar el convenio específico.
+
+            <div className="space-y-6">
+              {/* Datos de la Entidad */}
+              <div className="rounded-xl p-6 bg-orange-500/10 border border-orange-500/20 backdrop-blur-xl shadow-md">
+                <h3 className="font-semibold text-orange-600 mb-3 text-lg flex items-center gap-2">
+                  <BuildingIcon className="h-5 w-5" />
+                  Entidad
+                </h3>
+                <div className="text-base space-y-1">
+                  <div><b>Nombre:</b> <span>{parte.nombre}</span></div>
+                  <div><b>Domicilio:</b> <span>{parte.domicilio}</span></div>
+                  <div><b>CUIT:</b> <span>{parte.cuit}</span></div>
+                </div>
+              </div>
+              <div className="rounded-xl p-6 bg-teal-500/10 border border-teal-500/20 backdrop-blur-xl shadow-md">
+                <h3 className="font-semibold text-teal-600 mb-3 text-lg flex items-center gap-2">
+                  <UserIcon className="h-5 w-5" />
+                  Representante
+                </h3>
+                <div className="text-base space-y-1">
+                  <div><b>Nombre:</b> <span>{parte.representanteNombre}</span></div>
+                  <div><b>Cargo:</b> <span>{parte.cargoRepresentante}</span></div>
+                  <div><b>DNI:</b> <span>{parte.representanteDni}</span></div>
+                </div>
+              </div>
+              <div className="rounded-xl p-6 bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-xl shadow-md">
+                <h3 className="font-semibold text-indigo-600 mb-3 text-lg flex items-center gap-2">
+                  <FileTextIcon className="h-5 w-5" />
+                  Detalles del Convenio
+                </h3>
+                <div className="text-base space-y-1">
+                  <div><b>Fecha convenio marco:</b> <span>{datosBasicos.convenioMarcoFecha}</span></div>
+                  <div><b>Tipo específico:</b> <span>{datosBasicos.convenioEspecificoTipo}</span></div>
+                  <div><b>Unidad ejecutora facultad:</b> <span>{datosBasicos.unidadEjecutoraFacultad}</span></div>
+                  <div><b>Unidad ejecutora entidad:</b> <span>{datosBasicos.unidadEjecutoraEntidad}</span></div>
+                  <div><b>Día de firma:</b> <span>{datosBasicos.dia}</span></div>
+                  <div><b>Mes de firma:</b> <span>{datosBasicos.mes}</span></div>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -568,7 +586,10 @@ export function ConvenioEspecificoForm({
                               }
                               updateConvenioData('all', responseData);
                               setShowConfirmModal(false);
-                              router.push('/protected');
+                              // Forzar redirección más robusta
+                              setTimeout(() => {
+                                router.push('/protected');
+                              }, 100);
                             } catch (error) {
                               alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
                             } finally {

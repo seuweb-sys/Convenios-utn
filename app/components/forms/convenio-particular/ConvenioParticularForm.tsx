@@ -176,23 +176,52 @@ export default function ConvenioParticularForm({
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
+      
+      // Estructura correcta como en ConvenioMarco
+      const dbData = {
+        empresa_nombre: formState[1]?.empresa_nombre || '',
+        empresa_cuit: formState[1]?.empresa_cuit || '',
+        empresa_representante_nombre: formState[1]?.empresa_representante_nombre || '',
+        empresa_representante_caracter: formState[1]?.empresa_representante_caracter || '',
+        empresa_direccion_calle: formState[1]?.empresa_direccion_calle || '',
+        empresa_direccion_ciudad: formState[1]?.empresa_direccion_ciudad || '',
+        empresa_tutor_nombre: formState[1]?.empresa_tutor_nombre || '',
+        alumno_carrera: formState[2]?.alumno_carrera || '',
+        alumno_dni: formState[2]?.alumno_dni || '',
+        alumno_legajo: formState[2]?.alumno_legajo || '',
+        practica_fecha_inicio: formState[3]?.fecha_inicio || '',
+        practica_fecha_fin: formState[3]?.fecha_fin || '',
+        practica_tutor_docente: formState[3]?.facultad_docente_tutor_nombre || '',
+        practica_tematica: formState[3]?.practica_tematica || '',
+        practica_fecha_firma: formState[3]?.fecha_firma || ''
+      };
+
+      console.log('FormState debug:', formState);
+      console.log('DBData debug:', dbData);
+
+      const requestData = {
+        title: `Convenio Particular - ${dbData.empresa_nombre || 'Empresa'}`,
+        convenio_type_id: 1,
+        content_data: dbData,
+        status: 'pendiente'
+      };
+
       const response = await fetch("/api/convenios", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...convenioData,
-          convenio_type_id: 1, // ID para Convenio Particular de Práctica Supervisada
-        }),
+        body: JSON.stringify(requestData),
       });
 
-      if (response.ok) {
-        setShowModal(false);
-        router.push("/protected");
-      } else {
-        onError("Error al crear convenio");
+      const responseData = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(responseData.error || 'Error al crear el convenio');
       }
+      
+      setShowModal(false);
+      router.push("/protected");
     } catch (error) {
-      onError("Error al crear convenio");
+      onError(error instanceof Error ? error.message : "Error al crear convenio");
       console.error("Error:", error);
     } finally {
       setIsSubmitting(false);
@@ -225,7 +254,7 @@ export default function ConvenioParticularForm({
               {...empresaForm.register("empresa_nombre")}
             />
             {empresaForm.formState.errors.empresa_nombre && (
-              <p className="text-sm text-red-500">{empresaForm.formState.errors.empresa_nombre.message}</p>
+              <p className="text-sm text-red-500">{String(empresaForm.formState.errors.empresa_nombre.message)}</p>
             )}
           </div>
 
@@ -238,7 +267,7 @@ export default function ConvenioParticularForm({
               {...empresaForm.register("empresa_cuit")}
             />
             {empresaForm.formState.errors.empresa_cuit && (
-              <p className="text-sm text-red-500">{empresaForm.formState.errors.empresa_cuit.message}</p>
+              <p className="text-sm text-red-500">{String(empresaForm.formState.errors.empresa_cuit.message)}</p>
             )}
           </div>
 
@@ -251,7 +280,7 @@ export default function ConvenioParticularForm({
               {...empresaForm.register("empresa_representante_nombre")}
             />
             {empresaForm.formState.errors.empresa_representante_nombre && (
-              <p className="text-sm text-red-500">{empresaForm.formState.errors.empresa_representante_nombre.message}</p>
+              <p className="text-sm text-red-500">{String(empresaForm.formState.errors.empresa_representante_nombre.message)}</p>
             )}
           </div>
 
@@ -264,7 +293,7 @@ export default function ConvenioParticularForm({
               {...empresaForm.register("empresa_representante_caracter")}
             />
             {empresaForm.formState.errors.empresa_representante_caracter && (
-              <p className="text-sm text-red-500">{empresaForm.formState.errors.empresa_representante_caracter.message}</p>
+              <p className="text-sm text-red-500">{String(empresaForm.formState.errors.empresa_representante_caracter.message)}</p>
             )}
           </div>
 
@@ -277,7 +306,7 @@ export default function ConvenioParticularForm({
               {...empresaForm.register("empresa_direccion_calle")}
             />
             {empresaForm.formState.errors.empresa_direccion_calle && (
-              <p className="text-sm text-red-500">{empresaForm.formState.errors.empresa_direccion_calle.message}</p>
+              <p className="text-sm text-red-500">{String(empresaForm.formState.errors.empresa_direccion_calle.message)}</p>
             )}
           </div>
 
@@ -290,7 +319,7 @@ export default function ConvenioParticularForm({
               {...empresaForm.register("empresa_direccion_ciudad")}
             />
             {empresaForm.formState.errors.empresa_direccion_ciudad && (
-              <p className="text-sm text-red-500">{empresaForm.formState.errors.empresa_direccion_ciudad.message}</p>
+              <p className="text-sm text-red-500">{String(empresaForm.formState.errors.empresa_direccion_ciudad.message)}</p>
             )}
           </div>
 
@@ -303,7 +332,7 @@ export default function ConvenioParticularForm({
               {...empresaForm.register("empresa_tutor_nombre")}
             />
             {empresaForm.formState.errors.empresa_tutor_nombre && (
-              <p className="text-sm text-red-500">{empresaForm.formState.errors.empresa_tutor_nombre.message}</p>
+              <p className="text-sm text-red-500">{String(empresaForm.formState.errors.empresa_tutor_nombre.message)}</p>
             )}
           </div>
         </div>
@@ -337,7 +366,7 @@ export default function ConvenioParticularForm({
               {...alumnoForm.register("alumno_carrera")}
             />
             {alumnoForm.formState.errors.alumno_carrera && (
-              <p className="text-sm text-red-500">{alumnoForm.formState.errors.alumno_carrera.message}</p>
+              <p className="text-sm text-red-500">{String(alumnoForm.formState.errors.alumno_carrera.message)}</p>
             )}
           </div>
 
@@ -350,7 +379,7 @@ export default function ConvenioParticularForm({
               {...alumnoForm.register("alumno_dni")}
             />
             {alumnoForm.formState.errors.alumno_dni && (
-              <p className="text-sm text-red-500">{alumnoForm.formState.errors.alumno_dni.message}</p>
+              <p className="text-sm text-red-500">{String(alumnoForm.formState.errors.alumno_dni.message)}</p>
             )}
           </div>
 
@@ -363,7 +392,7 @@ export default function ConvenioParticularForm({
               {...alumnoForm.register("alumno_legajo")}
             />
             {alumnoForm.formState.errors.alumno_legajo && (
-              <p className="text-sm text-red-500">{alumnoForm.formState.errors.alumno_legajo.message}</p>
+              <p className="text-sm text-red-500">{String(alumnoForm.formState.errors.alumno_legajo.message)}</p>
             )}
           </div>
         </div>
@@ -397,7 +426,7 @@ export default function ConvenioParticularForm({
               {...practicaForm.register("fecha_inicio")}
             />
             {practicaForm.formState.errors.fecha_inicio && (
-              <p className="text-sm text-red-500">{practicaForm.formState.errors.fecha_inicio.message}</p>
+              <p className="text-sm text-red-500">{String(practicaForm.formState.errors.fecha_inicio.message)}</p>
             )}
           </div>
 
@@ -410,7 +439,7 @@ export default function ConvenioParticularForm({
               {...practicaForm.register("fecha_fin")}
             />
             {practicaForm.formState.errors.fecha_fin && (
-              <p className="text-sm text-red-500">{practicaForm.formState.errors.fecha_fin.message}</p>
+              <p className="text-sm text-red-500">{String(practicaForm.formState.errors.fecha_fin.message)}</p>
             )}
           </div>
 
@@ -423,7 +452,7 @@ export default function ConvenioParticularForm({
               {...practicaForm.register("facultad_docente_tutor_nombre")}
             />
             {practicaForm.formState.errors.facultad_docente_tutor_nombre && (
-              <p className="text-sm text-red-500">{practicaForm.formState.errors.facultad_docente_tutor_nombre.message}</p>
+              <p className="text-sm text-red-500">{String(practicaForm.formState.errors.facultad_docente_tutor_nombre.message)}</p>
             )}
           </div>
 
@@ -436,7 +465,7 @@ export default function ConvenioParticularForm({
               {...practicaForm.register("practica_tematica")}
             />
             {practicaForm.formState.errors.practica_tematica && (
-              <p className="text-sm text-red-500">{practicaForm.formState.errors.practica_tematica.message}</p>
+              <p className="text-sm text-red-500">{String(practicaForm.formState.errors.practica_tematica.message)}</p>
             )}
           </div>
 
@@ -449,7 +478,7 @@ export default function ConvenioParticularForm({
               {...practicaForm.register("fecha_firma")}
             />
             {practicaForm.formState.errors.fecha_firma && (
-              <p className="text-sm text-red-500">{practicaForm.formState.errors.fecha_firma.message}</p>
+              <p className="text-sm text-red-500">{String(practicaForm.formState.errors.fecha_firma.message)}</p>
             )}
           </div>
         </div>
@@ -541,7 +570,7 @@ export default function ConvenioParticularForm({
           </Label>
         </div>
         {revisionForm.formState.errors.confirmacion && (
-          <p className="text-sm text-red-500">{revisionForm.formState.errors.confirmacion.message}</p>
+          <p className="text-sm text-red-500">{String(revisionForm.formState.errors.confirmacion.message)}</p>
         )}
       </div>
     </div>
