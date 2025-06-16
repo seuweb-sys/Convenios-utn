@@ -1,5 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
+import { moveFileToFolder, DRIVE_FOLDERS } from '@/app/lib/google-drive';
 
 export async function POST(
   request: Request,
@@ -36,7 +37,7 @@ export async function POST(
     // Obtener el convenio actual
     const { data: convenio } = await supabase
       .from("convenios")
-      .select("status, user_id")
+      .select("status, user_id, document_path")
       .eq("id", params.id)
       .single();
 
@@ -49,15 +50,18 @@ export async function POST(
 
     let newStatus: string;
     let actionDetails: string;
+    let targetFolderId: string | null = null;
 
     switch (action) {
       case "approve":
-        newStatus = "aceptado";
-        actionDetails = "Convenio aceptado";
+        newStatus = "aprobado";
+        actionDetails = "Convenio aprobado";
+        targetFolderId = DRIVE_FOLDERS.APPROVED;
         break;
       case "reject":
         newStatus = "rechazado";
         actionDetails = "Convenio rechazado";
+        targetFolderId = DRIVE_FOLDERS.REJECTED;
         break;
       case "correct":
         if (!observaciones) {
@@ -68,6 +72,7 @@ export async function POST(
         }
         newStatus = "enviado";
         actionDetails = "Corrección solicitada";
+        targetFolderId = DRIVE_FOLDERS.PENDING;
         break;
       default:
         return NextResponse.json(
@@ -92,6 +97,20 @@ export async function POST(
         { error: "Error al actualizar el convenio" },
         { status: 500 }
       );
+    }
+
+    // Mover el archivo en Drive si tenemos el ID del archivo
+    if (targetFolderId && convenio.document_path) {
+      try {
+        // Extraer el ID del archivo de la URL de Drive
+        const fileId = convenio.document_path.split('/d/')[1]?.split('/')[0];
+        if (fileId) {
+          await moveFileToFolder(fileId, targetFolderId);
+        }
+      } catch (driveError) {
+        console.error("Error al mover el archivo en Drive:", driveError);
+        // No fallamos si el movimiento en Drive falla
+      }
     }
 
     // Si hay observaciones, guardarlas

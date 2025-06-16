@@ -94,7 +94,7 @@ export const columns: ColumnDef<Convenio>[] = [
       const status = row.getValue("status") as string;
       const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
         enviado: { label: "Enviado", variant: "secondary" },
-        aceptado: { label: "Aceptado", variant: "default" },
+        aprobado: { label: "Aprobado", variant: "default" },
         rechazado: { label: "Rechazado", variant: "destructive" },
       };
 

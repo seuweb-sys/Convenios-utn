@@ -542,7 +542,7 @@ export function ConvenioPracticaMarcoForm({
                                 title: `Convenio Marco Práctica Supervisada - ${dbData.entidad_nombre}`,
                                 convenio_type_id: 5, // ID específico para práctica supervisada
                                 content_data: dbData,
-                                status: 'pendiente'
+                                status: 'enviado'
                               };
                               let response, responseData;
                               if (!convenioData?.id) {

@@ -2,6 +2,14 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
 import { type NextRequest } from 'next/server';
 import { CreateConvenioDTO } from "@/lib/types/convenio";
+import { Packer } from 'docx';
+import { createDocument } from '@/app/lib/utils/doc-generator';
+import { uploadFileToDrive } from '@/app/lib/google-drive';
+
+interface TemplateField {
+  key: string;
+  value: string;
+}
 
 // Definimos la estructura de los datos que esperamos de Supabase
 interface ConvenioFromDB {
@@ -173,7 +181,32 @@ export async function POST(request: Request) {
       );
     }
 
-    // Crear el convenio (el serial_number lo genera el trigger)
+    // Obtener el template del tipo de convenio
+    const { data: template, error: templateError } = await supabase
+      .from('convenio_types')
+      .select('template_content')
+      .eq('id', body.convenio_type_id)
+      .single();
+
+    if (templateError || !template) {
+      console.error('Error al obtener template:', templateError);
+      return NextResponse.json(
+        { error: 'Template no encontrado' },
+        { status: 404 }
+      );
+    }
+
+    // Convertir content_data al formato TemplateField[]
+    const templateFields: TemplateField[] = Object.entries(body.content_data).map(([key, value]) => ({
+      key,
+      value: String(value)
+    }));
+
+    // Crear el documento
+    const doc = createDocument(template.template_content, templateFields);
+    const buffer = await Packer.toBuffer(doc);
+
+    // Primero crear el convenio en la base de datos
     const { data: convenio, error: createError } = await supabase
       .from('convenios')
       .insert({
@@ -183,7 +216,8 @@ export async function POST(request: Request) {
         status: 'enviado',
         user_id: user.id,
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        document_path: null // Inicialmente null, se actualizará después de subir a Drive
       })
       .select()
       .single();
@@ -196,38 +230,80 @@ export async function POST(request: Request) {
       );
     }
 
-    // Registrar en activity_log - Simplificado sin buscar columnas
+    // Si el convenio se creó exitosamente, subir a Drive
+    let documentPath = null;
     try {
-      const activityData = {
-        id: crypto.randomUUID(),
-        convenio_id: convenio.id,
-        user_id: user.id,
-        action: 'create',
-        status_from: null,
-        status_to: 'enviado',
-        created_at: new Date().toISOString(),
-        ip_address: request.headers.get('x-forwarded-for') || 'unknown'
-      };
-      
-      const { error: logError } = await supabase
-        .from('activity_log')
-        .insert(activityData);
+      const driveResponse = await uploadFileToDrive(
+        buffer,
+        `Convenio_${body.title}_${new Date().toISOString().split('T')[0]}.docx`
+      );
+      documentPath = driveResponse.webViewLink;
 
-      if (logError) {
-        console.error('Error al registrar actividad:', logError);
-        // No retornamos error aquí ya que el convenio ya fue creado
+      // Actualizar el convenio con el path del documento
+      const { error: updateError } = await supabase
+        .from('convenios')
+        .update({ document_path: documentPath })
+        .eq('id', convenio.id);
+
+      if (updateError) {
+        console.error('Error al actualizar el path del documento:', updateError);
+        // No fallamos si la actualización del path falla
       }
-    } catch (logErr) {
-      console.error("Error en el registro de actividad:", logErr);
-      // Continuamos incluso si hay error en el registro de actividad
+    } catch (driveError) {
+      console.error('Error al subir a Drive:', driveError);
+      // Si falla la subida a Drive, actualizamos el estado del convenio
+      const { error: updateError } = await supabase
+        .from('convenios')
+        .update({ 
+          status: 'borrador',
+          document_path: null
+        })
+        .eq('id', convenio.id);
+
+      if (updateError) {
+        console.error('Error al actualizar el estado del convenio:', updateError);
+      }
+
+      return NextResponse.json(
+        { error: "Error al subir el documento a Drive" },
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json(convenio);
+    // Registrar en activity_log
+    try {
+      await supabase
+        .from('activity_log')
+        .insert({
+          convenio_id: convenio.id,
+          user_id: user.id,
+          action: 'create',
+          status_from: null,
+          status_to: 'enviado',
+          ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+          metadata: {
+            title: body.title,
+            type: body.convenio_type_id,
+            document_path: documentPath
+          }
+        });
+    } catch (logError) {
+      console.error('Error al registrar actividad:', logError);
+      // No fallamos si el log falla
+    }
+
+    return NextResponse.json({
+      success: true,
+      convenio: {
+        ...convenio,
+        document_path: documentPath
+      }
+    });
 
   } catch (error) {
-    console.error('Error en el endpoint de convenios:', error);
+    console.error('Error general:', error);
     return NextResponse.json(
-      { error: "Error interno del servidor" },
+      { error: 'Error interno del servidor' },
       { status: 500 }
     );
   }

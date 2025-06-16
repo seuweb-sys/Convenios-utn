@@ -1,0 +1,348 @@
+[
+  {
+    "id": 1,
+    "name": "Convenio Particular de Práctica Supervisada",
+    "fields": [
+      {
+        "name": "empresa_nombre",
+        "type": "text",
+        "label": "Nombre Empresa",
+        "required": true
+      },
+      {
+        "name": "empresa_cuit",
+        "type": "number",
+        "label": "CUIT Empresa (sin guiones)",
+        "required": true
+      },
+      {
+        "name": "empresa_representante_nombre",
+        "type": "text",
+        "label": "Representante Legal Empresa",
+        "required": true
+      },
+      {
+        "name": "empresa_representante_caracter",
+        "type": "text",
+        "label": "Carácter del Representante",
+        "required": true
+      },
+      {
+        "name": "empresa_direccion_calle",
+        "type": "text",
+        "label": "Dirección (Calle)",
+        "required": true
+      },
+      {
+        "name": "empresa_direccion_ciudad",
+        "type": "text",
+        "label": "Ciudad",
+        "required": true
+      },
+      {
+        "name": "empresa_tutor_nombre",
+        "type": "text",
+        "label": "Tutor por la Empresa",
+        "required": true
+      },
+      {
+        "name": "alumno_carrera",
+        "type": "text",
+        "label": "Carrera del Alumno",
+        "required": true
+      },
+      {
+        "name": "alumno_dni",
+        "type": "number",
+        "label": "DNI Alumno",
+        "required": true
+      },
+      {
+        "name": "alumno_legajo",
+        "type": "number",
+        "label": "Legajo Alumno",
+        "required": true
+      },
+      {
+        "name": "facultad_docente_tutor_nombre",
+        "type": "text",
+        "label": "Docente Tutor por la Facultad",
+        "required": true
+      },
+      {
+        "name": "fecha_inicio",
+        "type": "date",
+        "label": "Fecha Inicio Práctica",
+        "required": true
+      },
+      {
+        "name": "fecha_fin",
+        "type": "date",
+        "label": "Fecha Fin Práctica",
+        "required": true
+      },
+      {
+        "name": "practica_tematica",
+        "type": "textarea",
+        "label": "Temática de Desarrollo",
+        "required": true
+      },
+      {
+        "name": "fecha_firma",
+        "type": "date",
+        "label": "Fecha Firma Convenio",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Convenio Marco",
+    "fields": [
+      {
+        "name": "entidad_nombre",
+        "label": "Nombre de la entidad"
+      },
+      {
+        "name": "entidad_tipo",
+        "label": "Tipo de entidad"
+      },
+      {
+        "name": "entidad_domicilio",
+        "label": "Domicilio"
+      },
+      {
+        "name": "entidad_ciudad",
+        "label": "Ciudad"
+      },
+      {
+        "name": "entidad_cuit",
+        "label": "CUIT"
+      },
+      {
+        "name": "entidad_representante",
+        "label": "Representante"
+      },
+      {
+        "name": "entidad_dni",
+        "label": "DNI del representante"
+      },
+      {
+        "name": "entidad_cargo",
+        "label": "Cargo del representante"
+      },
+      {
+        "name": "dia",
+        "label": "Día de firma"
+      },
+      {
+        "name": "mes",
+        "label": "Mes de firma"
+      }
+    ]
+  },
+  {
+    "id": 3,
+    "name": "Acuerdo de Colaboracion",
+    "fields": [
+      {
+        "name": "entidad_nombre",
+        "type": "text",
+        "label": "Nombre de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_domicilio",
+        "type": "text",
+        "label": "Domicilio",
+        "required": true
+      },
+      {
+        "name": "entidad_ciudad",
+        "type": "text",
+        "label": "Ciudad",
+        "required": true
+      },
+      {
+        "name": "entidad_cuit",
+        "type": "number",
+        "label": "CUIT",
+        "required": true
+      },
+      {
+        "name": "entidad_representante",
+        "type": "text",
+        "label": "Representante",
+        "required": true
+      },
+      {
+        "name": "entidad_dni",
+        "type": "number",
+        "label": "DNI del representante",
+        "required": true
+      },
+      {
+        "name": "entidad_cargo",
+        "type": "text",
+        "label": "Cargo del representante",
+        "required": true
+      },
+      {
+        "name": "dia",
+        "type": "text",
+        "label": "Día de firma",
+        "required": true
+      },
+      {
+        "name": "mes",
+        "type": "text",
+        "label": "Mes de firma",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": 4,
+    "name": "Convenio Específico",
+    "fields": [
+      {
+        "name": "entidad_nombre",
+        "type": "text",
+        "label": "Nombre de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_domicilio",
+        "type": "text",
+        "label": "Domicilio de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_cuit",
+        "type": "number",
+        "label": "CUIT de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_representante",
+        "type": "text",
+        "label": "Representante de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_dni",
+        "type": "number",
+        "label": "DNI del representante",
+        "required": true
+      },
+      {
+        "name": "entidad_cargo",
+        "type": "text",
+        "label": "Cargo del representante",
+        "required": true
+      },
+      {
+        "name": "convenio_marco_fecha",
+        "type": "date",
+        "label": "Fecha del convenio marco",
+        "required": true
+      },
+      {
+        "name": "convenio_especifico_tipo",
+        "type": "text",
+        "label": "Tipo de convenio específico",
+        "required": true
+      },
+      {
+        "name": "unidad_ejecutora_facultad",
+        "type": "text",
+        "label": "Unidad ejecutora de la Facultad",
+        "required": true
+      },
+      {
+        "name": "unidad_ejecutora_entidad",
+        "type": "text",
+        "label": "Unidad ejecutora de la entidad",
+        "required": true
+      },
+      {
+        "name": "dia",
+        "type": "text",
+        "label": "Día de firma",
+        "required": true
+      },
+      {
+        "name": "mes",
+        "type": "text",
+        "label": "Mes de firma",
+        "required": true
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Convenio Marco Practica Supervisada",
+    "fields": [
+      {
+        "name": "entidad_nombre",
+        "type": "text",
+        "label": "Nombre de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_domicilio",
+        "type": "text",
+        "label": "Domicilio de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_ciudad",
+        "type": "text",
+        "label": "Ciudad de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_cuit",
+        "type": "number",
+        "label": "CUIT de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_representante",
+        "type": "text",
+        "label": "Representante de la entidad",
+        "required": true
+      },
+      {
+        "name": "entidad_dni",
+        "type": "number",
+        "label": "DNI del representante",
+        "required": true
+      },
+      {
+        "name": "entidad_cargo",
+        "type": "text",
+        "label": "Cargo del representante",
+        "required": true
+      },
+      {
+        "name": "entidad_rubro",
+        "type": "text",
+        "label": "Rubro/actividad de la entidad",
+        "required": true
+      },
+      {
+        "name": "dia",
+        "type": "text",
+        "label": "Día de firma",
+        "required": true
+      },
+      {
+        "name": "mes",
+        "type": "text",
+        "label": "Mes de firma",
+        "required": true
+      }
+    ]
+  }
+]
