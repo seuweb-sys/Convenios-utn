@@ -54,23 +54,16 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div className="space-y-4">
-      {/* Solo buscador */}
-      <div className="flex items-center gap-4 p-4 bg-muted/30 backdrop-blur-sm rounded-lg border border-border/50">
-        <div className="relative flex-1">
-          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar convenios..."
-            value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
-            onChange={(event) => {
-              table.getColumn("title")?.setFilterValue(event.target.value);
-            }}
-            className="pl-10 bg-background/50 border-border/60 focus:bg-background/80 transition-colors"
-          />
-        </div>
-        <div className="text-sm text-muted-foreground whitespace-nowrap">
-          {data.length} convenio{data.length !== 1 ? 's' : ''}
-        </div>
+    <div>
+      <div className="flex items-center py-4 px-4">
+        <Input
+          placeholder="Filtrar..."
+          value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
+          onChange={(event) =>
+            table.getColumn("title")?.setFilterValue(event.target.value)
+          }
+          className="max-w-sm"
+        />
       </div>
 
       {/* Tabla */}

@@ -203,16 +203,15 @@ export const columns: ColumnDef<Convenio>[] = [
     header: "Estado",
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      
-      return (
-        <div className={cn(
-          "px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 w-fit",
-          getStatusColor(status)
-        )}>
-          {getStatusIcon(status)}
-          {status.charAt(0).toUpperCase() + status.slice(1)}
-        </div>
-      );
+      const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+        enviado: { label: "Enviado", variant: "secondary" },
+        aprobado: { label: "Aprobado", variant: "default" },
+        rechazado: { label: "Rechazado", variant: "destructive" },
+      };
+
+      const { label, variant } = statusMap[status] || { label: status, variant: "secondary" };
+
+      return <Badge variant={variant}>{label}</Badge>;
     },
   },
   {

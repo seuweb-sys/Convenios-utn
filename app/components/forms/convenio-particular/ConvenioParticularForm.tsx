@@ -203,7 +203,7 @@ export default function ConvenioParticularForm({
                         title: dbData.empresa_nombre || 'Empresa',
         convenio_type_id: 1,
         content_data: dbData,
-        status: 'pendiente'
+        status: 'enviado'
       };
 
       const response = await fetch("/api/convenios", {
