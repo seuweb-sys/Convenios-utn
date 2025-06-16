@@ -1,14 +1,12 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { DataTable } from "@/app/protected/admin/data-table";
-import { columns } from "@/app/protected/admin/columns";
+import { AdminPanelClient } from "@/app/protected/admin/AdminPanelClient";
 import {
   SectionContainer,
   BackgroundPattern,
   DashboardHeader
 } from "@/app/components/dashboard";
-import { AdminFilters } from "@/app/protected/admin/admin-filters";
 
 export default async function AdminPage() {
   const supabase = await createClient();
@@ -82,23 +80,7 @@ export default async function AdminPage() {
             subtitle="Gestiona todos los convenios del sistema desde este panel" 
           />
         </Suspense>
-
-        {/* Layout mejorado: Tabla estrecha + Filtros sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
-          {/* Tabla más ancha para 100% zoom */}
-          <div className="lg:col-span-4">
-            <SectionContainer title="Convenios del Sistema">
-              <div className="bg-card/80 backdrop-blur-sm border border-border/60 rounded-lg overflow-hidden">
-                <DataTable columns={columns} data={convenios || []} />
-              </div>
-            </SectionContainer>
-          </div>
-
-          {/* Filtros más estrechos */}
-          <div className="lg:col-span-1">
-            <AdminFilters data={convenios || []} />
-          </div>
-        </div>
+        <AdminPanelClient convenios={convenios || []} />
       </div>
     </>
   );

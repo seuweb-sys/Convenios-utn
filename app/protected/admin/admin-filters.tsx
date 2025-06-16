@@ -7,18 +7,42 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   FileTextIcon,
-  UsersIcon
+  UsersIcon,
+  BookOpenIcon,
+  BriefcaseIcon,
+  FileText,
+  UserCheck,
+  HeartHandshake
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface AdminFiltersProps {
   data: any[];
+  statusFilter: string | null;
+  setStatusFilter: (s: string | null) => void;
+  typeFilter: string | null;
+  setTypeFilter: (t: string | null) => void;
 }
 
-export function AdminFilters({ data }: AdminFiltersProps) {
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState<string | null>(null);
+const tipoConvenioUI: Record<string, { icon: React.ReactNode; color: string }> = {
+  "Convenio Marco": {
+    icon: <BookOpenIcon className="h-8 w-8 text-blue-500" />, color: "bg-blue-100 dark:bg-blue-900/20"
+  },
+  "Convenio Marco Práctica Supervisada": {
+    icon: <UserCheck className="h-8 w-8 text-purple-500" />, color: "bg-purple-100 dark:bg-purple-900/20"
+  },
+  "Convenio Específico": {
+    icon: <FileText className="h-8 w-8 text-orange-500" />, color: "bg-orange-100 dark:bg-orange-900/20"
+  },
+  "Convenio Particular de Práctica Supervisada": {
+    icon: <BriefcaseIcon className="h-8 w-8 text-green-500" />, color: "bg-green-100 dark:bg-green-900/20"
+  },
+  "Acuerdo de Colaboracion": {
+    icon: <HeartHandshake className="h-8 w-8 text-red-500" />, color: "bg-red-100 dark:bg-red-900/20"
+  },
+};
 
+export function AdminFilters({ data, statusFilter, setStatusFilter, typeFilter, setTypeFilter }: AdminFiltersProps) {
   // Extraer estados y tipos únicos
   const availableStatuses = Array.from(new Set(
     data.map((item: any) => (item as any).status).filter(Boolean)
@@ -39,7 +63,7 @@ export function AdminFilters({ data }: AdminFiltersProps) {
 
   return (
     <div className="space-y-4">
-      <div className="p-4 bg-muted/20 backdrop-blur-sm rounded-lg border border-border/50">
+      <div className="p-4 bg-card/80 backdrop-blur-sm shadow-lg rounded-xl border border-border/60">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
           <FilterIcon className="h-5 w-5 text-muted-foreground" />
           Filtros
@@ -80,34 +104,27 @@ export function AdminFilters({ data }: AdminFiltersProps) {
           </div>
 
           <div className="border-t pt-4">
-            <div className="flex items-center gap-2 text-sm">
-              <FileTextIcon className="h-4 w-4 text-muted-foreground" />
-              <span 
-                className={`cursor-pointer transition-colors ${!typeFilter ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
-                onClick={() => setTypeFilter(null)}
-              >
-                Todos los tipos
-              </span>
+            <div className="flex items-center gap-2 text-base font-semibold mb-2">
+              <FileTextIcon className="h-5 w-5 text-muted-foreground" />
+              <span>Todos los tipos</span>
             </div>
-            
-            <div className="space-y-2 mt-2">
-              {availableTypes.map(type => (
-                <div 
-                  key={type}
-                  className={`flex items-center gap-2 text-sm cursor-pointer p-2 rounded-md transition-colors ${
-                    typeFilter === type 
-                      ? 'bg-primary/10 text-primary font-medium' 
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-                  }`}
-                  onClick={() => setTypeFilter(type)}
-                >
-                  <FileTextIcon className="h-4 w-4" />
-                  <span>{type}</span>
-                  <Badge variant="outline" className="ml-auto text-xs">
-                    {getTypeCount(type)}
-                  </Badge>
-                </div>
-              ))}
+            <div className="flex flex-wrap gap-3 mt-2 justify-center">
+              {availableTypes.map(type => {
+                const ui = tipoConvenioUI[type] || { icon: <FileTextIcon className="h-8 w-8 text-muted-foreground" />, color: "" };
+                return (
+                  <div
+                    key={type}
+                    className={`flex flex-col items-center justify-center cursor-pointer p-2 rounded-lg transition-colors ${typeFilter === type ? ui.color + " ring-2 ring-primary/60" : "hover:bg-muted/30"}`}
+                    onClick={() => setTypeFilter(type)}
+                    style={{ width: 56 }}
+                  >
+                    {ui.icon}
+                    <Badge variant="outline" className="mt-1 text-xs px-2">
+                      {getTypeCount(type)}
+                    </Badge>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
