@@ -200,7 +200,7 @@ export default function ConvenioParticularForm({
       console.log('DBData debug:', dbData);
 
       const requestData = {
-        title: `Convenio Particular - ${dbData.empresa_nombre || 'Empresa'}`,
+                        title: dbData.empresa_nombre || 'Empresa',
         convenio_type_id: 1,
         content_data: dbData,
         status: 'pendiente'

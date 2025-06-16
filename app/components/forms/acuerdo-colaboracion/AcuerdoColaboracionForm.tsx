@@ -159,7 +159,7 @@ export default function AcuerdoColaboracionForm({
       
       // Preparar datos según el formato CreateConvenioDTO
       const requestData = {
-        title: `Acuerdo de Colaboración - ${convenioData.entidad_nombre}`,
+        title: convenioData.entidad_nombre,
         convenio_type_id: 3, // ID para Acuerdo de Colaboración
         content_data: {
           entidad_nombre: convenioData.entidad_nombre,
