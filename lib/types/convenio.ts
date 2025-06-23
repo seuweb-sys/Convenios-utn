@@ -51,6 +51,7 @@ export interface UpdateConvenioDTO {
   content_data?: Record<string, any>
   status?: ConvenioStatus
   reviewer_id?: string
+  document_path?: string
 }
 
 // Campos comunes para todos los convenios

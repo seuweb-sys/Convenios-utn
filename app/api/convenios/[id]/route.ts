@@ -117,9 +117,12 @@ export async function PATCH(
       updateData.content_data = body.content_data;
     }
 
+    if (body.document_path) {
+      updateData.document_path = body.document_path;
+    }
+
     if (body.status) {
       updateData.status = body.status;
-      
       // Si se está enviando el convenio (cambiando a 'enviado'), marcar observaciones como resueltas
       if (body.status === 'enviado' && convenio.status === 'revision') {
         try {

@@ -22,15 +22,15 @@ interface ActivityLogFromDB {
   status_to: string | null;
   created_at: string;
   convenio_id: string;
-  user_id: string;
-  // Supabase devuelve objetos únicos para relaciones 1:1, no arrays
+  user_id: string; // Incluimos user_id para el filtro
+  // Ajustamos para esperar un array (incluso de 1 elemento) o null
   convenios: {
     title: string;
     serial_number: string;
-  } | null;
+  }[] | null;
   profiles: {
     full_name: string;
-  } | null;
+  }[] | null;
 }
 
 // Datos de fallback si no hay actividad
@@ -68,10 +68,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Parámetro limit inválido' }, { status: 400 });
     }
 
-    // 3. Consultar actividad con JOINs manuales
-    const { data: activityData, error: dbError } = await supabase
+    // 3. Consultar actividad
+    const { data, error: dbError } = await supabase
       .from('activity_log')
-      .select('*')
+      .select(`
+        id,
+        action,
+        status_from,
+        status_to,
+        created_at,
+        convenio_id,
+        user_id,
+        convenios (
+          title,
+          serial_number
+        ),
+        profiles:user_id (
+          full_name
+        )
+      `)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -82,43 +97,20 @@ export async function GET(request: NextRequest) {
 
     let responseData: ActivityApiData[];
 
-    if (!activityData || activityData.length === 0) {
+    if (!data || data.length === 0) {
       responseData = defaultActivity;
     } else {
-      // 4. Obtener datos relacionados
-      const convenioIds = activityData.map(a => a.convenio_id).filter(Boolean);
-      const userIds = activityData.map(a => a.user_id).filter(Boolean);
-
-      // Consultas para obtener datos relacionados
-      const [conveniosResult, profilesResult] = await Promise.all([
-        supabase
-          .from('convenios')
-          .select('id, title, serial_number')
-          .in('id', convenioIds),
-        supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', userIds)
-      ]);
-
-      const conveniosData = conveniosResult.data || [];
-      const profilesData = profilesResult.data || [];
-
-      // 5. Formatear los datos combinando las consultas
-      responseData = activityData.map(activity => {
-        const convenio = conveniosData.find(c => c.id === activity.convenio_id);
-        const profile = profilesData.find(p => p.id === activity.user_id);
-
+      // 4. Formatear los datos directamente en la API
+      responseData = (data as unknown as ActivityLogFromDB[]).map(activity => {
+        // Armá el título y descripción según la acción
         let type: ApiActivityType = "info";
         let iconName = "file";
         let title = "Actividad en convenio";
         let description = "";
-        
-        const convenioTitle = convenio?.title || "Convenio";
-        const convenioSerial = convenio?.serial_number || "Sin número";
-        const userName = profile?.full_name || "Usuario";
+        const convenioTitle = activity.convenios?.[0]?.title || "Convenio";
+        const convenioSerial = activity.convenios?.[0]?.serial_number || "Sin número";
+        const userName = activity.profiles?.[0]?.full_name || "Usuario";
 
-        // Armá el título y descripción según la acción
         switch(activity.action) {
           case "create":
             title = `Nuevo convenio creado`;
@@ -164,8 +156,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 6. Devolver datos formateados
-    return NextResponse.json(responseData);
+    // 5. Devolver datos formateados
+    return NextResponse.json(responseData); 
 
   } catch (e: any) {
     console.error("API Route Exception:", e);

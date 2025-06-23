@@ -32,7 +32,7 @@ export async function POST(
     }
 
     // Obtener la acción y datos del body
-    const { action, observaciones } = await request.json();
+    const { action } = await request.json();
 
     // Obtener el convenio actual
     const { data: convenio } = await supabase
@@ -94,15 +94,14 @@ export async function POST(
         targetFolderId = DRIVE_FOLDERS.REJECTED;
         break;
       case "correct":
-        if (!observaciones) {
-          return NextResponse.json(
-            { error: "Se requieren observaciones para solicitar corrección" },
-            { status: 400 }
-          );
-        }
-        newStatus = "enviado";
+        newStatus = "revision";
         actionDetails = "Corrección solicitada";
-        targetFolderId = DRIVE_FOLDERS.PENDING;
+        targetFolderId = DRIVE_FOLDERS.ARCHIVED;
+        break;
+      case "archive":
+        newStatus = "archivado";
+        actionDetails = "Convenio archivado";
+        targetFolderId = DRIVE_FOLDERS.ARCHIVED;
         break;
       default:
         return NextResponse.json(
@@ -143,26 +142,6 @@ export async function POST(
       }
     }
 
-    // Si hay observaciones, guardarlas
-    if (observaciones) {
-      const { error: observacionError } = await supabase
-        .from("observaciones")
-        .insert({
-          convenio_id: params.id,
-          user_id: user.id,
-          content: observaciones,
-          resolved: false
-        });
-
-      if (observacionError) {
-        console.error("Error al guardar las observaciones:", observacionError);
-        return NextResponse.json(
-          { error: "Error al guardar las observaciones" },
-          { status: 500 }
-        );
-      }
-    }
-
     // Registrar la actividad
     const { error: activityError } = await supabase
       .from("activity_log")
@@ -172,30 +151,12 @@ export async function POST(
         action: action,
         status_from: convenio.status,
         status_to: newStatus,
-        metadata: { observaciones },
+        metadata: {},
         ip_address: request.headers.get("x-forwarded-for") || "unknown"
       });
 
     if (activityError) {
       console.error("Error al registrar la actividad:", activityError);
-    }
-
-    // TODO: Enviar email al usuario
-    const { data: userData } = await supabase
-      .from("profiles")
-      .select("email")
-      .eq("id", convenio.user_id)
-      .single();
-
-    if (userData?.email) {
-      // TODO: Implementar envío de email
-      console.log("Email a enviar:", {
-        to: userData.email,
-        subject: `Convenio ${actionDetails.toLowerCase()}`,
-        text: `Tu convenio ha sido ${actionDetails.toLowerCase()}. ${
-          observaciones ? `Observaciones: ${observaciones}` : ""
-        }`
-      });
     }
 
     return NextResponse.json({ success: true });

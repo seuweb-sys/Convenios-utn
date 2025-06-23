@@ -82,13 +82,42 @@ const getStatusColor = (status: string) => {
 // Función para manejar las acciones
 async function handleAction(id: string, action: string, observaciones?: string) {
   try {
-    let endpoint = `/api/admin/convenios/${id}/actions`;
-    
-    // Si es solicitud de corrección, usar el endpoint específico
     if (action === "correct") {
-      endpoint = `/api/convenio/${id}/request-correction`;
-    }
+      // 1. Cambiar estado y mover archivo
+      let response = await fetch(`/api/admin/convenios/${id}/actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "correct" })
+      });
+      let data = await response.json();
+      console.log("Respuesta del endpoint:", data);
+      if (!response.ok) throw new Error(data.error || "Error al cambiar el estado del convenio");
 
+      // 2. Crear observación
+      response = await fetch(`/api/admin/convenios/${id}/observaciones`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ observaciones })
+      });
+      data = await response.json();
+      console.log("Respuesta del endpoint:", data);
+      if (!response.ok) throw new Error(data.error || "Error al crear la observación");
+
+      // 3. Enviar email
+      response = await fetch(`/api/admin/convenios/${id}/notify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: observaciones })
+      });
+      data = await response.json();
+      console.log("Respuesta del endpoint:", data);
+      if (!response.ok) throw new Error(data.error || "Error al enviar el email de notificación");
+
+      window.location.reload();
+      return;
+    }
+    // Para otras acciones, endpoint original
+    let endpoint = `/api/admin/convenios/${id}/actions`;
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
@@ -96,14 +125,11 @@ async function handleAction(id: string, action: string, observaciones?: string) 
       },
       body: JSON.stringify({ action, observaciones }),
     });
-
     const data = await response.json();
-
+    console.log("Respuesta del endpoint:", data);
     if (!response.ok) {
       throw new Error(data.error || "Error al realizar la acción");
     }
-
-    // Recargar la página para actualizar los datos
     window.location.reload();
   } catch (error) {
     console.error("Error:", error);

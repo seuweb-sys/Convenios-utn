@@ -9,6 +9,7 @@ export const DRIVE_FOLDERS = {
   PENDING: '1IwXiatPJ-j98oC7XKrd9xK7VF52fVNaJ', // Carpeta "pendientes"
   APPROVED: '19BAZjx93AsHZ45s3U6afISMQJy5zdzPm', // Carpeta "aprobados"
   REJECTED: '16JY2aSOp57qn7Ow4BBRZqqq1xK_kv7PQ', // Carpeta "rechazados"
+  ARCHIVED: '15LlGgNqCVMhjcpZBJUSVKvq4AwkRFSr1', // Carpeta "archivados"
 } as const;
 
 // Inicializar el cliente de Google Drive
