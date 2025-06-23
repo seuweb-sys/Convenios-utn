@@ -32,7 +32,6 @@ export default function ConvenioDetallePage() {
       try {
         setLoading(true);
         
-        // Verificar autenticación
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         
@@ -41,7 +40,6 @@ export default function ConvenioDetallePage() {
           return;
         }
 
-        // Verificar rol (solo admin y profesor pueden ver detalles)
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
@@ -53,7 +51,6 @@ export default function ConvenioDetallePage() {
           return;
         }
 
-        // Obtener convenio con todos los datos
         const { data: convenioData, error: convenioError } = await supabase
           .from("convenios")
           .select(`
@@ -80,8 +77,6 @@ export default function ConvenioDetallePage() {
         }
 
         setConvenio(convenioData);
-        console.log("Convenio cargado:", convenioData);
-        console.log("Form data:", convenioData?.form_data);
       } catch (e) {
         console.error("Error:", e);
         setError(e);
@@ -95,17 +90,12 @@ export default function ConvenioDetallePage() {
     }
   }, [params.id, router]);
 
-  // Función helper para renderizar campos de entidad
   const renderEntidadData = (data: any) => {
     if (!data) return null;
     
-    console.log("Data recibida en renderEntidadData:", data);
-    
-    // Intentar extraer datos de diferentes estructuras
     let entidadInfo: any = {};
     
     if (data.entidad_nombre) {
-      // Acuerdo de Colaboración / Convenio Particular
       entidadInfo = {
         nombre: data.entidad_nombre,
         cuit: data.entidad_cuit,
@@ -114,7 +104,6 @@ export default function ConvenioDetallePage() {
         rubro: data.entidad_rubro
       };
     } else if (data.empresa_nombre) {
-      // Convenio Particular (estructura empresa)
       entidadInfo = {
         nombre: data.empresa_nombre,
         cuit: data.empresa_cuit,
@@ -123,7 +112,6 @@ export default function ConvenioDetallePage() {
         rubro: "Empresa"
       };
     } else if (data.partes && data.partes[0]) {
-      // Convenio Marco / Específico / Práctica Marco
       const parte = data.partes[0];
       entidadInfo = {
         nombre: parte.nombre,
@@ -135,9 +123,7 @@ export default function ConvenioDetallePage() {
       };
     }
 
-    // Si no hay datos específicos, mostrar todos los campos disponibles
     if (Object.keys(entidadInfo).length === 0) {
-      console.log("No se encontraron datos específicos, mostrando todos los campos:", data);
       return (
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-blue-500/10 to-blue-600/10 rounded-xl blur-xl"></div>
@@ -177,28 +163,24 @@ export default function ConvenioDetallePage() {
     );
   };
 
-  // Función helper para renderizar datos del representante
   const renderRepresentanteData = (data: any) => {
     if (!data) return null;
     
     let representanteInfo: any = {};
     
     if (data.entidad_representante) {
-      // Acuerdo de Colaboración
       representanteInfo = {
         nombre: data.entidad_representante,
         dni: data.entidad_dni,
         cargo: data.entidad_cargo
       };
     } else if (data.empresa_representante_nombre) {
-      // Convenio Particular
       representanteInfo = {
         nombre: data.empresa_representante_nombre,
         cargo: data.empresa_representante_caracter,
         dni: null
       };
     } else if (data.partes && data.partes[0]) {
-      // Convenio Marco / Específico / Práctica Marco
       const parte = data.partes[0];
       representanteInfo = {
         nombre: parte.representanteNombre,
@@ -225,7 +207,6 @@ export default function ConvenioDetallePage() {
     );
   };
 
-  // Función helper para renderizar datos específicos según el tipo
   const renderSpecificData = (data: any, tipo: string) => {
     if (!data) return null;
 
@@ -233,7 +214,6 @@ export default function ConvenioDetallePage() {
       case "Convenio Particular de Práctica Supervisada":
         return (
           <>
-            {/* Datos del Alumno */}
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-green-500/10 to-green-600/10 rounded-xl blur-xl"></div>
               <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
@@ -249,7 +229,6 @@ export default function ConvenioDetallePage() {
               </div>
             </div>
 
-            {/* Detalles de la Práctica */}
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-green-500/10 to-green-600/10 rounded-xl blur-xl"></div>
               <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
@@ -295,7 +274,6 @@ export default function ConvenioDetallePage() {
         );
 
       default:
-        // Para Convenio Marco, Práctica Marco, Acuerdo de Colaboración
         const fechaInfo = data.dia && data.mes ? `${data.dia} de ${data.mes}` : 
                           data.datosBasicos?.dia && data.datosBasicos?.mes ? `${data.datosBasicos.dia} de ${data.datosBasicos.mes}` : 
                           null;
@@ -473,8 +451,6 @@ export default function ConvenioDetallePage() {
                 )}
               </div>
             </div>
-                      </SectionContainer>
-          </div>
 
           {/* Observaciones */}
           {convenio.observaciones && convenio.observaciones.length > 0 && (
@@ -504,4 +480,4 @@ export default function ConvenioDetallePage() {
       </div>
     </>
   );
-} 
+}

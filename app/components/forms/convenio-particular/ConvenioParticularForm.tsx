@@ -177,23 +177,49 @@ export default function ConvenioParticularForm({
     try {
       setIsSubmitting(true);
       
-      // Estructura correcta como en ConvenioMarco
+      const cd = convenioData as Record<string, any>;
+      const fechaFirmaStr =
+        cd.fecha_firma || cd.practica_fecha_firma || '';        // yyyy-mm-dd
+
+      let dia = '';
+      let mes = '';
+      if (fechaFirmaStr) {
+        const fechaFirma = new Date(fechaFirmaStr);
+        dia = fechaFirma.getDate().toString();                  // 1 … 31
+        mes = fechaFirma.toLocaleDateString('es-ES', { month: 'long' }); // junio, julio…
+      }
+
       const dbData = {
-        empresa_nombre: formState[1]?.empresa_nombre || '',
-        empresa_cuit: formState[1]?.empresa_cuit || '',
-        empresa_representante_nombre: formState[1]?.empresa_representante_nombre || '',
-        empresa_representante_caracter: formState[1]?.empresa_representante_caracter || '',
-        empresa_direccion_calle: formState[1]?.empresa_direccion_calle || '',
-        empresa_direccion_ciudad: formState[1]?.empresa_direccion_ciudad || '',
-        empresa_tutor_nombre: formState[1]?.empresa_tutor_nombre || '',
-        alumno_carrera: formState[2]?.alumno_carrera || '',
-        alumno_dni: formState[2]?.alumno_dni || '',
-        alumno_legajo: formState[2]?.alumno_legajo || '',
-        practica_fecha_inicio: formState[3]?.fecha_inicio || '',
-        practica_fecha_fin: formState[3]?.fecha_fin || '',
-        practica_tutor_docente: formState[3]?.facultad_docente_tutor_nombre || '',
-        practica_tematica: formState[3]?.practica_tematica || '',
-        practica_fecha_firma: formState[3]?.fecha_firma || ''
+        // Empresa
+        empresa_nombre: cd.empresa_nombre || '',
+        empresa_cuit: cd.empresa_cuit || '',
+        empresa_representante_nombre: cd.empresa_representante_nombre || '',
+        empresa_representante_caracter: cd.empresa_representante_caracter || '',
+        empresa_direccion_calle: cd.empresa_direccion_calle || '',
+        empresa_direccion_ciudad: cd.empresa_direccion_ciudad || '',
+        empresa_tutor_nombre: cd.empresa_tutor_nombre || '',
+
+        // Alumno
+        alumno_carrera: cd.alumno_carrera || '',
+        alumno_dni: cd.alumno_dni || '',
+        alumno_legajo: cd.alumno_legajo || '',
+
+        // Práctica / Fechas
+        practica_fecha_inicio: cd.fecha_inicio || cd.practica_fecha_inicio || '',
+        practica_fecha_fin: cd.fecha_fin   || cd.practica_fecha_fin    || '',
+        practica_tutor_docente: cd.facultad_docente_tutor_nombre || cd.practica_tutor_docente || '',
+        practica_tematica: cd.practica_tematica || '',
+        practica_fecha_firma: cd.fecha_firma || cd.practica_fecha_firma || '',
+
+        // Claves sin prefijo (compatibilidad templates)
+        fecha_inicio: cd.fecha_inicio || cd.practica_fecha_inicio || '',
+        fecha_fin:    cd.fecha_fin    || cd.practica_fecha_fin    || '',
+        fecha_firma:  cd.fecha_firma  || cd.practica_fecha_firma  || '',
+
+        // Extras que el template usa
+        facultad_docente_tutor_nombre: cd.facultad_docente_tutor_nombre || '',
+        dia,
+        mes,
       };
 
       console.log('FormState debug:', formState);
