@@ -37,6 +37,19 @@ type Convenio = {
   }[];
 };
 
+// Función para formatear fechas de forma segura
+const formatDateSafely = (dateString: string) => {
+  try {
+    if (!dateString) return "Sin fecha";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "Fecha inválida";
+    return format(date, "dd/MM/yy", { locale: es });
+  } catch (error) {
+    console.error("Error formatting date:", error);
+    return "Error fecha";
+  }
+};
+
 // Función para obtener icono de estado
 const getStatusIcon = (status: string) => {
   switch (status.toLowerCase()) {
@@ -99,7 +112,7 @@ export const columns: ColumnDef<Convenio>[] = [
       return (
         <div className="flex items-center justify-center gap-1 font-mono">
           <HashIcon className="h-3 w-3 text-muted-foreground" />
-          <span className="font-medium text-xs">{serialNumber}</span>
+          <span className="font-medium text-xs">{serialNumber || "Sin N°"}</span>
         </div>
       );
     },
@@ -139,7 +152,7 @@ export const columns: ColumnDef<Convenio>[] = [
         <div className="flex justify-center">
           <div 
             className="h-9 w-9 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center text-primary font-semibold text-sm border border-primary/20 cursor-help"
-            title={`${fullName || "Usuario"} (${role === "admin" ? "Admin" : "Usuario"})`}
+            title={`${fullName || "Usuario"} (${role === "admin" ? "Admin" : role === "profesor" ? "Profesor" : "Usuario"})`}
           >
             {getInitials(fullName || "Usuario")}
           </div>
@@ -178,10 +191,10 @@ export const columns: ColumnDef<Convenio>[] = [
     accessorKey: "created_at",
     header: "Fecha",
     cell: ({ row }) => {
-      const date = new Date(row.getValue("created_at"));
+      const dateString = row.getValue("created_at") as string;
       return (
         <div className="text-xs text-muted-foreground font-mono">
-          {format(date, "dd/MM/yy", { locale: es })}
+          {formatDateSafely(dateString)}
         </div>
       );
     },
@@ -194,6 +207,7 @@ export const columns: ColumnDef<Convenio>[] = [
       const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
         enviado: { label: "Enviado", variant: "secondary" },
         aprobado: { label: "Aprobado", variant: "default" },
+        aceptado: { label: "Aceptado", variant: "default" },
         rechazado: { label: "Rechazado", variant: "destructive" },
       };
 
@@ -206,50 +220,22 @@ export const columns: ColumnDef<Convenio>[] = [
     id: "actions",
     cell: ({ row }) => {
       const convenio = row.original;
-      const [showObservaciones, setShowObservaciones] = useState(false);
 
       return (
-        <>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-muted/50">
-                <span className="sr-only">Abrir menú</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-card/80 backdrop-blur-sm border-border/60">
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleAction(convenio.id, "approve")}
-                className="text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Aprobar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleAction(convenio.id, "reject")}
-                className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-              >
-                <X className="mr-2 h-4 w-4" />
-                Rechazar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setShowObservaciones(true)}
-                className="text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
-              >
-                <AlertCircle className="mr-2 h-4 w-4" />
-                Solicitar corrección
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <ObservacionesDialog
-            isOpen={showObservaciones}
-            onClose={() => setShowObservaciones(false)}
-            onSubmit={(observaciones) => handleAction(convenio.id, "correct", observaciones)}
-          />
-        </>
+        <div className="flex justify-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-muted/50"
+            onClick={() => {
+              // Ir a la página de detalle del profesor
+              window.open(`/protected/profesor/${convenio.id}`, '_blank');
+            }}
+          >
+            <EyeIcon className="h-4 w-4" />
+            <span className="sr-only">Ver detalles</span>
+          </Button>
+        </div>
       );
     },
   },

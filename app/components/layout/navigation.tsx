@@ -12,6 +12,7 @@ export function Navigation({ userRole }: NavigationProps) {
   const pathname = usePathname();
   const isActive = (path: string) => pathname === path;
   const isAdmin = userRole === "admin";
+  const isProfesor = userRole === "profesor";
 
   return (
     <>
@@ -80,28 +81,45 @@ export function Navigation({ userRole }: NavigationProps) {
               Panel Admin
             </Link>
           )}
-          <Link 
-            href="/protected/usuarios" 
-            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-              isActive('/protected/usuarios') 
-                ? 'bg-primary/10 text-primary' 
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
-          >
-            <UserIcon className="h-4 w-4" />
-            Usuarios
-          </Link>
-          <Link 
-            href="/protected/configuracion" 
-            className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-              isActive('/protected/configuracion') 
-                ? 'bg-primary/10 text-primary' 
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
-          >
-            <SettingsIcon className="h-4 w-4" />
-            Configuración
-          </Link>
+          {isAdmin && (
+            <Link 
+              href="/protected/usuarios" 
+              className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                isActive('/protected/usuarios') 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              }`}
+            >
+              <UserIcon className="h-4 w-4" />
+              Usuarios
+            </Link>
+          )}
+          {isProfesor && (
+            <Link 
+              href="/protected/profesor" 
+              className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                isActive('/protected/profesor') 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              }`}
+            >
+              <UserIcon className="h-4 w-4" />
+              Profesor
+            </Link>
+          )}
+          {(isAdmin || isProfesor || userRole === "user") && (
+            <Link 
+              href="/protected/configuracion" 
+              className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                isActive('/protected/configuracion') 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              }`}
+            >
+              <SettingsIcon className="h-4 w-4" />
+              Configuración
+            </Link>
+          )}
         </nav>
       </div>
     </>

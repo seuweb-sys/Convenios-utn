@@ -55,7 +55,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    // 2. Obtener el parámetro 'limit' de la URL (opcional)
+    // 2. Obtener el perfil y el rol
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'No se pudo obtener el perfil del usuario' }, { status: 500 });
+    }
+
+    const userRole = profile.role;
+
+    // 3. Obtener el parámetro 'limit' de la URL (opcional)
     const searchParams = request.nextUrl.searchParams;
     const limitParam = searchParams.get('limit');
     const limit = limitParam ? parseInt(limitParam, 10) : 4; // Default a 4 si no se provee
@@ -64,27 +77,27 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Parámetro limit inválido' }, { status: 400 });
     }
 
-    // 3. Realizar la consulta a Supabase
-    const { data, error: dbError } = await supabase
+    // 4. Consulta condicional según el rol
+    let query = supabase
       .from('convenios')
       .select(`
-        id,
-        title,
-        status,
-        created_at,
-        convenio_type_id,
-        convenio_types!inner(name)
+        *,
+        convenio_types(name)
       `)
-      .eq('user_id', user.id) // Filtrar por el ID del usuario autenticado
       .order('updated_at', { ascending: false })
       .limit(limit);
 
+    if (userRole === "user") {
+      query = query.eq('user_id', user.id);
+    }
+
+    const { data, error: dbError } = await query;
     if (dbError) {
-      console.error("API Error fetching user convenios:", dbError);
+      console.error("API Error fetching convenios:", dbError);
       return NextResponse.json({ error: 'Error al obtener convenios', details: dbError.message }, { status: 500 });
     }
 
-    // 4. Transformar los datos al formato deseado por la API
+    // 5. Transformar los datos al formato deseado por la API
     const responseData = (data as unknown as ConvenioFromDB[]).map(convenio => {
       // Formatear fecha de forma más robusta
       let formattedDate = "Sin fecha";
@@ -110,7 +123,7 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // 5. Devolver los datos
+    // 6. Devolver los datos
     return NextResponse.json(responseData);
 
   } catch (e: any) {

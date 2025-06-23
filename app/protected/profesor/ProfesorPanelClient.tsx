@@ -2,10 +2,12 @@
 import { useState } from "react";
 import { DataTable } from "./data-table";
 import { columns } from "./columns";
-import { ProfesorFilters } from "./profesor-filters";
+import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { SectionContainer } from "@/app/components/dashboard";
 
 export function ProfesorPanelClient({ convenios }: { convenios: any[] }) {
+  console.log("ProfesorPanelClient recibió:", convenios);
+  
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
@@ -14,6 +16,8 @@ export function ProfesorPanelClient({ convenios }: { convenios: any[] }) {
     const typeOk = !typeFilter || c.convenio_types?.name === typeFilter;
     return statusOk && typeOk;
   });
+
+  console.log("Convenios filtrados:", filteredConvenios.length);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
@@ -25,7 +29,7 @@ export function ProfesorPanelClient({ convenios }: { convenios: any[] }) {
         </SectionContainer>
       </div>
       <div className="lg:col-span-1">
-        <ProfesorFilters
+        <AdminFilters
           data={convenios}
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
