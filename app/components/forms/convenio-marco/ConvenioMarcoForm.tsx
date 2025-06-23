@@ -541,7 +541,7 @@ export function ConvenioMarcoForm({
                                 mes: datosBasicos.mes || ''
                               };
                               const requestData = {
-                                title: `Convenio Marco - ${dbData.entidad_nombre}`,
+                                title: dbData.entidad_nombre,
                                 convenio_type_id: 2,
                                 content_data: dbData,
                                 status: 'pendiente'

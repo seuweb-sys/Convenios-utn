@@ -1,17 +1,17 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { AdminPanelClient } from "@/app/protected/admin/AdminPanelClient";
+import { ProfesorPanelClient } from "./ProfesorPanelClient";
 import {
   SectionContainer,
   BackgroundPattern,
   DashboardHeader
 } from "@/app/components/dashboard";
 
-export default async function AdminPage() {
+export default async function ProfesorPage() {
   const supabase = await createClient();
 
-  // Verificar si el usuario es admin
+  // Verificar si el usuario es profesor o admin
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return redirect("/sign-in");
@@ -23,7 +23,8 @@ export default async function AdminPage() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") {
+  // Solo roles 'profesor' y 'admin' pueden acceder
+  if (profile?.role !== "admin" && profile?.role !== "profesor") {
     return redirect("/protected");
   }
 
@@ -49,13 +50,13 @@ export default async function AdminPage() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("Error al obtener convenios:", error);
+    console.error("Error al obtener convenios para profesor:", error);
     return (
       <>
         <BackgroundPattern />
         <div className="p-6 w-full relative">
           <Suspense fallback={<div className="h-24 w-full skeleton"></div>}>
-            <DashboardHeader name="Panel Admin" subtitle="Error al cargar convenios" />
+            <DashboardHeader name="Panel de Profesor" subtitle="Error al cargar convenios" />
           </Suspense>
           <div className="mt-6">
             <SectionContainer title="Error">
@@ -76,11 +77,11 @@ export default async function AdminPage() {
       <div className="p-6 w-full relative">
         <Suspense fallback={<div className="h-24 w-full skeleton"></div>}>
           <DashboardHeader 
-            name="Administración de Convenios" 
-            subtitle="Gestiona todos los convenios del sistema desde este panel" 
+            name="Panel de Profesor" 
+            subtitle="Visualiza y filtra todos los convenios del sistema" 
           />
         </Suspense>
-        <AdminPanelClient convenios={convenios || []} />
+        <ProfesorPanelClient convenios={convenios || []} />
       </div>
     </>
   );

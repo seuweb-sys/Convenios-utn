@@ -561,7 +561,7 @@ export function ConvenioEspecificoForm({
                                 mes: datosBasicos.mes || ''
                               };
                               const requestData = {
-                                title: `Convenio Específico - ${dbData.entidad_nombre}`,
+                                title: dbData.entidad_nombre,
                                 convenio_type_id: 4, // ID del convenio específico según base de datos
                                 content_data: dbData,
                                 status: 'pendiente'

@@ -4,27 +4,15 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button";
 import { 
-  MoreHorizontal, 
-  Check, 
-  X, 
-  AlertCircle,
+  EyeIcon,
   ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
   HashIcon 
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { useState } from "react";
-import { ObservacionesDialog } from "./observaciones-dialog";
+import { useRouter } from 'next/navigation';
 import { cn } from "@/lib/utils";
 
 // Tipos
@@ -90,17 +78,15 @@ async function handleAction(id: string, action: string, observaciones?: string) 
       body: JSON.stringify({ action, observaciones }),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
-      throw new Error(data.error || "Error al realizar la acción");
+      throw new Error("Error al realizar la acción");
     }
 
     // Recargar la página para actualizar los datos
     window.location.reload();
   } catch (error) {
     console.error("Error:", error);
-    alert(error instanceof Error ? error.message : "Error al realizar la acción");
+    alert("Error al realizar la acción");
   }
 }
 
