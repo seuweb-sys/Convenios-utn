@@ -1,3 +1,7 @@
+export * from './convenio';
+export * from './profile';
+export * from './activity';
+
 export type UserRole = 'admin' | 'gestor' | 'usuario'
 
 export interface User {
