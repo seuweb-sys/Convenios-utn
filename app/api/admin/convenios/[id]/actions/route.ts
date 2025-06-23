@@ -48,6 +48,36 @@ export async function POST(
       );
     }
 
+    // Verificar si el archivo existe en Drive antes de aprobar
+    if (action === "approve") {
+      if (!convenio.document_path) {
+        return NextResponse.json(
+          { error: "No se puede aprobar el convenio porque no se encontró el archivo en Drive" },
+          { status: 400 }
+        );
+      }
+
+      // Extraer el ID del archivo de la URL de Drive
+      const fileId = convenio.document_path.split('/d/')[1]?.split('/')[0];
+      if (!fileId) {
+        return NextResponse.json(
+          { error: "No se puede aprobar el convenio porque el ID del archivo no es válido" },
+          { status: 400 }
+        );
+      }
+
+      try {
+        // Intentar mover el archivo a la carpeta de aprobados
+        await moveFileToFolder(fileId, DRIVE_FOLDERS.APPROVED);
+      } catch (driveError) {
+        console.error("Error al mover el archivo en Drive:", driveError);
+        return NextResponse.json(
+          { error: "No se puede aprobar el convenio porque no se pudo acceder al archivo en Drive" },
+          { status: 400 }
+        );
+      }
+    }
+
     let newStatus: string;
     let actionDetails: string;
     let targetFolderId: string | null = null;

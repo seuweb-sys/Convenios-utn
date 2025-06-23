@@ -50,15 +50,17 @@ async function handleAction(id: string, action: string, observaciones?: string) 
       body: JSON.stringify({ action, observaciones }),
     });
 
+    const data = await response.json();
+
     if (!response.ok) {
-      throw new Error("Error al realizar la acción");
+      throw new Error(data.error || "Error al realizar la acción");
     }
 
     // Recargar la página para actualizar los datos
     window.location.reload();
   } catch (error) {
     console.error("Error:", error);
-    alert("Error al realizar la acción");
+    alert(error instanceof Error ? error.message : "Error al realizar la acción");
   }
 }
 
