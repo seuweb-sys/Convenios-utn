@@ -108,23 +108,54 @@ export async function PATCH(
       );
     }
 
+    // Preparar datos de actualización
+    const updateData: any = {
+      updated_at: new Date().toISOString()
+    };
+
+    if (body.content_data) {
+      updateData.content_data = body.content_data;
+    }
+
+    if (body.status) {
+      updateData.status = body.status;
+      
+      // Si se está enviando el convenio (cambiando a 'enviado'), marcar observaciones como resueltas
+      if (body.status === 'enviado' && convenio.status === 'revision') {
+        try {
+          await supabase
+            .from('observaciones')
+            .update({ resolved: true, resolved_at: new Date().toISOString() })
+            .eq('convenio_id', params.id)
+            .eq('resolved', false);
+        } catch (observacionError) {
+          console.error('Error actualizando observaciones:', observacionError);
+          // No fallamos la operación si la actualización de observaciones falla
+        }
+      }
+    }
+
     // Si se está cambiando el estado, registrar en activity_log
     if (body.status && body.status !== convenio.status) {
       try {
-        const activityData = {
-          id: crypto.randomUUID(),
-          convenio_id: params.id,
-          user_id: user.id,
-          action: 'update_status',
-          status_from: convenio.status,
-          status_to: body.status,
-          created_at: new Date().toISOString(),
-          ip_address: request.headers.get('x-forwarded-for') || 'unknown'
-        };
-        
+        const action = body.status === 'enviado' && convenio.status === 'revision' 
+          ? 'resubmit_convenio' 
+          : 'update_status';
+
+        const details = body.status === 'enviado' && convenio.status === 'revision'
+          ? 'Convenio reenviado después de correcciones'
+          : `Estado cambiado de ${convenio.status} a ${body.status}`;
+
         const { error: logError } = await supabase
           .from('activity_log')
-          .insert(activityData);
+          .insert({
+            user_id: user.id,
+            action: action,
+            entity_id: params.id,
+            entity_type: 'convenio',
+            details: details,
+            created_at: new Date().toISOString()
+          });
 
         if (logError) {
           console.error('Error al registrar cambio de estado:', logError);
@@ -138,10 +169,7 @@ export async function PATCH(
     // Actualizar el convenio
     const { data: updatedConvenio, error: updateError } = await supabase
       .from('convenios')
-      .update({
-        ...body,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', params.id)
       .select()
       .single();
@@ -154,7 +182,11 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json(updatedConvenio);
+    return NextResponse.json({
+      success: true,
+      message: 'Convenio actualizado exitosamente',
+      convenio: updatedConvenio
+    });
   } catch (error) {
     console.error('Error al actualizar el convenio:', error);
     return NextResponse.json(

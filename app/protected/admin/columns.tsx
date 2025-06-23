@@ -82,7 +82,14 @@ const getStatusColor = (status: string) => {
 // Función para manejar las acciones
 async function handleAction(id: string, action: string, observaciones?: string) {
   try {
-    const response = await fetch(`/api/admin/convenios/${id}/actions`, {
+    let endpoint = `/api/admin/convenios/${id}/actions`;
+    
+    // Si es solicitud de corrección, usar el endpoint específico
+    if (action === "correct") {
+      endpoint = `/api/convenio/${id}/request-correction`;
+    }
+
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

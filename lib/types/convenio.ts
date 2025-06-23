@@ -1,5 +1,11 @@
 // Estados posibles de un convenio
-export type ConvenioStatus = 'pendiente' | 'aceptado' | 'rechazado'
+export type ConvenioStatus = 
+  | 'borrador'
+  | 'enviado'
+  | 'revision'
+  | 'aprobado'
+  | 'rechazado'
+  | 'archivado';
 
 // Tipos de convenios disponibles
 export interface ConvenioType {
