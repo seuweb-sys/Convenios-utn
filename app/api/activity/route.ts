@@ -139,6 +139,17 @@ export async function GET(request: NextRequest) {
               iconName = "clock";
             }
             break;
+          case "resubmit_convenio":
+            title = `Convenio reenviado`;
+            description = `Se reenviaron las correcciones de "${convenioTitle}"`;
+            iconName = "refresh-ccw";
+            type = "info";
+            break;
+          case "update_status":
+            title = `Estado actualizado`;
+            description = `Cambió de ${activity.status_from || "-"} a ${activity.status_to}`;
+            iconName = "arrow-right-left";
+            break;
           default:
             title = `Actividad en convenio`;
             description = `Ha ocurrido una actividad en "${convenioTitle}"`;

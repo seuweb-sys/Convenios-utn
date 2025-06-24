@@ -6,16 +6,17 @@ interface CorrectionEmailData {
   userEmail: string
   userName: string
   convenioTitle: string
-  convenioId: string
+  convenioId: string | number
+  typeSlug: string
   observaciones: string
   adminName: string
 }
 
 export async function sendCorrectionRequestEmail(data: CorrectionEmailData) {
   try {
-    const { userEmail, userName, convenioTitle, convenioId, observaciones, adminName } = data
+    const { userEmail, userName, convenioTitle, convenioId, typeSlug, observaciones, adminName } = data
 
-    const correctionUrl = `${process.env.NEXT_PUBLIC_APP_URL}/protected/convenio/${convenioId}`
+    const correctionUrl = `${process.env.NEXT_PUBLIC_APP_URL}/protected/convenio-detalle/${convenioId}?type=${typeSlug}&mode=correccion`
 
     const { data: emailData, error } = await resend.emails.send({
       from: 'Convenios UTN <onboarding@resend.dev>', // Cambiar por tu dominio verificado

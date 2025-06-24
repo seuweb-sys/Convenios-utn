@@ -10,7 +10,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (profile?.role !== "admin") return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const { subject, message } = await request.json();
   // Buscar el convenio y el usuario dueño
-  const { data: convenio, error: convenioError } = await supabase.from("convenios").select("title, user_id").eq("id", params.id).single();
+  const { data: convenio, error: convenioError } = await supabase
+    .from("convenios")
+    .select("title, user_id, convenio_type_id, convenio_types(name)")
+    .eq("id", params.id)
+    .single();
   if (convenioError || !convenio) return NextResponse.json({ error: "Convenio no encontrado" }, { status: 404 });
   // Buscar email del usuario dueño
   let userEmail = null;
@@ -32,12 +36,27 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (!userEmail) {
     return NextResponse.json({ error: "No se pudo obtener el email del usuario" }, { status: 500 });
   }
+  // Mapear el nombre del tipo a slug aceptado por front
+  const mapNameToSlug = (name: string | null): string => {
+    if (!name) return 'marco';
+    const normalize = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const n = normalize(name.toLowerCase());
+    if (n.includes('marco') && n.includes('practica')) return 'practica-marco';
+    if (n.includes('marco')) return 'marco';
+    if (n.includes('especifico')) return 'especifico';
+    if (n.includes('particular')) return 'particular';
+    if (n.includes('acuerdo')) return 'acuerdo';
+    return 'marco';
+  };
+  const typeSlug = mapNameToSlug((convenio as any)?.convenio_types?.name ?? null);
+
   try {
     await sendCorrectionRequestEmail({
       userEmail: userEmail!,
       userName: userName || 'Usuario',
       convenioTitle: convenio.title,
       convenioId: params.id,
+      typeSlug,
       observaciones: message,
       adminName: profile.full_name || 'Administrador'
     });
