@@ -20,14 +20,30 @@ export async function GET(
       );
     }
 
+    // Verificar el perfil y rol del usuario
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { error: 'No se pudo obtener el perfil del usuario' },
+        { status: 500 }
+      );
+    }
+
+    const userRole = profile.role;
+
     // Obtener el convenio
     const { data: convenio, error: dbError } = await supabase
       .from('convenios')
       .select(`
         *,
         convenio_types(name),
-        user:user_id(id, full_name, email),
-        reviewer:reviewer_id(id, full_name, email)
+        user:user_id(id, full_name),
+        reviewer:reviewer_id(id, full_name)
       `)
       .eq('id', params.id)
       .single();
@@ -48,7 +64,11 @@ export async function GET(
     }
 
     // Verificar que el usuario tenga permiso para ver el convenio
-    if (convenio.user_id !== user.id && !user.user_metadata.is_admin) {
+    if (
+      convenio.user_id !== user.id &&
+      userRole !== 'admin' &&
+      userRole !== 'profesor'
+    ) {
       return NextResponse.json(
         { error: 'No tienes permiso para ver este convenio' },
         { status: 403 }
@@ -83,6 +103,22 @@ export async function PATCH(
       );
     }
 
+    // Verificar el perfil y rol del usuario
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { error: 'No se pudo obtener el perfil del usuario' },
+        { status: 500 }
+      );
+    }
+
+    const userRole = profile.role;
+
     // Obtener y validar el body
     const body: UpdateConvenioDTO = await request.json();
 
@@ -101,7 +137,11 @@ export async function PATCH(
     }
 
     // Solo el creador o un admin pueden actualizar el convenio
-    if (convenio.user_id !== user.id && !user.user_metadata.is_admin) {
+    if (
+      convenio.user_id !== user.id &&
+      userRole !== 'admin' &&
+      userRole !== 'profesor'
+    ) {
       return NextResponse.json(
         { error: 'No tienes permiso para actualizar este convenio' },
         { status: 403 }
@@ -145,19 +185,20 @@ export async function PATCH(
           ? 'resubmit_convenio' 
           : 'update_status';
 
-        const details = body.status === 'enviado' && convenio.status === 'revision'
-          ? 'Convenio reenviado después de correcciones'
-          : `Estado cambiado de ${convenio.status} a ${body.status}`;
-
         const { error: logError } = await supabase
           .from('activity_log')
           .insert({
+            convenio_id: params.id,
             user_id: user.id,
-            action: action,
-            entity_id: params.id,
-            entity_type: 'convenio',
-            details: details,
-            created_at: new Date().toISOString()
+            action,
+            status_from: convenio.status,
+            status_to: body.status,
+            ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+            metadata: {
+              note: body.status === 'enviado' && convenio.status === 'revision'
+                ? 'Reenvío tras correcciones'
+                : undefined
+            }
           });
 
         if (logError) {
@@ -217,6 +258,22 @@ export async function DELETE(
       );
     }
 
+    // Verificar el perfil y rol del usuario
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { error: 'No se pudo obtener el perfil del usuario' },
+        { status: 500 }
+      );
+    }
+
+    const userRole = profile.role;
+
     // Verificar que el convenio exista y el usuario tenga permiso
     const { data: convenio, error: checkError } = await supabase
       .from('convenios')
@@ -232,7 +289,11 @@ export async function DELETE(
     }
 
     // Solo el creador o un admin pueden eliminar el convenio
-    if (convenio.user_id !== user.id && !user.user_metadata.is_admin) {
+    if (
+      convenio.user_id !== user.id &&
+      userRole !== 'admin' &&
+      userRole !== 'profesor'
+    ) {
       return NextResponse.json(
         { error: 'No tienes permiso para eliminar este convenio' },
         { status: 403 }
