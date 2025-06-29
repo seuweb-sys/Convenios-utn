@@ -86,7 +86,14 @@ export async function POST(request: Request) {
       const templateBuffer = fs.readFileSync(filePath);
       const rendered = await renderDocx(templateBuffer, fields);
 
-      const fileName = `${safeNameNormalized}-${Date.now()}.docx`;
+      // Nombrar archivo como "Convenio_<Entidad>_<YYYY-MM-DD>.docx" para unificar convención con /api/convenios
+      const todayStr = new Date().toISOString().split('T')[0];
+      const entityNameRaw: string = (fields.entidad_nombre as string) || safeName;
+      const entityNameSanitized = entityNameRaw
+        ? entityNameRaw.trim().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '')
+        : safeNameNormalized;
+      const fileName = `Convenio_${entityNameSanitized}_${todayStr}.docx`;
+
       try {
         const driveResponse = await uploadFileToDrive(rendered, fileName);
         return NextResponse.json({ success: true, ...driveResponse });
