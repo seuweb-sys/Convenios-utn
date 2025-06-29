@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { ProfesorPanelClient } from "./ProfesorPanelClient";
 import {
   SectionContainer,
@@ -19,51 +18,11 @@ export default function ProfesorPage() {
       try {
         setLoading(true);
         
-        // Verificar autenticación
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          window.location.href = "/sign-in";
-          return;
-        }
-
-        // Verificar rol
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-
-        if (profile?.role !== "admin" && profile?.role !== "profesor") {
-          window.location.href = "/protected";
-          return;
-        }
-
-        // Obtener convenios con joins completos igual que admin
-        const { data: conveniosData, error: conveniosError } = await supabase
-          .from("convenios")
-          .select(`
-            *,
-            profiles:user_id (
-              full_name,
-              role
-            ),
-            convenio_types (
-              name
-            ),
-            observaciones (
-              id,
-              content,
-              created_at,
-              resolved
-            )
-          `)
-          .order("created_at", { ascending: false });
-
-        if (conveniosError) {
+        const res = await fetch("/api/convenios?limit=1000&full=true");
+        if (!res.ok) {
           throw new Error("Error al cargar convenios");
         }
+        const conveniosData = await res.json();
 
         setConvenios(conveniosData || []);
         console.log("Convenios cargados:", conveniosData?.length);

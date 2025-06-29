@@ -75,6 +75,8 @@ const getStatusColor = (status: string) => {
       return "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400";
     case "rechazado":
       return "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400";
+    case "revision":
+      return "bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400";
     default:
       return "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400";
   }
@@ -204,16 +206,18 @@ export const columns: ColumnDef<Convenio>[] = [
     header: "Estado",
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-        enviado: { label: "Enviado", variant: "secondary" },
-        aprobado: { label: "Aprobado", variant: "default" },
-        aceptado: { label: "Aceptado", variant: "default" },
-        rechazado: { label: "Rechazado", variant: "destructive" },
+      const statusMap: Record<string, { label: string }> = {
+        enviado: { label: "Enviado" },
+        aprobado: { label: "Aprobado" },
+        aceptado: { label: "Aceptado" },
+        rechazado: { label: "Rechazado" },
+        revision: { label: "En revisión" },
       };
 
-      const { label, variant } = statusMap[status] || { label: status, variant: "secondary" };
+      const { label } = statusMap[status] || { label: status };
+      const colorClasses = getStatusColor(status);
 
-      return <Badge variant={variant}>{label}</Badge>;
+      return <Badge variant="outline" className={colorClasses}>{label}</Badge>;
     },
   },
   {
