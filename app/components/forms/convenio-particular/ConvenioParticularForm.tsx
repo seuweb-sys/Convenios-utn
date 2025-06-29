@@ -34,6 +34,7 @@ const alumnoSchema = z.object({
 const practicaSchema = z.object({
   fecha_inicio: z.string().min(1, "Fecha de inicio requerida"),
   fecha_fin: z.string().min(1, "Fecha de fin requerida"),
+  practica_duracion: z.string().min(2, "Duración de la práctica requerida"),
   practica_tematica: z.string().min(10, "Descripción de la temática requerida"),
   facultad_docente_tutor_nombre: z.string().min(2, "Nombre del docente tutor requerido"),
   fecha_firma: z.string().min(1, "Fecha de firma requerida"),
@@ -108,6 +109,7 @@ export default function ConvenioParticularForm({
     defaultValues: {
       fecha_inicio: convenioData.fecha_inicio || "",
       fecha_fin: convenioData.fecha_fin || "",
+      practica_duracion: convenioData.practica_duracion || "",
       practica_tematica: convenioData.practica_tematica || "",
       facultad_docente_tutor_nombre: convenioData.facultad_docente_tutor_nombre || "",
       fecha_firma: convenioData.fecha_firma || "",
@@ -211,6 +213,7 @@ export default function ConvenioParticularForm({
         practica_fecha_inicio: cd.fecha_inicio || cd.practica_fecha_inicio || '',
         practica_fecha_fin: cd.fecha_fin   || cd.practica_fecha_fin    || '',
         practica_tutor_docente: cd.facultad_docente_tutor_nombre || cd.practica_tutor_docente || '',
+        practica_duracion: cd.practica_duracion || '',
         practica_tematica: cd.practica_tematica || '',
         practica_fecha_firma: cd.fecha_firma || cd.practica_fecha_firma || '',
 
@@ -499,6 +502,19 @@ export default function ConvenioParticularForm({
           </div>
 
           <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="practica_duracion">Duración de la práctica *</Label>
+            <Input
+              id="practica_duracion"
+              className="border-border focus-visible:ring-primary"
+              placeholder="Ej.: 4 meses"
+              {...practicaForm.register("practica_duracion")}
+            />
+            {practicaForm.formState.errors.practica_duracion && (
+              <p className="text-sm text-red-500">{String(practicaForm.formState.errors.practica_duracion.message)}</p>
+            )}
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor="practica_tematica">Temática de Desarrollo *</Label>
             <Textarea
               id="practica_tematica"
@@ -595,6 +611,7 @@ export default function ConvenioParticularForm({
                 <div><span className="font-medium">Fecha Fin:</span> {convenioData.fecha_fin}</div>
                 <div><span className="font-medium">Docente Tutor:</span> {convenioData.facultad_docente_tutor_nombre}</div>
                 <div><span className="font-medium">Fecha Firma:</span> {convenioData.fecha_firma}</div>
+                <div className="md:col-span-2"><span className="font-medium">Duración:</span> {convenioData.practica_duracion}</div>
               </div>
               <div><span className="font-medium">Temática:</span> {convenioData.practica_tematica}</div>
             </div>

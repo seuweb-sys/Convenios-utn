@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { Textarea } from "@/app/components/ui/textarea";
 import { Label } from "@/app/components/ui/label";
 import {
   Form,
@@ -60,6 +61,10 @@ const detallesSchema = z.object({
   unidadEjecutoraEntidad: z.string().min(2, "La unidad ejecutora de la entidad es requerida"),
   dia: z.string().min(1, "El día es requerido"),
   mes: z.string().min(1, "El mes es requerido"),
+  objetivoGeneral: z.string().min(10, "Describe el objetivo general"),
+  actividades: z.string().min(10, "Describe las actividades"),
+  propiedadIntelectual: z.string().min(5, "Completa este campo"),
+  confidencialidad: z.string().min(5, "Completa este campo"),
 });
 
 interface ConvenioEspecificoFormProps {
@@ -133,7 +138,11 @@ export function ConvenioEspecificoForm({
           unidadEjecutoraFacultad: datosBasicos?.unidadEjecutoraFacultad || '',
           unidadEjecutoraEntidad: datosBasicos?.unidadEjecutoraEntidad || '',
           dia: datosBasicos?.dia || '',
-          mes: datosBasicos?.mes || ''
+          mes: datosBasicos?.mes || '',
+          objetivoGeneral: datosBasicos?.objetivoGeneral || '',
+          actividades: datosBasicos?.actividades || '',
+          propiedadIntelectual: datosBasicos?.propiedadIntelectual || '',
+          confidencialidad: datosBasicos?.confidencialidad || ''
         };
       default:
         return {};
@@ -184,7 +193,11 @@ export function ConvenioEspecificoForm({
             unidadEjecutoraFacultad: data.unidadEjecutoraFacultad || '',
             unidadEjecutoraEntidad: data.unidadEjecutoraEntidad || '',
             dia: data.dia || '',
-            mes: data.mes || ''
+            mes: data.mes || '',
+            objetivoGeneral: data.objetivoGeneral || '',
+            actividades: data.actividades || '',
+            propiedadIntelectual: data.propiedadIntelectual || '',
+            confidencialidad: data.confidencialidad || ''
           });
           // Avanzar al paso 4 sin guardar en la base
           onStepChange(currentStep + 1);
@@ -417,6 +430,66 @@ export function ConvenioEspecificoForm({
                     <p className="text-sm text-red-500">{String(form.formState.errors.mes.message)}</p>
                   )}
                 </div>
+
+                {/* Objetivo General */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="objetivoGeneral">Objetivo General *</Label>
+                  <Textarea
+                    id="objetivoGeneral"
+                    rows={3}
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Describe el objetivo general del convenio"
+                    {...form.register("objetivoGeneral")}
+                  />
+                  {form.formState.errors.objetivoGeneral?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.objetivoGeneral.message)}</p>
+                  )}
+                </div>
+
+                {/* Actividades */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="actividades">Actividades a Desarrollar *</Label>
+                  <Textarea
+                    id="actividades"
+                    rows={3}
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Detalle de actividades y compromisos"
+                    {...form.register("actividades")}
+                  />
+                  {form.formState.errors.actividades?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.actividades.message)}</p>
+                  )}
+                </div>
+
+                {/* Propiedad Intelectual */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="propiedadIntelectual">Propiedad Intelectual *</Label>
+                  <Textarea
+                    id="propiedadIntelectual"
+                    rows={2}
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Términos sobre propiedad intelectual"
+                    {...form.register("propiedadIntelectual")}
+                  />
+                  {form.formState.errors.propiedadIntelectual?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.propiedadIntelectual.message)}</p>
+                  )}
+                </div>
+
+                {/* Confidencialidad */}
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="confidencialidad">Confidencialidad *</Label>
+                  <Textarea
+                    id="confidencialidad"
+                    rows={2}
+                    className="border-border focus-visible:ring-primary"
+                    placeholder="Cláusula de confidencialidad"
+                    {...form.register("confidencialidad")}
+                  />
+                  {form.formState.errors.confidencialidad?.message && (
+                    <p className="text-sm text-red-500">{String(form.formState.errors.confidencialidad.message)}</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -475,6 +548,10 @@ export function ConvenioEspecificoForm({
                   <div><b>Unidad ejecutora entidad:</b> <span>{datosBasicos.unidadEjecutoraEntidad}</span></div>
                   <div><b>Día de firma:</b> <span>{datosBasicos.dia}</span></div>
                   <div><b>Mes de firma:</b> <span>{datosBasicos.mes}</span></div>
+                  <div><b>Objetivo general:</b> <span>{datosBasicos.objetivoGeneral}</span></div>
+                  <div><b>Actividades:</b> <span>{datosBasicos.actividades}</span></div>
+                  <div><b>Propiedad Intelectual:</b> <span>{datosBasicos.propiedadIntelectual}</span></div>
+                  <div><b>Confidencialidad:</b> <span>{datosBasicos.confidencialidad}</span></div>
                 </div>
               </div>
             </div>
@@ -558,7 +635,11 @@ export function ConvenioEspecificoForm({
                                 unidad_ejecutora_facultad: datosBasicos.unidadEjecutoraFacultad || '',
                                 unidad_ejecutora_entidad: datosBasicos.unidadEjecutoraEntidad || '',
                                 dia: datosBasicos.dia || '',
-                                mes: datosBasicos.mes || ''
+                                mes: datosBasicos.mes || '',
+                                objetivoGeneral: datosBasicos.objetivoGeneral || '',
+                                actividades: datosBasicos.actividades || '',
+                                propiedadIntelectual: datosBasicos.propiedadIntelectual || '',
+                                confidencialidad: datosBasicos.confidencialidad || ''
                               };
                               const requestData = {
                                 title: dbData.entidad_nombre,

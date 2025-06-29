@@ -4,7 +4,10 @@ import { type NextRequest } from 'next/server';
 import { CreateConvenioDTO } from "@/lib/types/convenio";
 import { Packer } from 'docx';
 import { createDocument } from '@/app/lib/utils/doc-generator';
+import { renderDocx } from '@/app/lib/utils/docx-templater';
 import { uploadFileToDrive } from '@/app/lib/google-drive';
+import path from 'path';
+import fs from 'fs';
 
 interface TemplateField {
   key: string;
@@ -242,7 +245,7 @@ export async function POST(request: Request) {
     // Obtener el template del tipo de convenio
     const { data: template, error: templateError } = await supabase
       .from('convenio_types')
-      .select('template_content')
+      .select('name, template_content')
       .eq('id', body.convenio_type_id)
       .single();
 
@@ -254,15 +257,83 @@ export async function POST(request: Request) {
       );
     }
 
-    // Convertir content_data al formato TemplateField[]
-    const templateFields: TemplateField[] = Object.entries(formData).map(([key, value]) => ({
-      key,
-      value: String(value)
-    }));
+    let buffer: Buffer | null = null;
 
-    // Crear el documento
-    const doc = createDocument(template.template_content, templateFields);
-    const buffer = await Packer.toBuffer(doc);
+    // ---------- Preferir template DOCX en /templates ----------
+    try {
+      const safeName = (template as any)?.name ? (template as any).name.toString() : '';
+      const safeNameNormalized = safeName.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+      const slugify = (s: string) =>
+        s.toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '');
+
+      const removeStop = (slug: string) => slug.replace(/\b(de|del|la|el|los|las|y|e)\b-/g, '').replace(/-\b(de|del|la|el|los|las|y|e)\b/g, '');
+
+      const targetSlug = removeStop(safeNameNormalized);
+
+      const templateDir = path.join(process.cwd(), 'templates');
+      console.log('Convenios API → template.name =', safeName);
+console.log('Convenios API → safeNameNormalized =', safeNameNormalized);
+fs.readdirSync(templateDir).forEach(f => {
+  const slug = slugify(path.parse(f).name);
+  console.log('  archivo', f, '→ slug', slug);
+});
+      const allDocx = fs.existsSync(templateDir)
+        ? fs.readdirSync(templateDir).filter((f) => f.toLowerCase().endsWith('.docx'))
+        : [];
+
+      const scored: {file: string; score: number}[] = [];
+
+      const norm = (s: string) => s.replace(/-/g, '');
+
+      allDocx.forEach((f) => {
+        const fileSlug = slugify(path.parse(f).name);
+        const fileSlugClean = removeStop(fileSlug);
+        let score = -1;
+        if (fileSlug === safeNameNormalized) score = 0; // match perfecto
+        else if (fileSlugClean === targetSlug) score = 1; // match perfecto sin stop
+        else if (norm(fileSlug) === norm(safeNameNormalized)) score = 2;
+        else if (norm(fileSlugClean) === norm(targetSlug)) score = 3;
+        else if (norm(fileSlug).includes(norm(safeNameNormalized))) score = 4;
+        else if (norm(fileSlugClean).includes(norm(targetSlug))) score = 5;
+
+        if (score >= 0) scored.push({file: f, score});
+      });
+
+      scored.sort((a, b) => a.score - b.score || a.file.length - b.file.length);
+      const candidateFiles = scored.map((s) => s.file);
+
+      console.log('Convenios API: candidate DOCX files', candidateFiles);
+      if (candidateFiles.length) {
+        const filePath = path.join(templateDir, candidateFiles[0]);
+        console.log('Convenios API: usando template DOCX', filePath);
+        const templateBuffer = fs.readFileSync(filePath);
+        buffer = await renderDocx(templateBuffer, formData);
+      } else {
+        console.warn('Convenios API: no se encontró template DOCX, caerá al generador programático');
+      }
+    } catch (tplErr) {
+      console.warn('Fallo al procesar template DOCX, se usará generador programático:', tplErr);
+    }
+
+    // ---------- Fallback programático ----------
+    if (!buffer) {
+      const templateFields: TemplateField[] = Object.entries(formData).map(([key, value]) => ({
+        key,
+        value: String(value)
+      }));
+
+      const doc = createDocument(template.template_content, templateFields);
+      buffer = await Packer.toBuffer(doc);
+    }
+
+    if (!buffer) {
+      throw new Error('No se pudo generar el documento');
+    }
 
     // Generar número de serie
     const serialNumber = await generateSerialNumber(supabase);
@@ -296,7 +367,7 @@ export async function POST(request: Request) {
     let documentPath = null;
     try {
       const driveResponse = await uploadFileToDrive(
-        buffer,
+        buffer as Buffer,
         `Convenio_${body.title}_${new Date().toISOString().split('T')[0]}.docx`
       );
       documentPath = driveResponse.webViewLink;
