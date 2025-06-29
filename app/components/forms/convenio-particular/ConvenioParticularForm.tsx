@@ -25,6 +25,7 @@ const empresaSchema = z.object({
 });
 
 const alumnoSchema = z.object({
+  alumno_nombre: z.string().min(2, "Nombre del alumno requerido"),
   alumno_carrera: z.string().min(2, "Carrera del alumno requerida"),
   alumno_dni: z.string().min(7, "DNI debe tener al menos 7 dígitos").regex(/^\d+$/, "Solo números"),
   alumno_legajo: z.string().min(1, "Legajo del alumno requerido").regex(/^\d+$/, "Solo números"),
@@ -33,6 +34,7 @@ const alumnoSchema = z.object({
 const practicaSchema = z.object({
   fecha_inicio: z.string().min(1, "Fecha de inicio requerida"),
   fecha_fin: z.string().min(1, "Fecha de fin requerida"),
+  practica_duracion: z.string().min(2, "Duración de la práctica requerida"),
   practica_tematica: z.string().min(10, "Descripción de la temática requerida"),
   facultad_docente_tutor_nombre: z.string().min(2, "Nombre del docente tutor requerido"),
   fecha_firma: z.string().min(1, "Fecha de firma requerida"),
@@ -95,6 +97,7 @@ export default function ConvenioParticularForm({
   const alumnoForm = useForm<AlumnoData>({
     resolver: zodResolver(alumnoSchema),
     defaultValues: {
+      alumno_nombre: convenioData.alumno_nombre || "",
       alumno_carrera: convenioData.alumno_carrera || "",
       alumno_dni: convenioData.alumno_dni || "",
       alumno_legajo: convenioData.alumno_legajo || "",
@@ -106,6 +109,7 @@ export default function ConvenioParticularForm({
     defaultValues: {
       fecha_inicio: convenioData.fecha_inicio || "",
       fecha_fin: convenioData.fecha_fin || "",
+      practica_duracion: convenioData.practica_duracion || "",
       practica_tematica: convenioData.practica_tematica || "",
       facultad_docente_tutor_nombre: convenioData.facultad_docente_tutor_nombre || "",
       fecha_firma: convenioData.fecha_firma || "",
@@ -200,6 +204,7 @@ export default function ConvenioParticularForm({
         empresa_tutor_nombre: cd.empresa_tutor_nombre || '',
 
         // Alumno
+        alumno_nombre: cd.alumno_nombre || '',
         alumno_carrera: cd.alumno_carrera || '',
         alumno_dni: cd.alumno_dni || '',
         alumno_legajo: cd.alumno_legajo || '',
@@ -208,6 +213,7 @@ export default function ConvenioParticularForm({
         practica_fecha_inicio: cd.fecha_inicio || cd.practica_fecha_inicio || '',
         practica_fecha_fin: cd.fecha_fin   || cd.practica_fecha_fin    || '',
         practica_tutor_docente: cd.facultad_docente_tutor_nombre || cd.practica_tutor_docente || '',
+        practica_duracion: cd.practica_duracion || '',
         practica_tematica: cd.practica_tematica || '',
         practica_fecha_firma: cd.fecha_firma || cd.practica_fecha_firma || '',
 
@@ -384,6 +390,19 @@ export default function ConvenioParticularForm({
       <div className="border border-border rounded-lg p-5 bg-card space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="alumno_nombre">Nombre Completo del Alumno *</Label>
+            <Input
+              id="alumno_nombre"
+              className="border-border focus-visible:ring-primary"
+              placeholder="Nombre completo"
+              {...alumnoForm.register("alumno_nombre")}
+            />
+            {alumnoForm.formState.errors.alumno_nombre && (
+              <p className="text-sm text-red-500">{String(alumnoForm.formState.errors.alumno_nombre.message)}</p>
+            )}
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor="alumno_carrera">Carrera del Alumno *</Label>
             <Input
               id="alumno_carrera"
@@ -483,6 +502,19 @@ export default function ConvenioParticularForm({
           </div>
 
           <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="practica_duracion">Duración de la práctica *</Label>
+            <Input
+              id="practica_duracion"
+              className="border-border focus-visible:ring-primary"
+              placeholder="Ej.: 4 meses"
+              {...practicaForm.register("practica_duracion")}
+            />
+            {practicaForm.formState.errors.practica_duracion && (
+              <p className="text-sm text-red-500">{String(practicaForm.formState.errors.practica_duracion.message)}</p>
+            )}
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
             <Label htmlFor="practica_tematica">Temática de Desarrollo *</Label>
             <Textarea
               id="practica_tematica"
@@ -557,6 +589,7 @@ export default function ConvenioParticularForm({
               Datos del Alumno
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div><span className="font-medium">Nombre:</span> {convenioData.alumno_nombre}</div>
               <div><span className="font-medium">Carrera:</span> {convenioData.alumno_carrera}</div>
               <div><span className="font-medium">DNI:</span> {convenioData.alumno_dni}</div>
               <div><span className="font-medium">Legajo:</span> {convenioData.alumno_legajo}</div>
@@ -578,6 +611,7 @@ export default function ConvenioParticularForm({
                 <div><span className="font-medium">Fecha Fin:</span> {convenioData.fecha_fin}</div>
                 <div><span className="font-medium">Docente Tutor:</span> {convenioData.facultad_docente_tutor_nombre}</div>
                 <div><span className="font-medium">Fecha Firma:</span> {convenioData.fecha_firma}</div>
+                <div className="md:col-span-2"><span className="font-medium">Duración:</span> {convenioData.practica_duracion}</div>
               </div>
               <div><span className="font-medium">Temática:</span> {convenioData.practica_tematica}</div>
             </div>

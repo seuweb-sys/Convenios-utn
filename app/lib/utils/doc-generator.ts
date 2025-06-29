@@ -19,7 +19,40 @@ interface ConvenioTemplate {
   cierre: string;
 }
 
+// Normaliza valores dinámicos antes de ser inyectados en el documento
+function normalizeFields(fields: TemplateField[]): TemplateField[] {
+  return fields.map((field) => {
+    let value = field.value;
+
+    switch (field.key) {
+      case 'entidad_cuit': {
+        // Formato XX-XXXXXXXX-X si vienen solo dígitos
+        const digits = String(value).replace(/[^0-9]/g, '');
+        if (digits.length === 11) {
+          value = digits.replace(/(\d{2})(\d{8})(\d)/, '$1-$2-$3');
+        }
+        break;
+      }
+      case 'mes': {
+        value = String(value)
+          .toLowerCase()
+          .replace(/^([a-zñáéíóúü])(.*)$/i, (_, first, rest) => first.toUpperCase() + rest);
+        break;
+      }
+      case 'convenio_especifico_tipo': {
+        value = String(value).replace(/tecnica/i, 'Técnica');
+        break;
+      }
+      default:
+        break;
+    }
+
+    return { ...field, value };
+  });
+}
+
 export function processTemplate(template: ConvenioTemplate, fields: TemplateField[]) {
+  const normalizedFields = normalizeFields(fields);
   const children: any[] = [];
 
   // Validar y normalizar la estructura del template
@@ -54,12 +87,12 @@ export function processTemplate(template: ConvenioTemplate, fields: TemplateFiel
     let processed = text;
     
     // Validar que fields sea un array válido
-    if (!Array.isArray(fields)) {
+    if (!Array.isArray(normalizedFields)) {
       console.error('fields no es un array válido:', fields);
       return processed;
     }
     
-    fields.forEach((field) => {
+    normalizedFields.forEach((field) => {
       // Validar que field sea un objeto válido
       if (!field || typeof field !== 'object') {
         console.error('Field inválido:', field);

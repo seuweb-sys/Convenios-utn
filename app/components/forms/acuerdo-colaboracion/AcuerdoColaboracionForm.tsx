@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { BuildingIcon, UserIcon, CalendarIcon, CheckIcon } from "lucide-react";
+import { BuildingIcon, UserIcon, CalendarIcon, CheckIcon, ClipboardCheckIcon } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -32,6 +32,16 @@ const firmaSchema = z.object({
   mes: z.string().min(2, "Mes de firma requerido"),
 });
 
+const proyectoSchema = z.object({
+  unidad_ejecutora_facultad: z.string().min(2, "Dato requerido"),
+  unidad_ejecutora_empresa: z.string().min(2, "Dato requerido"),
+  asignatura: z.string().min(2, "Dato requerido"),
+  carrera: z.string().min(2, "Dato requerido"),
+  objetivo_general: z.string().min(5, "Dato requerido"),
+  vigencia_anios: z.string().regex(/^\d+$/, "Solo números"),
+  extincion_dias: z.string().regex(/^\d+$/, "Solo números"),
+});
+
 const revisionSchema = z.object({
   confirmacion: z.boolean().refine(val => val === true, "Debe confirmar para continuar"),
 });
@@ -39,6 +49,7 @@ const revisionSchema = z.object({
 type EntidadData = z.infer<typeof entidadSchema>;
 type RepresentanteData = z.infer<typeof representanteSchema>;
 type FirmaData = z.infer<typeof firmaSchema>;
+type ProyectoData = z.infer<typeof proyectoSchema>;
 type RevisionData = z.infer<typeof revisionSchema>;
 
 interface AcuerdoColaboracionFormProps {
@@ -92,6 +103,19 @@ export default function AcuerdoColaboracionForm({
     }
   });
 
+  const proyectoForm = useForm<ProyectoData>({
+    resolver: zodResolver(proyectoSchema),
+    defaultValues: {
+      unidad_ejecutora_facultad: (convenioData as any).unidad_ejecutora_facultad || "",
+      unidad_ejecutora_empresa: (convenioData as any).unidad_ejecutora_empresa || "",
+      asignatura: (convenioData as any).asignatura || "",
+      carrera: (convenioData as any).carrera || "",
+      objetivo_general: (convenioData as any).objetivo_general || "",
+      vigencia_anios: (convenioData as any).vigencia_anios || "",
+      extincion_dias: (convenioData as any).extincion_dias || "",
+    }
+  });
+
   const revisionForm = useForm<RevisionData>({
     resolver: zodResolver(revisionSchema),
     defaultValues: { confirmacion: false }
@@ -122,9 +146,9 @@ export default function AcuerdoColaboracionForm({
         }
         break;
       case 3:
-        isValid = await firmaForm.trigger();
+        isValid = await proyectoForm.trigger();
         if (isValid) {
-          const data = firmaForm.getValues();
+          const data = proyectoForm.getValues();
           Object.entries(data).forEach(([key, value]) => {
             updateConvenioData(key as keyof typeof convenioData, value);
           });
@@ -132,6 +156,17 @@ export default function AcuerdoColaboracionForm({
         }
         break;
       case 4:
+        isValid = await firmaForm.trigger();
+        if (isValid) {
+          const data = firmaForm.getValues();
+          Object.entries(data).forEach(([key, value]) => {
+            updateConvenioData(key as keyof typeof convenioData, value);
+          });
+          setShowModal(true);
+          return;
+        }
+        break;
+      case 5:
         isValid = await revisionForm.trigger();
         if (isValid) {
           setShowModal(true);
@@ -170,7 +205,15 @@ export default function AcuerdoColaboracionForm({
           entidad_dni: convenioData.entidad_dni,
           entidad_cargo: convenioData.entidad_cargo,
           dia: convenioData.dia,
-          mes: convenioData.mes
+          mes: convenioData.mes,
+          unidad_ejecutora_facultad: (convenioData as any).unidad_ejecutora_facultad,
+          unidad_ejecutora_empresa: (convenioData as any).unidad_ejecutora_empresa,
+          asignatura: (convenioData as any).asignatura,
+          carrera: (convenioData as any).carrera,
+          objetivo_general: (convenioData as any).objetivo_general,
+          vigencia_anios: (convenioData as any).vigencia_anios,
+          extincion_dias: (convenioData as any).extincion_dias,
+          anio: new Date().getFullYear()
         }
       };
 
@@ -329,7 +372,54 @@ export default function AcuerdoColaboracionForm({
     </div>
   );
 
-  // Paso 3: Datos de la Firma
+  // Paso 3: Proyecto / Detalles adicionales
+  const renderProyectoStep = () => (
+    <div className="space-y-6 animate-in fade-in-0">
+      <div className="space-y-2 mb-6">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <div className="p-1.5 rounded-full bg-green-500/20 text-green-600">
+            <ClipboardCheckIcon className="h-5 w-5" />
+          </div>
+          Información del Proyecto
+        </h2>
+        <p className="text-sm text-muted-foreground">Completa los detalles académicos y parámetros del acuerdo.</p>
+      </div>
+      <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="unidad_ejecutora_facultad">Unidad Ejecutora (Facultad) *</Label>
+            <Input id="unidad_ejecutora_facultad" className="border-border focus-visible:ring-primary" {...proyectoForm.register("unidad_ejecutora_facultad")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="unidad_ejecutora_empresa">Unidad Ejecutora (Entidad) *</Label>
+            <Input id="unidad_ejecutora_empresa" className="border-border focus-visible:ring-primary" {...proyectoForm.register("unidad_ejecutora_empresa")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="asignatura">Asignatura *</Label>
+            <Input id="asignatura" className="border-border focus-visible:ring-primary" {...proyectoForm.register("asignatura")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="carrera">Carrera *</Label>
+            <Input id="carrera" className="border-border focus-visible:ring-primary" {...proyectoForm.register("carrera")} />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="objetivo_general">Objetivo General *</Label>
+            <Textarea id="objetivo_general" className="border-border focus-visible:ring-primary" {...proyectoForm.register("objetivo_general")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="vigencia_anios">Años de Vigencia *</Label>
+            <Input id="vigencia_anios" className="border-border focus-visible:ring-primary" {...proyectoForm.register("vigencia_anios")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="extincion_dias">Días de Extinción *</Label>
+            <Input id="extincion_dias" className="border-border focus-visible:ring-primary" {...proyectoForm.register("extincion_dias")} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Paso 4: Datos de la Firma
   const renderFirmaStep = () => (
     <div className="space-y-6 animate-in fade-in-0">
       <div className="space-y-2 mb-6">
@@ -376,7 +466,7 @@ export default function AcuerdoColaboracionForm({
     </div>
   );
 
-  // Paso 4: Revisión
+  // Paso 5: Revisión
   const renderRevisionStep = () => (
     <div className="space-y-6 animate-in fade-in-0">
       <div className="space-y-2 mb-6">
@@ -464,8 +554,9 @@ export default function AcuerdoColaboracionForm({
     switch (currentStep) {
       case 1: return renderEntidadStep();
       case 2: return renderRepresentanteStep();
-      case 3: return renderFirmaStep();
-      case 4: return renderRevisionStep();
+      case 3: return renderProyectoStep();
+      case 4: return renderFirmaStep();
+      case 5: return renderRevisionStep();
       default: return renderEntidadStep();
     }
   };
@@ -490,10 +581,10 @@ export default function AcuerdoColaboracionForm({
             disabled={isSubmitting}
             className={cn(
               "px-6",
-              currentStep === 4 ? "bg-background text-foreground border border-border hover:bg-accent hover:text-accent-foreground" : ""
+              currentStep === 5 ? "bg-background text-foreground border border-border hover:bg-accent hover:text-accent-foreground" : ""
             )}
           >
-            {currentStep === 4 ? "Finalizar" : "Siguiente"}
+            {currentStep === 5 ? "Finalizar" : "Siguiente"}
           </Button>
         </div>
       </div>

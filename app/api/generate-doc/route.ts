@@ -3,6 +3,9 @@ import { Packer } from 'docx';
 import { createClient } from '@/utils/supabase/server';
 import { createDocument } from '@/app/lib/utils/doc-generator';
 import { uploadFileToDrive } from '@/app/lib/google-drive';
+import path from 'path';
+import fs from 'fs';
+import { renderDocx } from '@/app/lib/utils/docx-templater';
 
 export async function POST(request: Request) {
   try {
@@ -21,7 +24,7 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const { data: template, error } = await supabase
       .from('convenio_types')
-      .select('template_content')
+      .select('name, template_content')
       .eq('id', templateId)
       .single();
 
@@ -33,6 +36,72 @@ export async function POST(request: Request) {
       );
     }
 
+    // Determinar nombre base del template para buscar archivo DOCX (slug sencillo)
+    const safeName = (template as any)?.name ? (template as any).name.toString() : '';
+    const safeNameLower = safeName.toLowerCase();
+    const safeNameNormalized = safeNameLower.normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+    const templateDir = path.join(process.cwd(), 'templates');
+
+    const slugify = (s: string) =>
+      s.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // quitar diacríticos
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+
+    const removeStop = (slug: string) => slug.replace(/\b(de|del|la|el|los|las|y|e)\b-/g, '').replace(/-\b(de|del|la|el|los|las|y|e)\b/g, '');
+
+    const targetSlug = removeStop(safeNameNormalized);
+
+    console.log('Convenios API → template.name:', safeName);
+    console.log('Convenios API → safeNameNormalized:', safeNameNormalized);
+    fs.readdirSync(templateDir).forEach(f => {
+      const fileSlug = slugify(path.parse(f).name);
+      console.log('Archivo:', f, '→', fileSlug);
+    });
+    
+    const allDocx = fs.readdirSync(templateDir).filter((f) => f.toLowerCase().endsWith('.docx'));
+    const scored: {file:string;score:number}[] = [];
+    const norm = (s:string)=>s.replace(/-/g,'');
+    allDocx.forEach((f)=>{
+      const fileSlug = slugify(path.parse(f).name);
+      const fileSlugClean = removeStop(fileSlug);
+      let score=-1;
+      if (fileSlug===safeNameNormalized) score=0;
+      else if (fileSlugClean===targetSlug) score=1;
+      else if (norm(fileSlug)===norm(safeNameNormalized)) score=2;
+      else if (norm(fileSlugClean)===norm(targetSlug)) score=3;
+      else if (norm(fileSlug).includes(norm(safeNameNormalized))) score=4;
+      else if (norm(fileSlugClean).includes(norm(targetSlug))) score=5;
+      if(score>=0) scored.push({file:f,score});
+    });
+    scored.sort((a,b)=>a.score-b.score||a.file.length-b.file.length);
+    const candidateFiles = scored.map((s)=>s.file);
+
+    if (candidateFiles.length) {
+      // Usar el primer match
+      const filePath = path.join(templateDir, candidateFiles[0]);
+      console.log('Usando template DOCX:', filePath);
+      const templateBuffer = fs.readFileSync(filePath);
+      const rendered = await renderDocx(templateBuffer, fields);
+
+      const fileName = `${safeNameNormalized}-${Date.now()}.docx`;
+      try {
+        const driveResponse = await uploadFileToDrive(rendered, fileName);
+        return NextResponse.json({ success: true, ...driveResponse });
+      } catch (driveErr) {
+        console.error('Falla al subir a Drive, devolviendo descarga directa');
+        return new NextResponse(rendered, {
+          headers: {
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Content-Disposition': `attachment; filename="${fileName}"`,
+          },
+        });
+      }
+    }
+
+    // Si no hay template DOCX, usar generador programático
     console.log('Creando documento...');
     // Crear el documento usando nuestro servicio
     const doc = createDocument(template.template_content, fields);

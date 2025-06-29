@@ -24,13 +24,19 @@ export const driveClient = google.drive({ version: 'v3', auth });
 export async function uploadFileToDrive(
   buffer: Buffer,
   fileName: string,
-  folderId: string = DRIVE_FOLDERS.PENDING
+  folderId: string = DRIVE_FOLDERS.PENDING,
+  convertToGoogleDoc: boolean = true
 ) {
   try {
-    const fileMetadata = {
+    const fileMetadata: any = {
       name: fileName,
       parents: [folderId],
     };
+
+    // Si se solicita conversión, indicamos el MIME de Google Docs
+    if (convertToGoogleDoc) {
+      fileMetadata.mimeType = 'application/vnd.google-apps.document';
+    }
 
     // Convertir el buffer a un stream
     const stream = Readable.from(buffer);
