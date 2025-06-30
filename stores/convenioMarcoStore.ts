@@ -50,6 +50,7 @@ interface ConvenioMarcoState {
     empresa_direccion_ciudad?: string;
     empresa_tutor_nombre?: string;
     alumno_carrera?: string;
+    alumno_nombre?: string;
     alumno_dni?: string;
     alumno_legajo?: string;
     fecha_inicio?: string;
