@@ -80,6 +80,11 @@ export default function ConvenioParticularForm({
   const router = useRouter();
   const [showModal, setShowModal] = React.useState(false);
 
+  const meses = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+  const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
   // Configurar formularios para cada paso
   const empresaForm = useForm<EmpresaData>({
     resolver: zodResolver(empresaSchema),
@@ -120,6 +125,19 @@ export default function ConvenioParticularForm({
     resolver: zodResolver(revisionSchema),
     defaultValues: { confirmacion: false }
   });
+
+  React.useEffect(() => {
+    const mes = practicaForm.watch('mes');
+    const dia = practicaForm.watch('dia');
+    if (mes && dia) {
+      const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+      const mesNum = (meses.indexOf(mes) + 1).toString().padStart(2, '0');
+      const fecha = `${new Date().getFullYear()}-${mesNum}-${dia.padStart(2, '0')}`;
+      practicaForm.setValue('fecha_firma', fecha);
+    } else {
+      practicaForm.setValue('fecha_firma', '');
+    }
+  }, [practicaForm.watch('mes'), practicaForm.watch('dia')]);
 
   const handleNext = async () => {
     let isValid = false;
@@ -294,9 +312,10 @@ export default function ConvenioParticularForm({
             <Label htmlFor="empresa_cuit">CUIT (sin guiones) *</Label>
             <Input
               id="empresa_cuit"
-              className="border-border focus-visible:ring-primary"
-              placeholder="20445041743"
-              {...empresaForm.register("empresa_cuit")}
+              placeholder="xx-xxxxxxxx-x (sin puntos ni guiones)"
+              {...empresaForm.register("empresa_cuit", {
+                pattern: { value: /^\d+$/, message: "Solo números" }
+              })}
             />
             {empresaForm.formState.errors.empresa_cuit && (
               <p className="text-sm text-red-500">{String(empresaForm.formState.errors.empresa_cuit.message)}</p>
@@ -419,9 +438,10 @@ export default function ConvenioParticularForm({
             <Label htmlFor="alumno_dni">DNI del Alumno *</Label>
             <Input
               id="alumno_dni"
-              className="border-border focus-visible:ring-primary"
-              placeholder="Sin puntos ni guiones"
-              {...alumnoForm.register("alumno_dni")}
+              placeholder="sin puntos"
+              {...alumnoForm.register("alumno_dni", {
+                pattern: { value: /^\d+$/, message: "Solo números" }
+              })}
             />
             {alumnoForm.formState.errors.alumno_dni && (
               <p className="text-sm text-red-500">{String(alumnoForm.formState.errors.alumno_dni.message)}</p>
@@ -529,12 +549,39 @@ export default function ConvenioParticularForm({
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="fecha_firma">Fecha de Firma del Convenio *</Label>
-            <Input
-              id="fecha_firma"
-              type="date"
-              className="border-border focus-visible:ring-primary"
-              {...practicaForm.register("fecha_firma")}
-            />
+            <select
+              id="mes"
+              className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+              {...practicaForm.register("mes", { required: true })}
+              onChange={e => {
+                practicaForm.setValue("mes", e.target.value);
+                practicaForm.setValue("dia", "");
+              }}
+              value={practicaForm.watch("mes") || ""}
+            >
+              <option value="">Seleccionar mes</option>
+              {meses.map((mes, idx) => (
+                <option key={mes} value={mes}>{mes}</option>
+              ))}
+            </select>
+            <select
+              id="dia"
+              className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+              {...practicaForm.register("dia", { required: true })}
+              onChange={e => {
+                practicaForm.setValue("dia", e.target.value);
+              }}
+              value={practicaForm.watch("dia") || ""}
+            >
+              <option value="">Seleccionar día</option>
+              {(() => {
+                const mesIdx = meses.indexOf(practicaForm.watch("mes"));
+                const dias = mesIdx >= 0 ? diasPorMes[mesIdx] : 31;
+                return Array.from({ length: dias }, (_, i) => i + 1).map(dia => (
+                  <option key={dia} value={dia}>{dia}</option>
+                ));
+              })()}
+            </select>
             {practicaForm.formState.errors.fecha_firma && (
               <p className="text-sm text-red-500">{String(practicaForm.formState.errors.fecha_firma.message)}</p>
             )}

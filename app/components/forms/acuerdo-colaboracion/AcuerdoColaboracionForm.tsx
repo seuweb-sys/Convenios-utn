@@ -121,6 +121,12 @@ export default function AcuerdoColaboracionForm({
     defaultValues: { confirmacion: false }
   });
 
+  // Helpers para meses y días
+  const meses = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+  const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
   const handleNext = async () => {
     let isValid = false;
     
@@ -273,9 +279,10 @@ export default function AcuerdoColaboracionForm({
             <Label htmlFor="entidad_cuit">CUIT (sin guiones) *</Label>
             <Input
               id="entidad_cuit"
-              className="border-border focus-visible:ring-primary"
-              placeholder="20445041743"
-              {...entidadForm.register("entidad_cuit")}
+              placeholder="xx-xxxxxxxx-x (sin puntos ni guiones)"
+              {...entidadForm.register("entidad_cuit", {
+                pattern: { value: /^\d+$/, message: "Solo números" }
+              })}
             />
             {entidadForm.formState.errors.entidad_cuit && (
               <p className="text-sm text-red-500">{entidadForm.formState.errors.entidad_cuit.message}</p>
@@ -346,9 +353,10 @@ export default function AcuerdoColaboracionForm({
             <Label htmlFor="entidad_dni">DNI del Representante *</Label>
             <Input
               id="entidad_dni"
-              className="border-border focus-visible:ring-primary"
-              placeholder="Sin puntos ni guiones"
-              {...representanteForm.register("entidad_dni")}
+              placeholder="sin puntos"
+              {...representanteForm.register("entidad_dni", {
+                pattern: { value: /^\d+$/, message: "Solo números" }
+              })}
             />
             {representanteForm.formState.errors.entidad_dni && (
               <p className="text-sm text-red-500">{representanteForm.formState.errors.entidad_dni.message}</p>
@@ -438,12 +446,24 @@ export default function AcuerdoColaboracionForm({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="dia">Día de Firma *</Label>
-            <Input
+            <select
               id="dia"
-              className="border-border focus-visible:ring-primary"
-              placeholder="Ej: 15"
-              {...firmaForm.register("dia")}
-            />
+              className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+              {...firmaForm.register("dia", { required: true })}
+              onChange={e => {
+                firmaForm.setValue("dia", e.target.value);
+              }}
+              value={firmaForm.watch("dia") || ""}
+            >
+              <option value="">Seleccionar día</option>
+              {(() => {
+                const mesIdx = meses.indexOf(firmaForm.watch("mes"));
+                const dias = mesIdx >= 0 ? diasPorMes[mesIdx] : 31;
+                return Array.from({ length: dias }, (_, i) => i + 1).map(dia => (
+                  <option key={dia} value={dia}>{dia}</option>
+                ));
+              })()}
+            </select>
             {firmaForm.formState.errors.dia && (
               <p className="text-sm text-red-500">{firmaForm.formState.errors.dia.message}</p>
             )}
@@ -451,12 +471,21 @@ export default function AcuerdoColaboracionForm({
 
           <div className="space-y-2">
             <Label htmlFor="mes">Mes de Firma *</Label>
-            <Input
+            <select
               id="mes"
-              className="border-border focus-visible:ring-primary"
-              placeholder="Ej: junio"
-              {...firmaForm.register("mes")}
-            />
+              className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+              {...firmaForm.register("mes", { required: true })}
+              onChange={e => {
+                firmaForm.setValue("mes", e.target.value);
+                firmaForm.setValue("dia", "");
+              }}
+              value={firmaForm.watch("mes") || ""}
+            >
+              <option value="">Seleccionar mes</option>
+              {meses.map((mes, idx) => (
+                <option key={mes} value={mes}>{mes}</option>
+              ))}
+            </select>
             {firmaForm.formState.errors.mes && (
               <p className="text-sm text-red-500">{firmaForm.formState.errors.mes.message}</p>
             )}

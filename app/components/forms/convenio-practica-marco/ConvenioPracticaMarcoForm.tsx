@@ -86,6 +86,11 @@ export function ConvenioPracticaMarcoForm({
   const [localStatus, setLocalStatus] = useState(convenioData?.status || 'enviado');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+  const meses = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+  const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
   // Configurar el esquema de validación según el paso actual
   useEffect(() => {
     switch (currentStep) {
@@ -272,9 +277,10 @@ export function ConvenioPracticaMarcoForm({
                   <Label htmlFor="cuit">CUIT (sin guiones) *</Label>
                   <Input
                     id="cuit"
-                    className="border-border focus-visible:ring-primary"
-                    placeholder="20445041743"
-                    {...form.register("cuit")}
+                    placeholder="xx-xxxxxxxx-x (sin puntos ni guiones)"
+                    {...form.register("cuit", {
+                      pattern: { value: /^\d+$/, message: "Solo números" }
+                    })}
                   />
                   {form.formState.errors.cuit?.message && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.cuit.message)}</p>
@@ -344,9 +350,10 @@ export function ConvenioPracticaMarcoForm({
                   <Label htmlFor="representanteDni">DNI *</Label>
                   <Input
                     id="representanteDni"
-                    className="border-border focus-visible:ring-primary"
-                    placeholder="Sin puntos ni guiones"
-                    {...form.register("representanteDni")}
+                    placeholder="sin puntos"
+                    {...form.register("representanteDni", {
+                      pattern: { value: /^\d+$/, message: "Solo números" }
+                    })}
                   />
                   {form.formState.errors.representanteDni?.message && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.representanteDni.message)}</p>
@@ -375,15 +382,24 @@ export function ConvenioPracticaMarcoForm({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="dia">Día de Firma *</Label>
-                  <Input
+                  <select
                     id="dia"
-                    type="number"
-                    min={1}
-                    max={31}
-                    className="border-border focus-visible:ring-primary"
-                    placeholder="Ej: 15"
-                    {...form.register("dia")}
-                  />
+                    className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+                    {...form.register("dia", { required: true })}
+                    onChange={e => {
+                      form.setValue("dia", e.target.value);
+                    }}
+                    value={form.watch("dia") || ""}
+                  >
+                    <option value="">Seleccionar día</option>
+                    {(() => {
+                      const mesIdx = meses.indexOf(form.watch("mes"));
+                      const dias = mesIdx >= 0 ? diasPorMes[mesIdx] : 31;
+                      return Array.from({ length: dias }, (_, i) => i + 1).map(dia => (
+                        <option key={dia} value={dia}>{dia}</option>
+                      ));
+                    })()}
+                  </select>
                   {form.formState.errors.dia?.message && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.dia.message)}</p>
                   )}
@@ -391,12 +407,21 @@ export function ConvenioPracticaMarcoForm({
 
                 <div className="space-y-2">
                   <Label htmlFor="mes">Mes de Firma *</Label>
-                  <Input
+                  <select
                     id="mes"
-                    className="border-border focus-visible:ring-primary"
-                    placeholder="Ej: junio"
-                    {...form.register("mes")}
-                  />
+                    className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+                    {...form.register("mes", { required: true })}
+                    onChange={e => {
+                      form.setValue("mes", e.target.value);
+                      form.setValue("dia", "");
+                    }}
+                    value={form.watch("mes") || ""}
+                  >
+                    <option value="">Seleccionar mes</option>
+                    {meses.map((mes, idx) => (
+                      <option key={mes} value={mes}>{mes}</option>
+                    ))}
+                  </select>
                   {form.formState.errors.mes?.message && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.mes.message)}</p>
                   )}
