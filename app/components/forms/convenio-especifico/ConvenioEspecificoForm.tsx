@@ -216,6 +216,8 @@ interface ConvenioEspecificoFormProps {
   onError: (error: string | null) => void;
   isSubmitting: boolean;
   setIsSubmitting: (isSubmitting: boolean) => void;
+  convenioIdFromUrl?: string | null;
+  mode?: string | null;
 }
 
 export function ConvenioEspecificoForm({
@@ -225,7 +227,9 @@ export function ConvenioEspecificoForm({
   onFormStateChange,
   onError,
   isSubmitting,
-  setIsSubmitting
+  setIsSubmitting,
+  convenioIdFromUrl,
+  mode
 }: ConvenioEspecificoFormProps) {
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
@@ -887,7 +891,7 @@ export function ConvenioEspecificoForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <div className="space-y-1 mb-8">
@@ -972,15 +976,18 @@ export function ConvenioEspecificoForm({
                                 status: 'pendiente'
                               };
                               let response, responseData;
-                              if (!convenioData?.id) {
-                                response = await fetch('/api/convenios', {
-                                  method: 'POST',
+                              // Si tenemos ID desde la URL (modo corrección) o desde convenioData, usar PATCH
+                              if (convenioIdFromUrl || convenioData?.id) {
+                                const targetId = convenioIdFromUrl || convenioData.id;
+                                response = await fetch(`/api/convenios/${targetId}`, {
+                                  method: 'PATCH',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify(requestData),
                                 });
                               } else {
-                                response = await fetch(`/api/convenios/${convenioData.id}`, {
-                                  method: 'PATCH',
+                                // Solo crear nuevo convenio si NO hay ID disponible
+                                response = await fetch('/api/convenios', {
+                                  method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify(requestData),
                                 });

@@ -1,31 +1,21 @@
 import { create } from 'zustand';
-import { ConvenioData, ParteData, validateDatosBasicos, validateParte, validateClausulas } from '@/types/convenio';
 import { FieldDefinition } from '@/types/fieldDefinition';
 
+// Tipo para el estado de cada paso
 interface StepState {
   isValid: boolean;
   isTouched: boolean;
 }
 
-// Estado inicial con estructura específica para convenio marco
+// Tipo básico de datos del convenio (será extendido dinámicamente)
+interface ConvenioData {
+  [key: string]: any;
+}
+
+// Estado inicial con estructura genérica para TODOS los tipos de convenio
 const initialState: Omit<ConvenioMarcoState, 'initialize' | 'updateConvenioData' | 'setStepValidity' | 'goToStep' | 'saveConvenio' | 'reset'> = {
   convenioData: {
-    datosBasicos: {
-      nombre: '',
-      objeto: '',
-      fechaInicio: '',
-      fechaFin: ''
-    },
-    partes: [{
-      tipo: 'empresa',
-      nombre: '',
-      domicilio: '',
-      cuit: '',
-      representanteNombre: '',
-      representanteDni: '',
-      cargoRepresentante: ''
-    }],
-    clausulas: []
+    // Estructura completamente flexible - se adaptará según el tipo de convenio
   },
   initialConvenioData: null,
   convenioId: null,
@@ -39,9 +29,32 @@ const initialState: Omit<ConvenioMarcoState, 'initialize' | 'updateConvenioData'
 };
 
 interface ConvenioMarcoState {
-  // Datos del convenio
+  // Datos del convenio - ahora completamente genérico para TODOS los tipos
   convenioData: Partial<ConvenioData> & {
-    // Campos específicos para convenio particular
+    // Campos comunes
+    id?: string;
+    status?: string;
+    title?: string;
+    
+    // Campos para Convenio Marco
+    datosBasicos?: {
+      nombre?: string;
+      objeto?: string;
+      fechaInicio?: string;
+      fechaFin?: string;
+    };
+    partes?: Array<{
+      tipo?: string;
+      nombre?: string;
+      domicilio?: string;
+      cuit?: string;
+      representanteNombre?: string;
+      representanteDni?: string;
+      cargoRepresentante?: string;
+    }>;
+    clausulas?: any[];
+    
+    // Campos para Convenio Particular de Práctica Supervisada
     empresa_nombre?: string;
     empresa_cuit?: string;
     empresa_representante_nombre?: string;
@@ -56,9 +69,12 @@ interface ConvenioMarcoState {
     fecha_inicio?: string;
     fecha_fin?: string;
     practica_tematica?: string;
+    practica_duracion?: string;
     facultad_docente_tutor_nombre?: string;
     fecha_firma?: string;
-    // Campos específicos para acuerdo de colaboración
+    practica_fecha_firma?: string;
+    
+    // Campos para Acuerdo de Colaboración
     entidad_nombre?: string;
     entidad_domicilio?: string;
     entidad_ciudad?: string;
@@ -68,9 +84,19 @@ interface ConvenioMarcoState {
     entidad_cargo?: string;
     dia?: string;
     mes?: string;
+    
+    // Campos para Convenio Marco Práctica Supervisada
+    entidad_tipo?: string;
+    entidad_rubro?: string;
+    representante_nombre?: string;
+    representante_cargo?: string;
+    representante_dni?: string;
+    
+    // Campos adicionales que pueden aparecer
+    [key: string]: any;
   };
   initialConvenioData: Partial<ConvenioData> | null;
-  convenioId: number | null;
+  convenioId: string | null;
   
   // Estado de navegación y formulario
   currentStep: number;
@@ -84,7 +110,7 @@ interface ConvenioMarcoState {
   updateLogTimestamp?: number;
   
   // Acciones
-  initialize: (convenioId?: number) => Promise<void>;
+  initialize: (convenioId?: string | number) => Promise<void>;
   updateConvenioData: (section: keyof ConvenioData | string, data: any) => void;
   setStepValidity: (step: number, isValid: boolean, isTouched?: boolean) => void;
   goToStep: (stepNumber: number) => void;
@@ -97,42 +123,122 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
   ...initialState,
 
   initialize: async (convenioId) => {
-    set({ isLoading: true, isInitialized: false, convenioId: convenioId ?? null });
+    set({ isLoading: true, isInitialized: false, convenioId: convenioId ? String(convenioId) : null });
     
     try {
-      // Definición de campos específicos para convenio marco
+      // Definición de campos genérica para todos los tipos de convenio
       const fetchedFields: FieldDefinition[] = [
-        // Paso 1: Datos Básicos
-        { name: 'nombre', label: 'Nombre del Convenio', type: 'text', required: true, step: 1 },
-        { name: 'objeto', label: 'Objeto', type: 'textarea', required: true, step: 1 },
-        { name: 'fechaInicio', label: 'Fecha de Inicio', type: 'date', required: true, step: 1 },
-        { name: 'fechaFin', label: 'Fecha de Fin', type: 'date', required: true, step: 1 },
-        
-        // Paso 2: Partes del Convenio
-        { name: 'tipo', label: 'Tipo de Entidad', type: 'select', required: true, step: 2 },
-        { name: 'nombre', label: 'Nombre de la Entidad', type: 'text', required: true, step: 2 },
-        { name: 'domicilio', label: 'Domicilio', type: 'text', required: true, step: 2 },
-        { name: 'cuit', label: 'CUIT', type: 'text', required: false, step: 2 },
-        { name: 'representanteNombre', label: 'Nombre del Representante', type: 'text', required: true, step: 2 },
-        { name: 'representanteDni', label: 'DNI del Representante', type: 'text', required: false, step: 2 },
-        { name: 'cargoRepresentante', label: 'Cargo del Representante', type: 'text', required: true, step: 2 },
-        
-        // Paso 3: Cláusulas
-        { name: 'clausulas', label: 'Cláusulas del Convenio', type: 'textarea', required: true, step: 3 }
+        // Los campos específicos se definirán dinámicamente según el tipo de convenio
+        // Por ahora, campos básicos que todos pueden tener
+        { name: 'title', label: 'Título', type: 'text', required: true, step: 1 },
+        { name: 'status', label: 'Estado', type: 'text', required: false, step: 1 }
       ];
       
       set({ formFields: fetchedFields });
 
+      // Si hay convenioId, cargar los datos del convenio existente
       if (convenioId) {
         const response = await fetch(`/api/convenios/${convenioId}`);
         if (!response.ok) throw new Error('Error al cargar el convenio');
         const loadedData = await response.json();
         
-        // Asegurar estructura de datos completa
+        console.log('Raw data from API:', loadedData);
+        
+        // Priorizar form_data, luego content_data
+        const sourceData = loadedData.form_data || loadedData.content_data || {};
+        
+        console.log('Source data from API:', sourceData);
+        
+        // Mapeo genérico que funciona para TODOS los tipos de convenio
+        let mappedData: any = {};
+        
+        // Mapeo genérico que funciona para TODOS los tipos de convenio
+        mappedData = {
+          id: loadedData.id,
+          status: loadedData.status,
+          title: loadedData.title,
+          // Copiar todos los campos directamente desde sourceData
+          ...sourceData,
+          // Asegurar campos específicos por tipo
+        };
+        
+        // Mapeo específico para Acuerdo de Colaboración
+        if (sourceData.entidad_nombre && !sourceData.empresa_nombre) {
+          mappedData = {
+            ...mappedData,
+            entidad_nombre: sourceData.entidad_nombre,
+            entidad_domicilio: sourceData.entidad_domicilio,
+            entidad_ciudad: sourceData.entidad_ciudad,
+            entidad_cuit: sourceData.entidad_cuit,
+            entidad_representante: sourceData.entidad_representante,
+            entidad_dni: sourceData.entidad_dni,
+            entidad_cargo: sourceData.entidad_cargo,
+            dia: sourceData.dia,
+            mes: sourceData.mes,
+          };
+        }
+        
+        // Mapeo específico para Convenio Particular
+        if (sourceData.empresa_nombre || sourceData.alumno_nombre) {
+          mappedData = {
+            ...mappedData,
+            empresa_nombre: sourceData.empresa_nombre,
+            empresa_cuit: sourceData.empresa_cuit,
+            empresa_representante_nombre: sourceData.empresa_representante_nombre,
+            empresa_representante_caracter: sourceData.empresa_representante_caracter,
+            empresa_direccion_calle: sourceData.empresa_direccion_calle,
+            empresa_direccion_ciudad: sourceData.empresa_direccion_ciudad,
+            empresa_tutor_nombre: sourceData.empresa_tutor_nombre,
+            alumno_carrera: sourceData.alumno_carrera,
+            alumno_nombre: sourceData.alumno_nombre,
+            alumno_dni: sourceData.alumno_dni,
+            alumno_legajo: sourceData.alumno_legajo,
+            fecha_inicio: sourceData.fecha_inicio,
+            fecha_fin: sourceData.fecha_fin,
+            practica_tematica: sourceData.practica_tematica,
+            practica_duracion: sourceData.practica_duracion,
+            facultad_docente_tutor_nombre: sourceData.facultad_docente_tutor_nombre,
+            fecha_firma: sourceData.fecha_firma || sourceData.practica_fecha_firma,
+            practica_fecha_firma: sourceData.practica_fecha_firma || sourceData.fecha_firma,
+            dia: sourceData.dia,
+            mes: sourceData.mes,
+          };
+        }
+        
+        // Mapeo específico para Convenio Marco Práctica Supervisada
+        if (sourceData.entidad_nombre && sourceData.entidad_rubro) {
+          mappedData = {
+            ...mappedData,
+            entidad_nombre: sourceData.entidad_nombre,
+            entidad_tipo: sourceData.entidad_tipo,
+            entidad_domicilio: sourceData.entidad_domicilio,
+            entidad_ciudad: sourceData.entidad_ciudad,
+            entidad_cuit: sourceData.entidad_cuit,
+            entidad_rubro: sourceData.entidad_rubro,
+            // Mapear correctamente los campos del representante desde la BD
+            representante_nombre: sourceData.entidad_representante,
+            representante_cargo: sourceData.entidad_cargo,
+            representante_dni: sourceData.entidad_dni,
+            dia: sourceData.dia,
+            mes: sourceData.mes,
+          };
+        }
+        
+        // Mapeo para Convenio Marco y otros tipos tradicionales
+        if (sourceData.datosBasicos || sourceData.datos_basicos) {
+          mappedData = {
+            ...mappedData,
+            datosBasicos: sourceData.datosBasicos || sourceData.datos_basicos || {},
+            partes: sourceData.partes || [],
+            clausulas: sourceData.clausulas || []
+          };
+        }
+        
+        console.log('Mapped data for store:', mappedData);
+        
+        // Asegurar estructura de datos completa con valores por defecto seguros
         const initialDataWithDefaults = {
-          ...initialState.convenioData,
-          ...loadedData,
-          clausulas: loadedData.clausulas ?? []
+          ...mappedData
         };
 
         set({ 
@@ -141,29 +247,13 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
         });
       }
 
-      // Inicializar estados de pasos
-      const steps = [1, 2, 3]; // Convenio Marco tiene 3 pasos
+      // Inicializar estados de pasos de forma genérica
+      const steps = [1, 2, 3, 4]; // Máximo 4 pasos para cualquier convenio
       const initialStepStates: Record<number, StepState> = {};
       
       for (const stepNum of steps) {
-        let isStepInitiallyValid = false;
-        
-        if (convenioId && get().convenioData) {
-          const data = get().convenioData;
-          switch(stepNum) {
-            case 1:
-              isStepInitiallyValid = validateDatosBasicos(data.datosBasicos).valid;
-              break;
-            case 2:
-              // Validar la primera parte (empresa)
-              isStepInitiallyValid = data.partes && data.partes.length > 0 ? 
-                validateParte(data.partes[0]).valid : false;
-              break;
-            case 3:
-              isStepInitiallyValid = validateClausulas(data.clausulas).valid;
-              break;
-          }
-        }
+        // Por ahora, marcar como válidos si hay datos cargados
+        const isStepInitiallyValid = !!convenioId && Object.keys(get().convenioData).length > 0;
         
         initialStepStates[stepNum] = { 
           isValid: isStepInitiallyValid, 
@@ -172,14 +262,14 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
       }
       
       set({ 
-        stepStates: initialStepStates,
+        stepStates: initialStepStates, 
+        isLoading: false, 
         isInitialized: true 
       });
 
     } catch (error) {
-      console.error('Error initializing convenio marco store:', error);
-    } finally {
-      set({ isLoading: false });
+      console.error("Error initializing store:", error);
+      set({ isLoading: false, isInitialized: false });
     }
   },
 
@@ -234,25 +324,11 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
       };
     });
 
+    // Validación genérica basada en si hay datos en la sección actualizada
     const { currentStep, convenioData } = get();
-    let isValid = false;
-
-    // Validar según el paso actual
-    switch(currentStep) {
-      case 1:
-        isValid = validateDatosBasicos(convenioData.datosBasicos).valid;
-        break;
-      case 2:
-        // Validar la primera parte (empresa)
-        isValid = convenioData.partes && convenioData.partes.length > 0 ? 
-          validateParte(convenioData.partes[0]).valid : false;
-        break;
-      case 3:
-        isValid = validateClausulas(convenioData.clausulas).valid;
-        break;
-    }
-
-    get().setStepValidity(currentStep, isValid, true);
+    const hasRelevantData = section === 'all' || Object.keys(data).length > 0;
+    
+    get().setStepValidity(currentStep, hasRelevantData, true);
   },
 
   setStepValidity: (step, isValid, isTouched = true) => {
@@ -266,41 +342,26 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
 
   goToStep: (stepNumber) => {
     const currentState = get();
-    const maxSteps = 3; // Convenio Marco tiene 3 pasos
+    const maxSteps = 4; // Máximo 4 pasos para cualquier convenio
 
     if (stepNumber > 0 && stepNumber <= maxSteps) {
-      // Permitir ir a pasos anteriores
-      if (stepNumber < currentState.currentStep) {
-        set({ currentStep: stepNumber });
-        return;
-      }
-      
-      // Permitir ir al siguiente paso solo si el actual es válido
-      if (stepNumber === currentState.currentStep + 1) {
-        const currentStepValidated = currentState.stepStates[currentState.currentStep]?.isValid || false;
-        
-        if (currentStepValidated) {
-          set({ currentStep: stepNumber });
-        }
-      }
+      set({ currentStep: stepNumber });
     }
   },
 
   saveConvenio: async () => {
     const { convenioData, convenioId, stepStates } = get();
     
-    // Validar todos los pasos
-    for (let step = 1; step <= 3; step++) {
-      if (!stepStates[step]?.isValid) {
-        set({ currentStep: step });
-        throw new Error(`El paso ${step} no es válido`);
-      }
+    // Validación genérica - verificar que al menos tengamos algunos datos
+    const hasData = Object.keys(convenioData).length > 0;
+    if (!hasData) {
+      throw new Error('No hay datos para guardar');
     }
 
     set({ isSaving: true });
     try {
       const payload = {
-        title: convenioData.datosBasicos?.nombre || "Sin título",
+        title: convenioData.title || convenioData.empresa_nombre || convenioData.entidad_nombre || "Sin título",
         content_data: convenioData
       };
 

@@ -61,10 +61,12 @@ interface ConvenioParticularFormProps {
   currentStep: number;
   onStepChange: (step: number) => void;
   formState: Record<string, any>;
-  onFormStateChange: (formState: Record<string, any>) => void;
+  onFormStateChange: (state: Record<string, any>) => void;
   onError: (error: string | null) => void;
   isSubmitting: boolean;
-  setIsSubmitting: (submitting: boolean) => void;
+  setIsSubmitting: (isSubmitting: boolean) => void;
+  convenioIdFromUrl?: string | null;
+  mode?: string | null;
 }
 
 export default function ConvenioParticularForm({
@@ -74,7 +76,9 @@ export default function ConvenioParticularForm({
   onFormStateChange,
   onError,
   isSubmitting,
-  setIsSubmitting
+  setIsSubmitting,
+  convenioIdFromUrl,
+  mode
 }: ConvenioParticularFormProps) {
   const { convenioData, updateConvenioData } = useConvenioMarcoStore();
   const router = useRouter();
@@ -250,19 +254,31 @@ export default function ConvenioParticularForm({
       console.log('DBData debug:', dbData);
 
       const requestData = {
-                        title: dbData.empresa_nombre || 'Empresa',
+        title: dbData.empresa_nombre || 'Empresa',
         convenio_type_id: 1,
         content_data: dbData,
         status: 'enviado'
       };
 
-      const response = await fetch("/api/convenios", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
-      });
+      let response, responseData;
+      // Si tenemos ID desde la URL (modo corrección) o desde convenioData, usar PATCH
+      if (convenioIdFromUrl || convenioData?.id) {
+        const targetId = convenioIdFromUrl || convenioData.id;
+        response = await fetch(`/api/convenios/${targetId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData),
+        });
+      } else {
+        // Solo crear nuevo convenio si NO hay ID disponible
+        response = await fetch("/api/convenios", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestData),
+        });
+      }
 
-      const responseData = await response.json();
+      responseData = await response.json();
       
       if (!response.ok) {
         throw new Error(responseData.error || 'Error al crear el convenio');
@@ -695,7 +711,7 @@ export default function ConvenioParticularForm({
 
   return (
     <>
-      <div className="space-y-8">
+      <div className="p-6 space-y-8">
         {renderCurrentStep()}
         
         <div className="flex justify-between pt-6">

@@ -45,7 +45,7 @@ export async function signInAction(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/protected/dashboard");
+  redirect("/protected");
 }
 
 /**

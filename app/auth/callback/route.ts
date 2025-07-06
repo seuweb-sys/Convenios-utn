@@ -15,6 +15,6 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  // Redirige a la página del dashboard después de la autenticación
-  return NextResponse.redirect(new URL("/protected/dashboard", requestUrl.origin));
+  // Redirige a la página protegida después de la autenticación
+  return NextResponse.redirect(new URL("/protected", requestUrl.origin));
 }

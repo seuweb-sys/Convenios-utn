@@ -3,13 +3,14 @@ import { Packer } from 'docx';
 import { createClient } from '@/utils/supabase/server';
 import { createDocument } from '@/app/lib/utils/doc-generator';
 import { uploadFileToDrive } from '@/app/lib/google-drive';
+import { NotificationService } from '@/app/lib/services/notification-service';
 import path from 'path';
 import fs from 'fs';
 import { renderDocx } from '@/app/lib/utils/docx-templater';
 
 export async function POST(request: Request) {
   try {
-    const { templateId, fields } = await request.json();
+    const { templateId, fields, convenioId } = await request.json();
     
     // Validar que tenemos los datos necesarios
     if (!templateId || !fields) {
@@ -22,6 +23,16 @@ export async function POST(request: Request) {
     console.log('Obteniendo template de la base de datos...');
     // Obtener el template de la base de datos
     const supabase = await createClient();
+    
+    // Verificar autenticación
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'No autorizado' },
+        { status: 401 }
+      );
+    }
+    
     const { data: template, error } = await supabase
       .from('convenio_types')
       .select('name, template_content')
@@ -119,6 +130,17 @@ export async function POST(request: Request) {
       );
 
       console.log('Archivo subido exitosamente a Drive');
+      
+      // Enviar notificación de documento generado
+      if (convenioId) {
+        try {
+          const convenioTitle = fields.entidad_nombre || "Sin título";
+          await NotificationService.documentGenerated(user.id, convenioTitle, convenioId);
+        } catch (notificationError) {
+          console.error('Error al enviar notificación de documento generado:', notificationError);
+          // No fallamos la operación si la notificación falla
+        }
+      }
       
       // Devolver la respuesta como JSON con los datos de Drive
       return NextResponse.json({

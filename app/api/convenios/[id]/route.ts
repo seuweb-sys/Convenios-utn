@@ -1,6 +1,8 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
 import { UpdateConvenioDTO } from "@/lib/types/convenio";
+import { moveFileToFolder, DRIVE_FOLDERS } from '@/app/lib/google-drive';
+import { NotificationService } from '@/app/lib/services/notification-service';
 
 // Obtener un convenio específico
 export async function GET(
@@ -125,7 +127,7 @@ export async function PATCH(
     // Verificar que el convenio exista y el usuario tenga permiso
     const { data: convenio, error: checkError } = await supabase
       .from('convenios')
-      .select('user_id, status')
+      .select('user_id, status, title')
       .eq('id', params.id)
       .single();
 
@@ -154,7 +156,7 @@ export async function PATCH(
     };
 
     if (body.content_data) {
-      updateData.content_data = body.content_data;
+      updateData.form_data = body.content_data;
     }
 
     if (body.document_path) {
@@ -215,7 +217,7 @@ export async function PATCH(
       .from('convenios')
       .update(updateData)
       .eq('id', params.id)
-      .select()
+      .select('document_path')
       .single();
 
     if (updateError) {
@@ -224,6 +226,29 @@ export async function PATCH(
         { error: 'Error al actualizar el convenio' },
         { status: 500 }
       );
+    }
+
+    // Si se está reenvíando después de corrección, mover archivo de ARCHIVED a PENDING
+    if (body.status === 'enviado' && convenio.status === 'revision' && updatedConvenio.document_path) {
+      try {
+        // Extraer el ID del archivo de la URL de Drive
+        const fileId = updatedConvenio.document_path.split('/d/')[1]?.split('/')[0];
+        if (fileId) {
+          await moveFileToFolder(fileId, DRIVE_FOLDERS.PENDING);
+        }
+      } catch (driveError) {
+        console.error('Error al mover el archivo en Drive:', driveError);
+        // No fallamos la operación si el movimiento en Drive falla
+      }
+
+      // Enviar notificación de reenvío
+      try {
+        const convenioTitle = convenio.title || "Sin título";
+        await NotificationService.convenioResubmitted(user.id, convenioTitle, params.id);
+      } catch (notificationError) {
+        console.error('Error al enviar notificación de reenvío:', notificationError);
+        // No fallamos la operación si la notificación falla
+      }
     }
 
     return NextResponse.json({

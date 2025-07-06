@@ -1,4 +1,4 @@
-import { BuildingIcon, UserIcon, CalendarIcon, FileTextIcon } from "lucide-react";
+import { BuildingIcon, UserIcon, CalendarIcon, FileTextIcon, ClipboardCheckIcon } from "lucide-react";
 import { ConvenioMarcoForm } from '@/app/components/forms/convenio-marco/ConvenioMarcoForm';
 import ConvenioPracticaMarcoForm from '@/app/components/forms/convenio-practica-marco/ConvenioPracticaMarcoForm';
 import ConvenioEspecificoForm from '@/app/components/forms/convenio-especifico/ConvenioEspecificoForm';
@@ -152,12 +152,18 @@ export const convenioConfigs = {
       },
       {
         id: 3,
+        title: "Información del Proyecto",
+        description: "Detalles académicos y parámetros del acuerdo",
+        icon: <ClipboardCheckIcon className="h-5 w-5" />
+      },
+      {
+        id: 4,
         title: "Datos de Firma",
         description: "Fecha de firma del acuerdo",
         icon: <CalendarIcon className="h-5 w-5" />
       },
       {
-        id: 4,
+        id: 5,
         title: "Revisión",
         description: "Revisá y enviá tu acuerdo",
         icon: <FileTextIcon className="h-5 w-5" />

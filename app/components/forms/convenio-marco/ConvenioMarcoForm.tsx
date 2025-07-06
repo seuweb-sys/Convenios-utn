@@ -68,6 +68,8 @@ interface ConvenioMarcoFormProps {
   onError: (error: string | null) => void;
   isSubmitting: boolean;
   setIsSubmitting: (isSubmitting: boolean) => void;
+  convenioIdFromUrl?: string | null;
+  mode?: string | null;
 }
 
 export function ConvenioMarcoForm({
@@ -77,7 +79,9 @@ export function ConvenioMarcoForm({
   onFormStateChange,
   onError,
   isSubmitting,
-  setIsSubmitting
+  setIsSubmitting,
+  convenioIdFromUrl,
+  mode
 }: ConvenioMarcoFormProps) {
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
@@ -499,7 +503,7 @@ export function ConvenioMarcoForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Formulario actual */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -581,15 +585,16 @@ export function ConvenioMarcoForm({
                                 status: 'pendiente'
                               };
                               let response, responseData;
-                              if (!convenioData?.id) {
-                                response = await fetch('/api/convenios', {
-                                  method: 'POST',
+                              if (convenioIdFromUrl || convenioData?.id) {
+                                const targetId = convenioIdFromUrl || convenioData.id;
+                                response = await fetch(`/api/convenios/${targetId}`, {
+                                  method: 'PATCH',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify(requestData),
                                 });
                               } else {
-                                response = await fetch(`/api/convenios/${convenioData.id}`, {
-                                  method: 'PATCH',
+                                response = await fetch('/api/convenios', {
+                                  method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify(requestData),
                                 });

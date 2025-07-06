@@ -61,6 +61,10 @@ const fechasSchema = z.object({
   mes: z.string().min(1, "El mes es requerido"),
 });
 
+const revisionSchema = z.object({
+  confirmacion: z.boolean().refine(val => val === true, "Debe confirmar para continuar"),
+});
+
 interface ConvenioPracticaMarcoFormProps {
   currentStep: number;
   onStepChange: (step: number) => void;
@@ -69,6 +73,8 @@ interface ConvenioPracticaMarcoFormProps {
   onError: (error: string | null) => void;
   isSubmitting: boolean;
   setIsSubmitting: (isSubmitting: boolean) => void;
+  convenioIdFromUrl?: string | null;
+  mode?: string | null;
 }
 
 export function ConvenioPracticaMarcoForm({
@@ -78,7 +84,9 @@ export function ConvenioPracticaMarcoForm({
   onFormStateChange,
   onError,
   isSubmitting,
-  setIsSubmitting
+  setIsSubmitting,
+  convenioIdFromUrl,
+  mode
 }: ConvenioPracticaMarcoFormProps) {
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
@@ -103,6 +111,9 @@ export function ConvenioPracticaMarcoForm({
       case 3:
         setValidationSchema(fechasSchema);
         break;
+      case 4:
+        setValidationSchema(revisionSchema);
+        break;
     }
   }, [currentStep]);
 
@@ -115,28 +126,32 @@ export function ConvenioPracticaMarcoForm({
     if (formState[currentStep]) {
       return formState[currentStep];
     }
-    const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
-    const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
+    
+    // Usar datos directos del convenioData (nueva estructura)
     switch(currentStep) {
       case 1:
         return {
-          nombre: parte.nombre || '',
-          tipo: parte.tipo || '',
-          domicilio: parte.domicilio || '',
-          ciudad: parte.ciudad || '',
-          cuit: parte.cuit || '',
-          rubro: parte.rubro || ''
+          nombre: convenioData?.entidad_nombre || '',
+          tipo: convenioData?.entidad_tipo || '',
+          domicilio: convenioData?.entidad_domicilio || '',
+          ciudad: convenioData?.entidad_ciudad || '',
+          cuit: convenioData?.entidad_cuit || '',
+          rubro: convenioData?.entidad_rubro || ''
         };
       case 2:
         return {
-          representanteNombre: parte.representanteNombre || '',
-          cargoRepresentante: parte.cargoRepresentante || '',
-          representanteDni: parte.representanteDni || ''
+          representanteNombre: convenioData?.representante_nombre || '',
+          cargoRepresentante: convenioData?.representante_cargo || '',
+          representanteDni: convenioData?.representante_dni || ''
         };
       case 3:
         return {
-          dia: datosBasicos?.dia || '',
-          mes: datosBasicos?.mes || ''
+          dia: convenioData?.dia || '',
+          mes: convenioData?.mes || ''
+        };
+      case 4:
+        return {
+          confirmacion: false
         };
       default:
         return {};
@@ -154,6 +169,13 @@ export function ConvenioPracticaMarcoForm({
     form.reset(getDefaultValues());
   }, [currentStep]);
 
+  // Sincronizar el formulario cuando cambian los datos del store
+  useEffect(() => {
+    if (convenioData && Object.keys(convenioData).length > 0) {
+      form.reset(getDefaultValues());
+    }
+  }, [convenioData]);
+
   const onSubmit = async (data: z.infer<typeof validationSchema>) => {
     try {
       const newFormState = {
@@ -161,39 +183,48 @@ export function ConvenioPracticaMarcoForm({
         [currentStep]: data,
       };
       onFormStateChange(newFormState);
-      const currentParte = (convenioData?.partes?.[0] as Record<string, any>) || {};
+      // Actualizar datos directamente en convenioData (nueva estructura)
       switch(currentStep) {
         case 1:
-          updateConvenioData('partes', [{
-            ...currentParte,
-            nombre: data.nombre,
-            tipo: data.tipo,
-            domicilio: data.domicilio,
-            ciudad: data.ciudad,
-            cuit: data.cuit,
-            rubro: data.rubro
-          }]);
+          updateConvenioData('all', {
+            ...convenioData,
+            entidad_nombre: data.nombre,
+            entidad_tipo: data.tipo,
+            entidad_domicilio: data.domicilio,
+            entidad_ciudad: data.ciudad,
+            entidad_cuit: data.cuit,
+            entidad_rubro: data.rubro
+          });
           break;
         case 2:
-          updateConvenioData('partes', [{
-            ...currentParte,
-            representanteNombre: data.representanteNombre,
-            cargoRepresentante: data.cargoRepresentante,
-            representanteDni: data.representanteDni
-          }]);
+          updateConvenioData('all', {
+            ...convenioData,
+            // Mapear a los nombres de campo correctos para la BD
+            entidad_representante: data.representanteNombre,
+            entidad_cargo: data.cargoRepresentante,
+            entidad_dni: data.representanteDni,
+            // Mantener también la estructura interna del formulario
+            representante_nombre: data.representanteNombre,
+            representante_cargo: data.cargoRepresentante,
+            representante_dni: data.representanteDni
+          });
           break;
         case 3:
-          updateConvenioData('datosBasicos', {
-            ...convenioData?.datosBasicos,
+          updateConvenioData('all', {
+            ...convenioData,
             dia: data.dia || '',
             mes: data.mes || ''
           });
           // Avanzar al paso 4 sin guardar en la base
           onStepChange(currentStep + 1);
           break;
+        case 4:
+          // En el paso 4, mostrar modal de confirmación
+          setShowConfirmModal(true);
+          break;
       }
-      // Avanzar al siguiente paso si no es el paso 3
-      if (currentStep !== 3) {
+      // Avanzar al siguiente paso si no es el paso 3 o 4
+      if (currentStep !== 3 && currentStep !== 4) {
         onStepChange(currentStep + 1);
       }
     } catch (error) {
@@ -431,9 +462,7 @@ export function ConvenioPracticaMarcoForm({
           </div>
         );
       case 4:
-        // Paso de revisión visual con bloques glass/blur, verticales, colores legibles
-        const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
-        const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
+        // Paso de revisión usando la nueva estructura de datos
         return (
           <div className="space-y-6 animate-in fade-in-0">
             <div className="space-y-2 mb-6">
@@ -441,45 +470,80 @@ export function ConvenioPracticaMarcoForm({
                 <div className="p-1.5 rounded-full bg-purple-500/20 text-purple-600">
                   <CheckIcon className="h-5 w-5" />
                 </div>
-                Revisión Final
+                Revisión y Finalización
               </h2>
               <p className="text-sm text-muted-foreground">
-                Revisá todos los datos antes de enviar el convenio de práctica supervisada.
+                Revisa toda la información antes de crear el convenio.
               </p>
             </div>
 
-            <div className="space-y-6 p-4 rounded-lg bg-background/80 border border-border backdrop-blur-md max-h-[70vh] overflow-y-auto">
-              <div className="flex flex-col gap-6">
-                <div className="rounded-xl p-6 bg-purple-900/40 border border-purple-700/30 backdrop-blur-md shadow-md text-purple-100">
-                  <h3 className="font-semibold text-purple-200 mb-3 text-lg">Entidad</h3>
-                  <div className="text-base space-y-1">
-                    <div><b>Nombre:</b> <span className="text-purple-50">{parte.nombre}</span></div>
-                    <div><b>Tipo:</b> <span className="text-purple-50">{parte.tipo}</span></div>
-                    <div><b>Dirección:</b> <span className="text-purple-50">{parte.domicilio}</span></div>
-                    <div><b>Ciudad:</b> <span className="text-purple-50">{parte.ciudad}</span></div>
-                    <div><b>CUIT:</b> <span className="text-purple-50">{parte.cuit}</span></div>
-                    <div><b>Rubro:</b> <span className="text-purple-50">{parte.rubro}</span></div>
-                  </div>
-                </div>
-                <div className="rounded-xl p-6 bg-emerald-900/40 border border-emerald-700/30 backdrop-blur-md shadow-md text-emerald-100">
-                  <h3 className="font-semibold text-emerald-200 mb-3 text-lg">Representante</h3>
-                  <div className="text-base space-y-1">
-                    <div><b>Nombre:</b> <span className="text-emerald-50">{parte.representanteNombre}</span></div>
-                    <div><b>Cargo:</b> <span className="text-emerald-50">{parte.cargoRepresentante}</span></div>
-                    <div><b>DNI:</b> <span className="text-emerald-50">{parte.representanteDni}</span></div>
-                  </div>
-                </div>
-                <div className="rounded-xl p-6 bg-amber-700/30 border border-amber-600/30 backdrop-blur-md shadow-md text-amber-50">
-                  <h3 className="font-semibold text-amber-200 mb-3 text-lg">Fechas</h3>
-                  <div className="text-base space-y-1">
-                    <div><b>Día de firma:</b> <span className="text-amber-50">{datosBasicos.dia}</span></div>
-                    <div><b>Mes de firma:</b> <span className="text-amber-50">{datosBasicos.mes}</span></div>
+            <div className="space-y-6">
+              {/* Datos de la Entidad */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-purple-500/10 to-purple-600/10 rounded-xl blur-xl"></div>
+                <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-purple-600 mb-4 flex items-center gap-2">
+                    <BuildingIcon className="h-5 w-5" />
+                    Datos de la Entidad
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><span className="font-medium">Entidad:</span> {convenioData?.entidad_nombre}</div>
+                    <div><span className="font-medium">Tipo:</span> {convenioData?.entidad_tipo}</div>
+                    <div><span className="font-medium">Dirección:</span> {convenioData?.entidad_domicilio}</div>
+                    <div><span className="font-medium">Ciudad:</span> {convenioData?.entidad_ciudad}</div>
+                    <div><span className="font-medium">CUIT:</span> {convenioData?.entidad_cuit}</div>
+                    <div><span className="font-medium">Rubro:</span> {convenioData?.entidad_rubro}</div>
                   </div>
                 </div>
               </div>
-              <div className="mt-8 text-center text-muted-foreground text-base">
-                Si los datos son correctos, podés guardar, finalizar y enviar el convenio de práctica supervisada.
+
+              {/* Datos del Representante */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-purple-500/10 to-purple-600/10 rounded-xl blur-xl"></div>
+                <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-teal-600 mb-4 flex items-center gap-2">
+                    <UserIcon className="h-5 w-5" />
+                    Datos del Representante
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><span className="font-medium">Representante:</span> {convenioData?.entidad_representante}</div>
+                    <div><span className="font-medium">Cargo:</span> {convenioData?.entidad_cargo}</div>
+                    <div><span className="font-medium">DNI:</span> {convenioData?.entidad_dni}</div>
+                  </div>
+                </div>
               </div>
+
+              {/* Fechas */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-purple-600/10 rounded-xl blur-xl"></div>
+                <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-indigo-600 mb-4 flex items-center gap-2">
+                    <CalendarIcon className="h-5 w-5" />
+                    Fechas del Convenio
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div><span className="font-medium">Día de Firma:</span> {convenioData?.dia}</div>
+                      <div><span className="font-medium">Mes de Firma:</span> {convenioData?.mes}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="confirmacion"
+                  className="rounded border-border"
+                  {...form.register("confirmacion")}
+                />
+                <Label htmlFor="confirmacion" className="text-sm">
+                  Confirmo que toda la información es correcta y deseo crear el convenio
+                </Label>
+              </div>
+              {form.formState.errors.confirmacion && (
+                <p className="text-sm text-red-500">{String(form.formState.errors.confirmacion.message)}</p>
+              )}
             </div>
           </div>
         );
@@ -487,7 +551,7 @@ export function ConvenioPracticaMarcoForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Formulario actual */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -548,20 +612,19 @@ export function ConvenioPracticaMarcoForm({
                           onClick={async () => {
                             setIsSubmitting(true);
                             try {
-                              const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
-                              const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
+                              // Usar datos directos del convenioData (nueva estructura)
                               const dbData = {
-                                entidad_nombre: parte.nombre || '',
-                                entidad_tipo: parte.tipo || 'empresa',
-                                entidad_domicilio: parte.domicilio || '',
-                                entidad_ciudad: parte.ciudad || '',
-                                entidad_cuit: parte.cuit || '',
-                                entidad_rubro: parte.rubro || '',
-                                entidad_representante: parte.representanteNombre || '',
-                                entidad_dni: parte.representanteDni || '',
-                                entidad_cargo: parte.cargoRepresentante || '',
-                                dia: datosBasicos.dia || '',
-                                mes: datosBasicos.mes || ''
+                                entidad_nombre: convenioData?.entidad_nombre || '',
+                                entidad_tipo: convenioData?.entidad_tipo || 'empresa',
+                                entidad_domicilio: convenioData?.entidad_domicilio || '',
+                                entidad_ciudad: convenioData?.entidad_ciudad || '',
+                                entidad_cuit: convenioData?.entidad_cuit || '',
+                                entidad_rubro: convenioData?.entidad_rubro || '',
+                                entidad_representante: convenioData?.entidad_representante || '',
+                                entidad_dni: convenioData?.entidad_dni || '',
+                                entidad_cargo: convenioData?.entidad_cargo || '',
+                                dia: convenioData?.dia || '',
+                                mes: convenioData?.mes || ''
                               };
                               const requestData = {
                                 title: dbData.entidad_nombre,
@@ -570,15 +633,16 @@ export function ConvenioPracticaMarcoForm({
                                 status: 'enviado'
                               };
                               let response, responseData;
-                              if (!convenioData?.id) {
-                                response = await fetch('/api/convenios', {
-                                  method: 'POST',
+                              if (convenioIdFromUrl || convenioData?.id) {
+                                const targetId = convenioIdFromUrl || convenioData.id;
+                                response = await fetch(`/api/convenios/${targetId}`, {
+                                  method: 'PATCH',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify(requestData),
                                 });
                               } else {
-                                response = await fetch(`/api/convenios/${convenioData.id}`, {
-                                  method: 'PATCH',
+                                response = await fetch('/api/convenios', {
+                                  method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify(requestData),
                                 });

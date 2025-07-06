@@ -6,6 +6,7 @@ import { Button } from "@/app/components/ui/button";
 import { signOutAction } from "@/app/actions";
 import { BellIcon, SearchIcon, MenuIcon } from "lucide-react";
 import { Navigation } from "@/app/components/layout/navigation";
+import { NotificationsDropdown } from "@/app/components/layout/notifications";
 
 export default async function ProtectedLayout({
   children,
@@ -69,10 +70,7 @@ export default async function ProtectedLayout({
           </div>
           
           <div className="flex items-center gap-2">
-            <button className="relative p-2 rounded-full hover:bg-muted/50 transition-colors">
-              <BellIcon className="h-5 w-5 text-muted-foreground" />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full"></span>
-            </button>
+            <NotificationsDropdown userId={user.id} />
             
             <div className="flex items-center gap-3 border-l pl-3 ml-1">
               <div className="hidden md:block text-right">

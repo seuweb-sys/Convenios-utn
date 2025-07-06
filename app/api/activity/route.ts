@@ -14,7 +14,7 @@ export interface ActivityApiData {
   iconName: string; // Nombre del icono (ej: 'file', 'check', 'alert')
 }
 
-// Estructura de datos esperada de Supabase
+// Estructura de datos de la actividad desde la DB
 interface ActivityLogFromDB {
   id: string;
   action: string;
@@ -22,15 +22,7 @@ interface ActivityLogFromDB {
   status_to: string | null;
   created_at: string;
   convenio_id: string;
-  user_id: string; // Incluimos user_id para el filtro
-  // Ajustamos para esperar un array (incluso de 1 elemento) o null
-  convenios: {
-    title: string;
-    serial_number: string;
-  }[] | null;
-  profiles: {
-    full_name: string;
-  }[] | null;
+  user_id: string;
 }
 
 // Datos de fallback si no hay actividad
@@ -62,31 +54,16 @@ export async function GET(request: NextRequest) {
     // 2. Obtener parámetro 'limit'
     const searchParams = request.nextUrl.searchParams;
     const limitParam = searchParams.get('limit');
-    const limit = limitParam ? parseInt(limitParam, 10) : 50; // Default a 50
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
 
     if (isNaN(limit) || limit <= 0) {
       return NextResponse.json({ error: 'Parámetro limit inválido' }, { status: 400 });
     }
 
-    // 3. Consultar actividad
-    const { data, error: dbError } = await supabase
+    // 3. Consultar actividad básica (sin joins problemáticos)
+    const { data: activityData, error: dbError } = await supabase
       .from('activity_log')
-      .select(`
-        id,
-        action,
-        status_from,
-        status_to,
-        created_at,
-        convenio_id,
-        user_id,
-        convenios (
-          title,
-          serial_number
-        ),
-        profiles:user_id (
-          full_name
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -97,19 +74,45 @@ export async function GET(request: NextRequest) {
 
     let responseData: ActivityApiData[];
 
-    if (!data || data.length === 0) {
+    if (!activityData || activityData.length === 0) {
       responseData = defaultActivity;
     } else {
-      // 4. Formatear los datos directamente en la API
-      responseData = (data as unknown as ActivityLogFromDB[]).map(activity => {
-        // Armá el título y descripción según la acción
+      // 4. Obtener IDs únicos para hacer fetch manual
+      const convenioIds = [...new Set(activityData.map(a => a.convenio_id).filter(Boolean))];
+      const userIds = [...new Set(activityData.map(a => a.user_id).filter(Boolean))];
+
+      // 5. Fetch manual de convenios y perfiles en paralelo
+      const [conveniosResult, profilesResult] = await Promise.all([
+        convenioIds.length > 0 ? 
+          supabase
+            .from('convenios')
+            .select('id, title, serial_number')
+            .in('id', convenioIds) : 
+          { data: [], error: null },
+        userIds.length > 0 ? 
+          supabase
+            .from('profiles')
+            .select('id, full_name')
+            .in('id', userIds) : 
+          { data: [], error: null }
+      ]);
+
+      const conveniosData = conveniosResult.data || [];
+      const profilesData = profilesResult.data || [];
+
+      // 6. Formatear los datos con lookup manual
+      responseData = (activityData as ActivityLogFromDB[]).map(activity => {
+        const convenio = conveniosData.find(c => c.id === activity.convenio_id);
+        const profile = profilesData.find(p => p.id === activity.user_id);
+
         let type: ApiActivityType = "info";
         let iconName = "file";
         let title = "Actividad en convenio";
         let description = "";
-        const convenioTitle = activity.convenios?.[0]?.title || "Convenio";
-        const convenioSerial = activity.convenios?.[0]?.serial_number || "Sin número";
-        const userName = activity.profiles?.[0]?.full_name || "Usuario";
+        
+        const convenioTitle = convenio?.title || "Convenio";
+        const convenioSerial = convenio?.serial_number || "Sin número";
+        const userName = profile?.full_name || "Usuario";
 
         switch(activity.action) {
           case "create":
@@ -137,22 +140,27 @@ export async function GET(request: NextRequest) {
               title = `Convenio enviado a revisión`;
               description = `El convenio "${convenioTitle}" está siendo revisado`;
               iconName = "clock";
+            } else if (activity.status_to === "finalizado") {
+              type = "success";
+              iconName = "check";
+              title = `Convenio finalizado`;
+              description = `El convenio "${convenioTitle}" ha sido finalizado`;
             }
             break;
           case "resubmit_convenio":
             title = `Convenio reenviado`;
-            description = `Se reenviaron las correcciones de "${convenioTitle}"`;
+            description = `Se reenviaron las correcciones de "${convenioTitle}" (N° ${convenioSerial})`;
             iconName = "refresh-ccw";
             type = "info";
             break;
           case "update_status":
             title = `Estado actualizado`;
-            description = `Cambió de ${activity.status_from || "-"} a ${activity.status_to}`;
+            description = `El convenio "${convenioTitle}" cambió de ${activity.status_from || "-"} a ${activity.status_to}`;
             iconName = "arrow-right-left";
             break;
           default:
             title = `Actividad en convenio`;
-            description = `Ha ocurrido una actividad en "${convenioTitle}"`;
+            description = `Ha ocurrido una actividad en "${convenioTitle}" (N° ${convenioSerial})`;
             iconName = "info";
             break;
         }
@@ -167,8 +175,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 5. Devolver datos formateados
-    return NextResponse.json(responseData); 
+    // 7. Devolver datos formateados
+    return NextResponse.json(responseData);
 
   } catch (e: any) {
     console.error("API Route Exception:", e);

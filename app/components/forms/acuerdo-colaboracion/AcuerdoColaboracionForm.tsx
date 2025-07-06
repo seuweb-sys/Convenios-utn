@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,6 +60,8 @@ interface AcuerdoColaboracionFormProps {
   onError: (error: string | null) => void;
   isSubmitting: boolean;
   setIsSubmitting: (submitting: boolean) => void;
+  convenioIdFromUrl?: string | null;
+  mode?: string | null;
 }
 
 export default function AcuerdoColaboracionForm({
@@ -69,7 +71,9 @@ export default function AcuerdoColaboracionForm({
   onFormStateChange,
   onError,
   isSubmitting,
-  setIsSubmitting
+  setIsSubmitting,
+  convenioIdFromUrl,
+  mode
 }: AcuerdoColaboracionFormProps) {
   const { convenioData, updateConvenioData } = useConvenioMarcoStore();
   const router = useRouter();
@@ -79,27 +83,27 @@ export default function AcuerdoColaboracionForm({
   const entidadForm = useForm<EntidadData>({
     resolver: zodResolver(entidadSchema),
     defaultValues: {
-      entidad_nombre: convenioData.entidad_nombre || "",
-      entidad_cuit: convenioData.entidad_cuit || "",
-      entidad_domicilio: convenioData.entidad_domicilio || "",
-      entidad_ciudad: convenioData.entidad_ciudad || "",
+      entidad_nombre: "",
+      entidad_cuit: "",
+      entidad_domicilio: "",
+      entidad_ciudad: "",
     }
   });
 
   const representanteForm = useForm<RepresentanteData>({
     resolver: zodResolver(representanteSchema),
     defaultValues: {
-      entidad_representante: convenioData.entidad_representante || "",
-      entidad_dni: convenioData.entidad_dni || "",
-      entidad_cargo: convenioData.entidad_cargo || "",
+      entidad_representante: "",
+      entidad_dni: "",
+      entidad_cargo: "",
     }
   });
 
   const firmaForm = useForm<FirmaData>({
     resolver: zodResolver(firmaSchema),
     defaultValues: {
-      dia: convenioData.dia || "",
-      mes: convenioData.mes || "",
+      dia: "",
+      mes: "",
     }
   });
 
@@ -126,6 +130,45 @@ export default function AcuerdoColaboracionForm({
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
   ];
   const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  // Sincronizar formularios con datos del store
+  useEffect(() => {
+    if (convenioData) {
+      // Solo actualizar si los valores han cambiado
+      const currentEntidadValues = entidadForm.getValues();
+      if (convenioData.entidad_nombre !== currentEntidadValues.entidad_nombre ||
+          convenioData.entidad_cuit !== currentEntidadValues.entidad_cuit ||
+          convenioData.entidad_domicilio !== currentEntidadValues.entidad_domicilio ||
+          convenioData.entidad_ciudad !== currentEntidadValues.entidad_ciudad) {
+        entidadForm.reset({
+          entidad_nombre: convenioData.entidad_nombre || "",
+          entidad_cuit: convenioData.entidad_cuit || "",
+          entidad_domicilio: convenioData.entidad_domicilio || "",
+          entidad_ciudad: convenioData.entidad_ciudad || "",
+        });
+      }
+
+      const currentRepresentanteValues = representanteForm.getValues();
+      if (convenioData.entidad_representante !== currentRepresentanteValues.entidad_representante ||
+          convenioData.entidad_dni !== currentRepresentanteValues.entidad_dni ||
+          convenioData.entidad_cargo !== currentRepresentanteValues.entidad_cargo) {
+        representanteForm.reset({
+          entidad_representante: convenioData.entidad_representante || "",
+          entidad_dni: convenioData.entidad_dni || "",
+          entidad_cargo: convenioData.entidad_cargo || "",
+        });
+      }
+
+      const currentFirmaValues = firmaForm.getValues();
+      if (convenioData.dia !== currentFirmaValues.dia ||
+          convenioData.mes !== currentFirmaValues.mes) {
+        firmaForm.reset({
+          dia: convenioData.dia || "",
+          mes: convenioData.mes || "",
+        });
+      }
+    }
+  }, [convenioData, entidadForm, representanteForm, firmaForm]);
 
   const handleNext = async () => {
     let isValid = false;
@@ -168,8 +211,7 @@ export default function AcuerdoColaboracionForm({
           Object.entries(data).forEach(([key, value]) => {
             updateConvenioData(key as keyof typeof convenioData, value);
           });
-          setShowModal(true);
-          return;
+          onStepChange(5);
         }
         break;
       case 5:
@@ -195,51 +237,45 @@ export default function AcuerdoColaboracionForm({
   };
 
   const handleSubmit = async () => {
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      
-      // Preparar datos según el formato CreateConvenioDTO
       const requestData = {
         title: convenioData.entidad_nombre,
-        convenio_type_id: 3, // ID para Acuerdo de Colaboración
-        content_data: {
-          entidad_nombre: convenioData.entidad_nombre,
-          entidad_domicilio: convenioData.entidad_domicilio,
-          entidad_ciudad: convenioData.entidad_ciudad,
-          entidad_cuit: convenioData.entidad_cuit,
-          entidad_representante: convenioData.entidad_representante,
-          entidad_dni: convenioData.entidad_dni,
-          entidad_cargo: convenioData.entidad_cargo,
-          dia: convenioData.dia,
-          mes: convenioData.mes,
-          unidad_ejecutora_facultad: (convenioData as any).unidad_ejecutora_facultad,
-          unidad_ejecutora_empresa: (convenioData as any).unidad_ejecutora_empresa,
-          asignatura: (convenioData as any).asignatura,
-          carrera: (convenioData as any).carrera,
-          objetivo_general: (convenioData as any).objetivo_general,
-          vigencia_anios: (convenioData as any).vigencia_anios,
-          extincion_dias: (convenioData as any).extincion_dias,
-          anio: new Date().getFullYear()
-        }
+        convenio_type_id: 3, // ID del acuerdo de colaboración
+        content_data: convenioData,
+        status: 'enviado'
       };
 
-      const response = await fetch("/api/convenios", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
-      });
-
-      if (response.ok) {
-        setShowModal(false);
-        router.push("/protected");
+      let response, responseData;
+      // Si tenemos ID desde la URL (modo corrección) o desde convenioData, usar PATCH
+      if (convenioIdFromUrl || convenioData?.id) {
+        const targetId = convenioIdFromUrl || convenioData.id;
+        response = await fetch(`/api/convenios/${targetId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData),
+        });
       } else {
-        const errorData = await response.text();
-        console.error("Error response:", errorData);
-        onError("Error al crear acuerdo");
+        // Solo crear nuevo convenio si NO hay ID disponible
+        response = await fetch('/api/convenios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData),
+        });
       }
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al enviar el convenio');
+      }
+
+      responseData = await response.json();
+      updateConvenioData('all', responseData);
+      setShowModal(false);
+      router.push('/protected');
     } catch (error) {
-      onError("Error al crear acuerdo");
-      console.error("Error:", error);
+      console.error('Error:', error);
+      alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
     } finally {
       setIsSubmitting(false);
     }
@@ -397,30 +433,51 @@ export default function AcuerdoColaboracionForm({
           <div className="space-y-2">
             <Label htmlFor="unidad_ejecutora_facultad">Unidad Ejecutora (Facultad) *</Label>
             <Input id="unidad_ejecutora_facultad" className="border-border focus-visible:ring-primary" {...proyectoForm.register("unidad_ejecutora_facultad")} />
+            {proyectoForm.formState.errors.unidad_ejecutora_facultad && (
+              <p className="text-sm text-red-500">{proyectoForm.formState.errors.unidad_ejecutora_facultad.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="unidad_ejecutora_empresa">Unidad Ejecutora (Entidad) *</Label>
             <Input id="unidad_ejecutora_empresa" className="border-border focus-visible:ring-primary" {...proyectoForm.register("unidad_ejecutora_empresa")} />
+            {proyectoForm.formState.errors.unidad_ejecutora_empresa && (
+              <p className="text-sm text-red-500">{proyectoForm.formState.errors.unidad_ejecutora_empresa.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="asignatura">Asignatura *</Label>
             <Input id="asignatura" className="border-border focus-visible:ring-primary" {...proyectoForm.register("asignatura")} />
+            {proyectoForm.formState.errors.asignatura && (
+              <p className="text-sm text-red-500">{proyectoForm.formState.errors.asignatura.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="carrera">Carrera *</Label>
             <Input id="carrera" className="border-border focus-visible:ring-primary" {...proyectoForm.register("carrera")} />
+            {proyectoForm.formState.errors.carrera && (
+              <p className="text-sm text-red-500">{proyectoForm.formState.errors.carrera.message}</p>
+            )}
           </div>
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="objetivo_general">Objetivo General *</Label>
             <Textarea id="objetivo_general" className="border-border focus-visible:ring-primary" {...proyectoForm.register("objetivo_general")} />
+            {proyectoForm.formState.errors.objetivo_general && (
+              <p className="text-sm text-red-500">{proyectoForm.formState.errors.objetivo_general.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="vigencia_anios">Años de Vigencia *</Label>
             <Input id="vigencia_anios" className="border-border focus-visible:ring-primary" {...proyectoForm.register("vigencia_anios")} />
+            {proyectoForm.formState.errors.vigencia_anios && (
+              <p className="text-sm text-red-500">{proyectoForm.formState.errors.vigencia_anios.message}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="extincion_dias">Días de Extinción *</Label>
             <Input id="extincion_dias" className="border-border focus-visible:ring-primary" {...proyectoForm.register("extincion_dias")} />
+            {proyectoForm.formState.errors.extincion_dias && (
+              <p className="text-sm text-red-500">{proyectoForm.formState.errors.extincion_dias.message}</p>
+            )}
           </div>
         </div>
       </div>
@@ -544,6 +601,31 @@ export default function AcuerdoColaboracionForm({
           </div>
         </div>
 
+        {/* Información del Proyecto */}
+        <div className="relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-green-500/10 to-green-600/10 rounded-xl blur-xl"></div>
+          <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+            <h3 className="text-lg font-semibold text-purple-600 mb-4 flex items-center gap-2">
+              <ClipboardCheckIcon className="h-5 w-5" />
+              Información del Proyecto
+            </h3>
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><span className="font-medium">Unidad Ejecutora (Facultad):</span> {convenioData.unidad_ejecutora_facultad}</div>
+                <div><span className="font-medium">Unidad Ejecutora (Entidad):</span> {convenioData.unidad_ejecutora_empresa}</div>
+                <div><span className="font-medium">Asignatura:</span> {convenioData.asignatura}</div>
+                <div><span className="font-medium">Carrera:</span> {convenioData.carrera}</div>
+                <div><span className="font-medium">Años de Vigencia:</span> {convenioData.vigencia_anios}</div>
+                <div><span className="font-medium">Días de Extinción:</span> {convenioData.extincion_dias}</div>
+              </div>
+              <div className="mt-4">
+                <div><span className="font-medium">Objetivo General:</span></div>
+                <div className="mt-1 text-muted-foreground">{convenioData.objetivo_general}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Datos de la Firma */}
         <div className="relative">
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-green-500/10 to-green-600/10 rounded-xl blur-xl"></div>
@@ -592,7 +674,7 @@ export default function AcuerdoColaboracionForm({
 
   return (
     <>
-      <div className="space-y-8">
+      <div className="p-6 space-y-8">
         {renderCurrentStep()}
         
         <div className="flex justify-between pt-6">
