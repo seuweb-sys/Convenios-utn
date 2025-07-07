@@ -11,6 +11,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Label } from "@/app/components/ui/label";
+import { SuccessModal } from "@/app/components/ui/success-modal";
 import { cn } from "@/lib/utils";
 
 // Esquemas de validación para cada paso
@@ -61,10 +62,12 @@ interface ConvenioParticularFormProps {
   currentStep: number;
   onStepChange: (step: number) => void;
   formState: Record<string, any>;
-  onFormStateChange: (formState: Record<string, any>) => void;
+  onFormStateChange: (state: Record<string, any>) => void;
   onError: (error: string | null) => void;
   isSubmitting: boolean;
-  setIsSubmitting: (submitting: boolean) => void;
+  setIsSubmitting: (isSubmitting: boolean) => void;
+  convenioIdFromUrl?: string | null;
+  mode?: string | null;
 }
 
 export default function ConvenioParticularForm({
@@ -74,11 +77,19 @@ export default function ConvenioParticularForm({
   onFormStateChange,
   onError,
   isSubmitting,
-  setIsSubmitting
+  setIsSubmitting,
+  convenioIdFromUrl,
+  mode
 }: ConvenioParticularFormProps) {
   const { convenioData, updateConvenioData } = useConvenioMarcoStore();
   const router = useRouter();
   const [showModal, setShowModal] = React.useState(false);
+  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+
+  const meses = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+  const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
   // Configurar formularios para cada paso
   const empresaForm = useForm<EmpresaData>({
@@ -120,6 +131,19 @@ export default function ConvenioParticularForm({
     resolver: zodResolver(revisionSchema),
     defaultValues: { confirmacion: false }
   });
+
+  React.useEffect(() => {
+    const mes = practicaForm.watch('mes');
+    const dia = practicaForm.watch('dia');
+    if (mes && dia) {
+      const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+      const mesNum = (meses.indexOf(mes) + 1).toString().padStart(2, '0');
+      const fecha = `${new Date().getFullYear()}-${mesNum}-${dia.padStart(2, '0')}`;
+      practicaForm.setValue('fecha_firma', fecha);
+    } else {
+      practicaForm.setValue('fecha_firma', '');
+    }
+  }, [practicaForm.watch('mes'), practicaForm.watch('dia')]);
 
   const handleNext = async () => {
     let isValid = false;
@@ -232,26 +256,38 @@ export default function ConvenioParticularForm({
       console.log('DBData debug:', dbData);
 
       const requestData = {
-                        title: dbData.empresa_nombre || 'Empresa',
+        title: dbData.empresa_nombre || 'Empresa',
         convenio_type_id: 1,
         content_data: dbData,
-        status: 'enviado'
+        status: 'pendiente'
       };
 
-      const response = await fetch("/api/convenios", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
-      });
+      let response, responseData;
+      // Si tenemos ID desde la URL (modo corrección) o desde convenioData, usar PATCH
+      if (convenioIdFromUrl || convenioData?.id) {
+        const targetId = convenioIdFromUrl || convenioData.id;
+        response = await fetch(`/api/convenios/${targetId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestData),
+        });
+      } else {
+        // Solo crear nuevo convenio si NO hay ID disponible
+        response = await fetch("/api/convenios", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestData),
+        });
+      }
 
-      const responseData = await response.json();
+      responseData = await response.json();
       
       if (!response.ok) {
         throw new Error(responseData.error || 'Error al crear el convenio');
       }
       
       setShowModal(false);
-      router.push("/protected");
+      setShowSuccessModal(true);
     } catch (error) {
       onError(error instanceof Error ? error.message : "Error al crear convenio");
       console.error("Error:", error);
@@ -294,9 +330,10 @@ export default function ConvenioParticularForm({
             <Label htmlFor="empresa_cuit">CUIT (sin guiones) *</Label>
             <Input
               id="empresa_cuit"
-              className="border-border focus-visible:ring-primary"
-              placeholder="20445041743"
-              {...empresaForm.register("empresa_cuit")}
+              placeholder="xx-xxxxxxxx-x (sin puntos ni guiones)"
+              {...empresaForm.register("empresa_cuit", {
+                pattern: { value: /^\d+$/, message: "Solo números" }
+              })}
             />
             {empresaForm.formState.errors.empresa_cuit && (
               <p className="text-sm text-red-500">{String(empresaForm.formState.errors.empresa_cuit.message)}</p>
@@ -419,9 +456,10 @@ export default function ConvenioParticularForm({
             <Label htmlFor="alumno_dni">DNI del Alumno *</Label>
             <Input
               id="alumno_dni"
-              className="border-border focus-visible:ring-primary"
-              placeholder="Sin puntos ni guiones"
-              {...alumnoForm.register("alumno_dni")}
+              placeholder="sin puntos"
+              {...alumnoForm.register("alumno_dni", {
+                pattern: { value: /^\d+$/, message: "Solo números" }
+              })}
             />
             {alumnoForm.formState.errors.alumno_dni && (
               <p className="text-sm text-red-500">{String(alumnoForm.formState.errors.alumno_dni.message)}</p>
@@ -529,12 +567,39 @@ export default function ConvenioParticularForm({
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="fecha_firma">Fecha de Firma del Convenio *</Label>
-            <Input
-              id="fecha_firma"
-              type="date"
-              className="border-border focus-visible:ring-primary"
-              {...practicaForm.register("fecha_firma")}
-            />
+            <select
+              id="mes"
+              className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+              {...practicaForm.register("mes", { required: true })}
+              onChange={e => {
+                practicaForm.setValue("mes", e.target.value);
+                practicaForm.setValue("dia", "");
+              }}
+              value={practicaForm.watch("mes") || ""}
+            >
+              <option value="">Seleccionar mes</option>
+              {meses.map((mes, idx) => (
+                <option key={mes} value={mes}>{mes}</option>
+              ))}
+            </select>
+            <select
+              id="dia"
+              className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+              {...practicaForm.register("dia", { required: true })}
+              onChange={e => {
+                practicaForm.setValue("dia", e.target.value);
+              }}
+              value={practicaForm.watch("dia") || ""}
+            >
+              <option value="">Seleccionar día</option>
+              {(() => {
+                const mesIdx = meses.indexOf(practicaForm.watch("mes"));
+                const dias = mesIdx >= 0 ? diasPorMes[mesIdx] : 31;
+                return Array.from({ length: dias }, (_, i) => i + 1).map(dia => (
+                  <option key={dia} value={dia}>{dia}</option>
+                ));
+              })()}
+            </select>
             {practicaForm.formState.errors.fecha_firma && (
               <p className="text-sm text-red-500">{String(practicaForm.formState.errors.fecha_firma.message)}</p>
             )}
@@ -648,7 +713,7 @@ export default function ConvenioParticularForm({
 
   return (
     <>
-      <div className="space-y-8">
+      <div className="p-6 space-y-8">
         {renderCurrentStep()}
         
         <div className="flex justify-between pt-6">
@@ -700,6 +765,20 @@ export default function ConvenioParticularForm({
           </div>
         </div>
       )}
+
+      {/* Modal de éxito */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="¡Convenio Particular Enviado!"
+        message="Tu convenio particular de práctica supervisada ha sido enviado exitosamente y está en espera de revisión por parte del equipo administrativo."
+        redirectText="Volver al Inicio"
+        autoRedirectSeconds={5}
+        onRedirect={() => {
+          setShowSuccessModal(false);
+          router.push('/protected');
+        }}
+      />
     </>
   );
 } 

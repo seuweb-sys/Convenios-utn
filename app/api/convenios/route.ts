@@ -6,6 +6,7 @@ import { Packer } from 'docx';
 import { createDocument } from '@/app/lib/utils/doc-generator';
 import { renderDocx } from '@/app/lib/utils/docx-templater';
 import { uploadFileToDrive } from '@/app/lib/google-drive';
+import { NotificationService } from '@/app/lib/services/notification-service';
 import path from 'path';
 import fs from 'fs';
 
@@ -423,6 +424,14 @@ fs.readdirSync(templateDir).forEach(f => {
     } catch (logError) {
       console.error('Error al registrar actividad:', logError);
       // No fallamos si el log falla
+    }
+
+    // Enviar notificación de convenio creado
+    try {
+      await NotificationService.convenioCreated(user.id, body.title, convenio.id);
+    } catch (notificationError) {
+      console.error('Error al enviar notificación:', notificationError);
+      // No fallamos si la notificación falla
     }
 
     return NextResponse.json({

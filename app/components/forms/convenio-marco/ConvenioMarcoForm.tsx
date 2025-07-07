@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/app/components/ui/button";
+import { LoadingButton } from "@/app/components/ui/loading-button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import {
@@ -20,6 +21,9 @@ import { BuildingIcon, UserIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, Chevr
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
+import { SuccessModal } from '@/app/components/ui/success-modal';
+import { useAsyncOperation } from '@/app/hooks/use-async-operation';
+import { useFeedback } from '@/app/components/providers/feedback-provider';
 
 const STEPS = [
   {
@@ -68,6 +72,8 @@ interface ConvenioMarcoFormProps {
   onError: (error: string | null) => void;
   isSubmitting: boolean;
   setIsSubmitting: (isSubmitting: boolean) => void;
+  convenioIdFromUrl?: string | null;
+  mode?: string | null;
 }
 
 export function ConvenioMarcoForm({
@@ -77,13 +83,23 @@ export function ConvenioMarcoForm({
   onFormStateChange,
   onError,
   isSubmitting,
-  setIsSubmitting
+  setIsSubmitting,
+  convenioIdFromUrl,
+  mode
 }: ConvenioMarcoFormProps) {
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
+  const { execute } = useAsyncOperation();
+  const { showConvenioSuccess, showError } = useFeedback();
   const [validationSchema, setValidationSchema] = useState<z.ZodTypeAny>(entidadSchema);
   const [localStatus, setLocalStatus] = useState(convenioData?.status || 'enviado');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const meses = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ];
+  const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
   // Configurar el esquema de validación según el paso actual
   useEffect(() => {
@@ -231,8 +247,17 @@ export function ConvenioMarcoForm({
                   <Input
                     id="tipo"
                     className="border-border focus-visible:ring-primary"
-                    placeholder="Ej: Empresa, ONG, etc."
-                    {...form.register("tipo")}
+                    placeholder="Ej: EMPRESA, FUNDACION, ONG"
+                    {...form.register("tipo", {
+                      onChange: (e) => {
+                        // Forzar mayúsculas y solo letras, eliminar artículo LA
+                        let upper = e.target.value.toUpperCase().replace(/[^A-ZÁÉÍÓÚÜÑ ]/g, "");
+                        upper = upper.replace(/^LA\s+/, "");
+                        e.target.value = upper;
+                        form.setValue("tipo", upper);
+                      },
+                      validate: (v) => /^[A-ZÁÉÍÓÚÜÑ ]+$/.test(v) || "Solo letras mayúsculas"
+                    })}
                   />
                   {form.formState.errors.tipo && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.tipo.message)}</p>
@@ -269,9 +294,10 @@ export function ConvenioMarcoForm({
                   <Label htmlFor="cuit">CUIT (sin guiones) *</Label>
                   <Input
                     id="cuit"
-                    className="border-border focus-visible:ring-primary"
-                    placeholder="20445041743"
-                    {...form.register("cuit")}
+                    placeholder="xx-xxxxxxxx-x (sin puntos ni guiones)"
+                    {...form.register("cuit", {
+                      pattern: { value: /^\d+$/, message: "Solo números" }
+                    })}
                   />
                   {form.formState.errors.cuit && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.cuit.message)}</p>
@@ -328,9 +354,10 @@ export function ConvenioMarcoForm({
                   <Label htmlFor="representanteDni">DNI *</Label>
                   <Input
                     id="representanteDni"
-                    className="border-border focus-visible:ring-primary"
-                    placeholder="Sin puntos ni guiones"
-                    {...form.register("representanteDni")}
+                    placeholder="sin puntos"
+                    {...form.register("representanteDni", {
+                      pattern: { value: /^\d+$/, message: "Solo números" }
+                    })}
                   />
                   {form.formState.errors.representanteDni && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.representanteDni.message)}</p>
@@ -359,15 +386,24 @@ export function ConvenioMarcoForm({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="dia">Día de Firma *</Label>
-                  <Input
+                  <select
                     id="dia"
-                    className="border-border focus-visible:ring-primary"
-                    type="number"
-                    min={1}
-                    max={31}
-                    placeholder="Ej: 15"
-                    {...form.register("dia")}
-                  />
+                    className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+                    {...form.register("dia", { required: true })}
+                    onChange={e => {
+                      form.setValue("dia", e.target.value);
+                    }}
+                    value={form.watch("dia") || ""}
+                  >
+                    <option value="">Seleccionar día</option>
+                    {(() => {
+                      const mesIdx = meses.indexOf(form.watch("mes"));
+                      const dias = mesIdx >= 0 ? diasPorMes[mesIdx] : 31;
+                      return Array.from({ length: dias }, (_, i) => i + 1).map(dia => (
+                        <option key={dia} value={dia}>{dia}</option>
+                      ));
+                    })()}
+                  </select>
                   {form.formState.errors.dia && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.dia.message)}</p>
                   )}
@@ -375,12 +411,21 @@ export function ConvenioMarcoForm({
 
                 <div className="space-y-2">
                   <Label htmlFor="mes">Mes de Firma *</Label>
-                  <Input
+                  <select
                     id="mes"
-                    className="border-border focus-visible:ring-primary"
-                    placeholder="Ej: junio"
-                    {...form.register("mes")}
-                  />
+                    className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
+                    {...form.register("mes", { required: true })}
+                    onChange={e => {
+                      form.setValue("mes", e.target.value);
+                      form.setValue("dia", "");
+                    }}
+                    value={form.watch("mes") || ""}
+                  >
+                    <option value="">Seleccionar mes</option>
+                    {meses.map((mes, idx) => (
+                      <option key={mes} value={mes}>{mes}</option>
+                    ))}
+                  </select>
                   {form.formState.errors.mes && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.mes.message)}</p>
                   )}
@@ -465,7 +510,7 @@ export function ConvenioMarcoForm({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Formulario actual */}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -523,6 +568,7 @@ export function ConvenioMarcoForm({
                         </Button>
                         <Button
                           variant="default"
+                          disabled={isSubmitting}
                           onClick={async () => {
                             setIsSubmitting(true);
                             try {
@@ -547,15 +593,16 @@ export function ConvenioMarcoForm({
                                 status: 'pendiente'
                               };
                               let response, responseData;
-                              if (!convenioData?.id) {
-                                response = await fetch('/api/convenios', {
-                                  method: 'POST',
+                              if (convenioIdFromUrl || convenioData?.id) {
+                                const targetId = convenioIdFromUrl || convenioData.id;
+                                response = await fetch(`/api/convenios/${targetId}`, {
+                                  method: 'PATCH',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify(requestData),
                                 });
                               } else {
-                                response = await fetch(`/api/convenios/${convenioData.id}`, {
-                                  method: 'PATCH',
+                                response = await fetch('/api/convenios', {
+                                  method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify(requestData),
                                 });
@@ -566,7 +613,7 @@ export function ConvenioMarcoForm({
                               }
                               updateConvenioData('all', responseData);
                               setShowConfirmModal(false);
-                              router.push('/protected');
+                              setShowSuccessModal(true);
                             } catch (error) {
                               alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
                             } finally {
@@ -594,6 +641,20 @@ export function ConvenioMarcoForm({
           </div>
         </form>
       </Form>
+
+      {/* Modal de éxito */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="¡Convenio Enviado!"
+        message="Tu convenio marco ha sido enviado exitosamente y está en espera de revisión por parte del equipo administrativo."
+        redirectText="Volver al Inicio"
+        autoRedirectSeconds={5}
+        onRedirect={() => {
+          setShowSuccessModal(false);
+          router.push('/protected');
+        }}
+      />
     </div>
   );
 } 

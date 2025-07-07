@@ -6,6 +6,7 @@ import { Button } from "@/app/components/ui/button";
 import { signOutAction } from "@/app/actions";
 import { BellIcon, SearchIcon, MenuIcon } from "lucide-react";
 import { Navigation } from "@/app/components/layout/navigation";
+import { NotificationsDropdown } from "@/app/components/layout/notifications";
 
 export default async function ProtectedLayout({
   children,
@@ -40,18 +41,20 @@ export default async function ProtectedLayout({
         <div className="flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-4">
             <Link href="/protected" className="flex items-center gap-2">
-              <div className="bg-white/95 backdrop-filter backdrop-blur-sm p-1.5 rounded-md shadow-md relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-blue-100 opacity-90"></div>
-                <div className="absolute inset-0 bg-white/50 mix-blend-overlay"></div>
+              <div className="bg-white rounded-xl shadow-lg relative overflow-hidden w-[60px] h-[60px] flex items-center justify-center border border-gray-200">
                 <Image 
-                  src={`/utn-logo.png?v=${new Date().getTime()}`} 
+                  src="/utn-logo.png" 
                   alt="UTN Logo" 
-                  width={120}
+                  width={50}
                   height={40}
-                  className="h-7 w-auto object-contain relative z-10 drop-shadow-sm contrast-125 brightness-105"
+                  className="w-[50px] h-[40px] object-contain"
                   priority
+                  style={{
+                    width: '50px',
+                    height: '40px',
+                    objectFit: 'contain'
+                  }}
                 />
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500/20 to-blue-300/20 blur-sm z-0"></div>
               </div>
               <span className="font-semibold text-xl hidden md:inline-block">Convenios UTN</span>
             </Link>
@@ -69,10 +72,7 @@ export default async function ProtectedLayout({
           </div>
           
           <div className="flex items-center gap-2">
-            <button className="relative p-2 rounded-full hover:bg-muted/50 transition-colors">
-              <BellIcon className="h-5 w-5 text-muted-foreground" />
-              <span className="absolute top-1 right-1 h-2 w-2 bg-primary rounded-full"></span>
-            </button>
+            <NotificationsDropdown userId={user.id} />
             
             <div className="flex items-center gap-3 border-l pl-3 ml-1">
               <div className="hidden md:block text-right">

@@ -1,8 +1,16 @@
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import fs from "fs";
+import { htmlToText } from "./html-to-text";
 
 export async function renderDocx(templateBuffer: Buffer, data: Record<string, any>): Promise<Buffer> {
+  // Procesar campos HTML a texto plano
+  const processedData = { ...data };
+  if (processedData.anexo && typeof processedData.anexo === 'string') {
+    // Convertir HTML a texto plano
+    processedData.anexo = htmlToText(processedData.anexo);
+  }
+
   const zip = new PizZip(templateBuffer);
   const doc = new Docxtemplater(zip, {
     paragraphLoop: true,
@@ -10,9 +18,8 @@ export async function renderDocx(templateBuffer: Buffer, data: Record<string, an
     nullGetter: () => '',
   });
 
-  doc.setData(data);
   try {
-    doc.render();
+    doc.render(processedData);
   } catch (error: any) {
     console.warn("Docxtemplater render error, intentando ignorar placeholders faltantes:", error);
     // Intentar segunda pasada ignorando errores
@@ -21,12 +28,11 @@ export async function renderDocx(templateBuffer: Buffer, data: Record<string, an
       if (error?.properties?.errors) {
         error.properties.errors.forEach((e: any) => {
           const tag = e.properties?.id || e.id;
-          if (tag && !(tag in data)) {
-            (data as any)[tag] = '';
+          if (tag && !(tag in processedData)) {
+            (processedData as any)[tag] = '';
           }
         });
-        doc.setData(data);
-        doc.render();
+        doc.render(processedData);
       } else {
         throw error;
       }

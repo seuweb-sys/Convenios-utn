@@ -1,5 +1,6 @@
 import React from "react";
 import { Button } from "@/app/components/ui/button";
+import { Spinner } from "@/app/components/ui/spinner";
 import { ChevronLeftIcon, ChevronRightIcon, SaveIcon, ClipboardCheckIcon } from "lucide-react";
 
 // Importar el store
@@ -86,8 +87,17 @@ export const NavigationFooter = () => {
             className="bg-emerald-600 hover:bg-emerald-500 text-primary-foreground"
             disabled={isSubmitDisabled}
           >
-            <SaveIcon className="h-4 w-4 mr-2" />
-            {isSaving ? 'Guardando...' : 'Guardar convenio'}
+            {isSaving ? (
+              <>
+                <Spinner size="sm" variant="white" className="mr-2" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <SaveIcon className="h-4 w-4 mr-2" />
+                Guardar convenio
+              </>
+            )}
           </Button>
         )}
       </div>

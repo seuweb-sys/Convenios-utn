@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState, Suspense, useCallback } from "react";
+import { useEffect, useState, Suspense, useCallback, useRef } from "react";
 import { useSearchParams, useParams } from 'next/navigation';
 import { 
   ChevronLeftIcon, 
   CheckIcon,
   AlertCircleIcon,
   EyeIcon,
-  SaveIcon
+  SaveIcon,
+  XIcon
 } from "lucide-react";
 import Link from "next/link";
 import React from "react";
+import { renderAsync } from "docx-preview";
 
 import { 
   BackgroundPattern, 
@@ -70,9 +72,17 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
+  // Obtener parámetros de la URL
+  const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const mode = searchParams.get('mode');
+  const convenioIdFromUrl = params.id !== "nuevo" ? params.id : null;
+
   // Store de Zustand para manejo de estado global
   const { convenioData, updateConvenioData, stepStates } = useConvenioMarcoStore();
   const formFields = useConvenioStore((state) => state.formFields);
+  // const anexoWordFile = convenioData?.datosBasicos?.anexoWordFile;
+  const previewRef = useRef<HTMLDivElement>(null);
 
   // Simulamos la carga inicial
   useEffect(() => {
@@ -148,6 +158,20 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
 
   const fields = getFieldsFromStore(convenioData, formFields);
 
+  useEffect(() => {
+    if (isFullScreen && convenioData?.datosBasicos?.anexoWordFile && previewRef.current) {
+      previewRef.current.innerHTML = '';
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const arrayBuffer = e.target?.result;
+        if (arrayBuffer && previewRef.current) {
+          renderAsync(arrayBuffer as ArrayBuffer, previewRef.current, undefined, { className: "docx-preview-rendered" });
+        }
+      };
+      reader.readAsArrayBuffer(convenioData.datosBasicos.anexoWordFile.file);
+    }
+  }, [isFullScreen, convenioData?.datosBasicos?.anexoWordFile]);
+
   return (
     <>
       <BackgroundPattern />
@@ -222,8 +246,8 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
               {loading ? (
                 <FormSkeleton />
               ) : (
-                <div className="p-6 animate-in fade-in-50 duration-300 slide-in-from-bottom-2">
-                  <config.FormComponent 
+                <Suspense fallback={<FormSkeleton />}>
+                  <config.FormComponent
                     currentStep={currentStep}
                     onStepChange={setCurrentStep}
                     formState={formState}
@@ -231,8 +255,10 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                     onError={setError}
                     isSubmitting={isSubmitting}
                     setIsSubmitting={setIsSubmitting}
+                    convenioIdFromUrl={convenioIdFromUrl}
+                    mode={mode}
                   />
-                </div>
+                </Suspense>
               )}
             </div>
           </div>
@@ -293,37 +319,45 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
               </div>
             </SectionContainer>
             
-            <SectionContainer title="Acciones rápidas">
+            <SectionContainer title="Vista previa Word">
               <div className="space-y-3">
                 <Button
                   variant="outline"
                   size="sm"
                   className={cn(
                     "w-full justify-start gap-2 text-sm transition-all",
-                    status === 'enviado' ? "border-primary text-primary hover:bg-primary/10" : "opacity-50 cursor-not-allowed"
+                    !convenioData?.datosBasicos?.anexoWordFile ? "opacity-50 cursor-not-allowed" : "border-primary text-primary hover:bg-primary/10"
                   )}
-                  disabled={status !== 'enviado'}
+                  disabled={!convenioData?.datosBasicos?.anexoWordFile}
                   onClick={() => setIsFullScreen(true)}
+                  title={convenioData?.datosBasicos?.anexoWordFile ? "Ver vista previa del Word adjunto" : "Adjunta un Word para habilitar la vista previa"}
                 >
                   <EyeIcon className="h-4 w-4" />
-                  Vista previa completa
-                </Button>
-                <Button variant="outline" size="sm" className="w-full justify-start gap-2 text-sm">
-                  <SaveIcon className="h-4 w-4" />
-                  Guardar y continuar después
+                  Vista previa Word
                 </Button>
               </div>
             </SectionContainer>
           </div>
         </div>
       </div>
-      {isFullScreen && (
-        <FullScreenPreview
-          templateContent={templateContent}
-          fields={fields}
-          isOpen={isFullScreen}
-          onClose={() => setIsFullScreen(false)}
-        />
+      {isFullScreen && convenioData?.datosBasicos?.anexoWordFile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="bg-gray-100 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-0 relative border border-gray-300">
+            <button
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-900"
+              onClick={() => setIsFullScreen(false)}
+              title="Cerrar vista previa"
+            >
+              <XIcon className="h-6 w-6" />
+            </button>
+            <div className="px-8 pt-8 pb-4">
+              <h2 className="text-xl font-bold mb-4 text-primary">Vista previa Word adjunto</h2>
+              <div ref={previewRef} id="docx-preview-container" className="w-full min-h-[400px] border rounded bg-white flex items-center justify-center text-gray-400 shadow-inner">
+                <span>La vista previa se cargará aquí...</span>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

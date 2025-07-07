@@ -4,12 +4,13 @@ import {
   ClockIcon, 
   CheckIcon, 
   AlertCircleIcon, 
+  AlertTriangleIcon,
   BuildingIcon,
   FilePenIcon,
   ClipboardCheckIcon
 } from "lucide-react";
 
-export type ConvenioStatus = "enviado" | "aprobado" | "rechazado";
+export type ConvenioStatus = "enviado" | "aprobado" | "rechazado" | "pendiente" | "borrador" | "revision_modificacion";
 
 export interface ConvenioItemProps { 
   id?: string;
@@ -28,20 +29,29 @@ export const ConvenioItem = ({
 }: ConvenioItemProps) => {
   const statusColors = {
     enviado: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    pendiente: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
     aprobado: "bg-green-500/10 text-green-500 border-green-500/20",
-    rechazado: "bg-red-500/10 text-red-500 border-red-500/20"
+    rechazado: "bg-red-500/10 text-red-500 border-red-500/20",
+    borrador: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+    revision_modificacion: "bg-orange-500/10 text-orange-500 border-orange-500/20"
   };
 
   const statusLabels = {
     enviado: "Enviado",
+    pendiente: "Pendiente",
     aprobado: "Aprobado",
-    rechazado: "Rechazado"
+    rechazado: "Rechazado",
+    borrador: "Borrador",
+    revision_modificacion: "Solicitud Modificación"
   };
 
   const statusIcons = {
     enviado: <ClockIcon className="w-3 h-3" />,
+    pendiente: <ClockIcon className="w-3 h-3" />,
     aprobado: <CheckIcon className="w-3 h-3" />,
-    rechazado: <AlertCircleIcon className="w-3 h-3" />
+    rechazado: <AlertCircleIcon className="w-3 h-3" />,
+    borrador: <FileTextIcon className="w-3 h-3" />,
+    revision_modificacion: <AlertTriangleIcon className="w-3 h-3" />
   };
 
   return (

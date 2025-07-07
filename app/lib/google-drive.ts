@@ -88,4 +88,17 @@ export async function moveFileToFolder(fileId: string, targetFolderId: string) {
     console.error('Error al mover archivo:', error);
     throw error;
   }
+}
+
+// Función para eliminar un archivo de Drive
+export async function deleteFileFromDrive(fileId: string) {
+  try {
+    await driveClient.files.delete({
+      fileId,
+    });
+    return true;
+  } catch (error) {
+    console.error('Error al eliminar archivo de Drive:', error);
+    throw error;
+  }
 } 

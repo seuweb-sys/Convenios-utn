@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies, headers } from "next/headers";
+// import { cookies } from "next/headers"; // Eliminado, no se usa
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 
@@ -9,8 +9,7 @@ import { createClient } from "@/utils/supabase/server";
  * Acción para cerrar sesión
  */
 export async function signOutAction() {
-  const cookieStore = cookies();
-  const supabase = await createClient(cookieStore);
+  const supabase = await createClient();
   
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
@@ -21,8 +20,7 @@ export async function signOutAction() {
  * Acción para iniciar sesión con email y contraseña
  */
 export async function signInAction(formData: FormData) {
-  const cookieStore = cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
   
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -47,7 +45,7 @@ export async function signInAction(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/protected/dashboard");
+  redirect("/protected");
 }
 
 /**

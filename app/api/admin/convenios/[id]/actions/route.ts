@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 import { moveFileToFolder, DRIVE_FOLDERS } from '@/app/lib/google-drive';
+import { NotificationService } from '@/app/lib/services/notification-service';
 
 export async function POST(
   request: Request,
@@ -37,7 +38,7 @@ export async function POST(
     // Obtener el convenio actual
     const { data: convenio } = await supabase
       .from("convenios")
-      .select("status, user_id, document_path")
+      .select("status, user_id, document_path, title")
       .eq("id", params.id)
       .single();
 
@@ -157,6 +158,26 @@ export async function POST(
 
     if (activityError) {
       console.error("Error al registrar la actividad:", activityError);
+    }
+
+    // Enviar notificación al usuario
+    try {
+      const convenioTitle = convenio.title || "Sin título";
+      
+      switch (action) {
+        case "approve":
+          await NotificationService.convenioApproved(convenio.user_id, convenioTitle, params.id);
+          break;
+        case "reject":
+          await NotificationService.convenioRejected(convenio.user_id, convenioTitle, params.id);
+          break;
+        case "correct":
+          await NotificationService.convenioSentToCorrection(convenio.user_id, convenioTitle, params.id);
+          break;
+      }
+    } catch (notificationError) {
+      console.error("Error al enviar notificación:", notificationError);
+      // No fallamos si la notificación falla
     }
 
     return NextResponse.json({ success: true });
