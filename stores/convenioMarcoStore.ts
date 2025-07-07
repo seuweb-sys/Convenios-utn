@@ -224,6 +224,29 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
           };
         }
         
+        // Mapeo específico para Convenio Específico
+        if (sourceData.entidad_nombre && sourceData.convenio_marco_fecha) {
+          mappedData = {
+            ...mappedData,
+            // Campos de la entidad (paso 1)
+            entidad_nombre: sourceData.entidad_nombre,
+            entidad_domicilio: sourceData.entidad_domicilio,
+            entidad_cuit: sourceData.entidad_cuit,
+            // Campos del representante (paso 2)
+            entidad_representante: sourceData.entidad_representante,
+            entidad_dni: sourceData.entidad_dni,
+            entidad_cargo: sourceData.entidad_cargo,
+            // Campos específicos del convenio (paso 3)
+            convenio_marco_fecha: sourceData.convenio_marco_fecha,
+            convenio_especifico_tipo: sourceData.convenio_especifico_tipo,
+            unidad_ejecutora_facultad: sourceData.unidad_ejecutora_facultad,
+            unidad_ejecutora_entidad: sourceData.unidad_ejecutora_entidad,
+            dia: sourceData.dia,
+            mes: sourceData.mes,
+            anexo: sourceData.anexo,
+          };
+        }
+        
         // Mapeo para Convenio Marco y otros tipos tradicionales
         if (sourceData.datosBasicos || sourceData.datos_basicos) {
           mappedData = {

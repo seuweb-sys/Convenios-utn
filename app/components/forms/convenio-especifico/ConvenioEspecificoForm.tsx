@@ -259,35 +259,34 @@ export function ConvenioEspecificoForm({
     setLocalStatus(convenioData?.status || 'enviado');
   }, [convenioData?.status]);
 
-  // ACTUALIZAR getDefaultValues para el nuevo esquema
+  // ACTUALIZAR getDefaultValues para usar datos directos del convenioData
   const getDefaultValues = () => {
     if (formState[currentStep]) {
       return formState[currentStep];
     }
-    const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
-    const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
+    // Usar datos directos del convenioData (nueva estructura)
     switch(currentStep) {
       case 1:
         return {
-          nombre: parte.nombre || '',
-          domicilio: parte.domicilio || '',
-          cuit: parte.cuit || ''
+          nombre: convenioData?.entidad_nombre || '',
+          domicilio: convenioData?.entidad_domicilio || '',
+          cuit: convenioData?.entidad_cuit || ''
         };
       case 2:
         return {
-          representanteNombre: parte.representanteNombre || '',
-          cargoRepresentante: parte.cargoRepresentante || '',
-          representanteDni: parte.representanteDni || ''
+          representanteNombre: convenioData?.entidad_representante || '',
+          cargoRepresentante: convenioData?.entidad_cargo || '',
+          representanteDni: convenioData?.entidad_dni || ''
         };
       case 3:
         return {
-          convenioMarcoFecha: datosBasicos?.convenioMarcoFecha || '',
-          convenioEspecificoTipo: datosBasicos?.convenioEspecificoTipo || '',
-          unidadEjecutoraFacultad: datosBasicos?.unidadEjecutoraFacultad || '',
-          unidadEjecutoraEntidad: datosBasicos?.unidadEjecutoraEntidad || '',
-          dia: datosBasicos?.dia || '',
-          mes: datosBasicos?.mes || '',
-          anexo: datosBasicos?.anexo || '', // NUEVO CAMPO
+          convenioMarcoFecha: convenioData?.convenio_marco_fecha || '',
+          convenioEspecificoTipo: convenioData?.convenio_especifico_tipo || '',
+          unidadEjecutoraFacultad: convenioData?.unidad_ejecutora_facultad || '',
+          unidadEjecutoraEntidad: convenioData?.unidad_ejecutora_entidad || '',
+          dia: convenioData?.dia || '',
+          mes: convenioData?.mes || '',
+          anexo: convenioData?.anexo || '', // NUEVO CAMPO
         };
       default:
         return {};
@@ -305,7 +304,14 @@ export function ConvenioEspecificoForm({
     form.reset(getDefaultValues());
   }, [currentStep]);
 
-  // ACTUALIZAR onSubmit para el nuevo esquema
+  // Sincronizar el formulario cuando cambian los datos del store
+  useEffect(() => {
+    if (convenioData && Object.keys(convenioData).length > 0) {
+      form.reset(getDefaultValues());
+    }
+  }, [convenioData]);
+
+  // ACTUALIZAR onSubmit para usar nueva estructura directa
   const onSubmit = async (data: z.infer<typeof validationSchema>) => {
     try {
       const newFormState = {
@@ -313,31 +319,31 @@ export function ConvenioEspecificoForm({
         [currentStep]: data,
       };
       onFormStateChange(newFormState);
-      const currentParte = (convenioData?.partes?.[0] as Record<string, any>) || {};
+      // Actualizar datos directamente en convenioData (nueva estructura)
       switch(currentStep) {
         case 1:
-          updateConvenioData('partes', [{
-            ...currentParte,
-            nombre: data.nombre,
-            domicilio: data.domicilio,
-            cuit: data.cuit
-          }]);
+          updateConvenioData('all', {
+            ...convenioData,
+            entidad_nombre: data.nombre,
+            entidad_domicilio: data.domicilio,
+            entidad_cuit: data.cuit
+          });
           break;
         case 2:
-          updateConvenioData('partes', [{
-            ...currentParte,
-            representanteNombre: data.representanteNombre,
-            cargoRepresentante: data.cargoRepresentante,
-            representanteDni: data.representanteDni
-          }]);
+          updateConvenioData('all', {
+            ...convenioData,
+            entidad_representante: data.representanteNombre,
+            entidad_cargo: data.cargoRepresentante,
+            entidad_dni: data.representanteDni
+          });
           break;
         case 3:
-          updateConvenioData('datosBasicos', {
-            ...convenioData?.datosBasicos,
-            convenioMarcoFecha: data.convenioMarcoFecha || '',
-            convenioEspecificoTipo: data.convenioEspecificoTipo || '',
-            unidadEjecutoraFacultad: data.unidadEjecutoraFacultad || '',
-            unidadEjecutoraEntidad: data.unidadEjecutoraEntidad || '',
+          updateConvenioData('all', {
+            ...convenioData,
+            convenio_marco_fecha: data.convenioMarcoFecha || '',
+            convenio_especifico_tipo: data.convenioEspecificoTipo || '',
+            unidad_ejecutora_facultad: data.unidadEjecutoraFacultad || '',
+            unidad_ejecutora_entidad: data.unidadEjecutoraEntidad || '',
             dia: data.dia || '',
             mes: data.mes || '',
             anexo: data.anexo || '',
@@ -719,9 +725,7 @@ export function ConvenioEspecificoForm({
           </div>
         );
       case 4:
-        // ACTUALIZAR paso de revisión
-        const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
-        const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
+        // Paso de revisión usando la nueva estructura de datos
         return (
           <div className="space-y-6 animate-in fade-in-0">
             <div className="space-y-2 mb-6">
@@ -738,76 +742,94 @@ export function ConvenioEspecificoForm({
 
             <div className="space-y-6">
               {/* Datos de la Entidad */}
-              <div className="rounded-xl p-6 bg-orange-500/10 border border-orange-500/20 backdrop-blur-xl shadow-md">
-                <h3 className="font-semibold text-orange-600 mb-3 text-lg flex items-center gap-2">
-                  <BuildingIcon className="h-5 w-5" />
-                  Entidad
-                </h3>
-                <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span>{parte.nombre}</span></div>
-                  <div><b>Domicilio:</b> <span>{parte.domicilio}</span></div>
-                  <div><b>CUIT:</b> <span>{parte.cuit}</span></div>
-                </div>
-              </div>
-              
-              <div className="rounded-xl p-6 bg-teal-500/10 border border-teal-500/20 backdrop-blur-xl shadow-md">
-                <h3 className="font-semibold text-teal-600 mb-3 text-lg flex items-center gap-2">
-                  <UserIcon className="h-5 w-5" />
-                  Representante
-                </h3>
-                <div className="text-base space-y-1">
-                  <div><b>Nombre:</b> <span>{parte.representanteNombre}</span></div>
-                  <div><b>Cargo:</b> <span>{parte.cargoRepresentante}</span></div>
-                  <div><b>DNI:</b> <span>{parte.representanteDni}</span></div>
-                </div>
-              </div>
-              
-              <div className="rounded-xl p-6 bg-indigo-500/10 border border-indigo-500/20 backdrop-blur-xl shadow-md">
-                <h3 className="font-semibold text-indigo-600 mb-3 text-lg flex items-center gap-2">
-                  <FileTextIcon className="h-5 w-5" />
-                  Detalles del Convenio
-                </h3>
-                <div className="text-base space-y-1">
-                  <div><b>Fecha convenio marco:</b> <span>{datosBasicos.convenioMarcoFecha}</span></div>
-                  <div><b>Tipo específico:</b> <span>{datosBasicos.convenioEspecificoTipo}</span></div>
-                  <div><b>Unidad ejecutora facultad:</b> <span>{datosBasicos.unidadEjecutoraFacultad}</span></div>
-                  <div><b>Unidad ejecutora entidad:</b> <span>{datosBasicos.unidadEjecutoraEntidad}</span></div>
-                  <div><b>Día de firma:</b> <span>{datosBasicos.dia}</span></div>
-                  <div><b>Mes de firma:</b> <span>{datosBasicos.mes}</span></div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-orange-500/10 to-orange-600/10 rounded-xl blur-xl"></div>
+                <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-orange-600 mb-4 flex items-center gap-2">
+                    <BuildingIcon className="h-5 w-5" />
+                    Datos de la Entidad
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><span className="font-medium">Entidad:</span> {convenioData?.entidad_nombre}</div>
+                    <div><span className="font-medium">Domicilio:</span> {convenioData?.entidad_domicilio}</div>
+                    <div><span className="font-medium">CUIT:</span> {convenioData?.entidad_cuit}</div>
+                  </div>
                 </div>
               </div>
 
-              {/* NUEVO: Mostrar anexo si existe */}
-              {datosBasicos.anexo && (
-                <div className="rounded-xl p-6 bg-purple-500/10 border border-purple-500/20 backdrop-blur-xl shadow-md">
-                  <h3 className="font-semibold text-purple-600 mb-3 text-lg flex items-center gap-2">
-                    <FileTextIcon className="h-5 w-5" />
-                    Anexo
+              {/* Datos del Representante */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-teal-500/10 via-purple-500/10 to-purple-600/10 rounded-xl blur-xl"></div>
+                <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-teal-600 mb-4 flex items-center gap-2">
+                    <UserIcon className="h-5 w-5" />
+                    Datos del Representante
                   </h3>
-                  <div 
-                    className="prose prose-sm max-w-none text-base 
-                      [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2 [&_img]:shadow-sm
-                      [&_table]:border-collapse-collapse [&_table]:w-full [&_table]:border [&_table]:border-gray-300 [&_table]:my-4
-                      [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_td]:align-top
-                      [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_th]:bg-gray-100 [&_th]:font-bold"
-                    style={{ 
-                      color: 'var(--foreground)',
-                      lineHeight: '1.6'
-                    }}
-                    dangerouslySetInnerHTML={{ __html: datosBasicos.anexo }}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><span className="font-medium">Representante:</span> {convenioData?.entidad_representante}</div>
+                    <div><span className="font-medium">Cargo:</span> {convenioData?.entidad_cargo}</div>
+                    <div><span className="font-medium">DNI:</span> {convenioData?.entidad_dni}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detalles del Convenio */}
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-purple-600/10 rounded-xl blur-xl"></div>
+                <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-indigo-600 mb-4 flex items-center gap-2">
+                    <FileTextIcon className="h-5 w-5" />
+                    Detalles del Convenio
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div><span className="font-medium">Fecha convenio marco:</span> {convenioData?.convenio_marco_fecha}</div>
+                    <div><span className="font-medium">Tipo específico:</span> {convenioData?.convenio_especifico_tipo}</div>
+                    <div><span className="font-medium">Unidad ejecutora facultad:</span> {convenioData?.unidad_ejecutora_facultad}</div>
+                    <div><span className="font-medium">Unidad ejecutora entidad:</span> {convenioData?.unidad_ejecutora_entidad}</div>
+                    <div><span className="font-medium">Día de firma:</span> {convenioData?.dia}</div>
+                    <div><span className="font-medium">Mes de firma:</span> {convenioData?.mes}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Anexo */}
+              {convenioData?.anexo && (
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-purple-500/10 to-purple-600/10 rounded-xl blur-xl"></div>
+                  <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-purple-600 mb-4 flex items-center gap-2">
+                      <FileTextIcon className="h-5 w-5" />
+                      Anexo
+                    </h3>
+                    <div 
+                      className="prose prose-sm max-w-none text-sm
+                        [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-md [&_img]:my-2 [&_img]:shadow-sm
+                        [&_table]:border-collapse-collapse [&_table]:w-full [&_table]:border [&_table]:border-gray-300 [&_table]:my-4
+                        [&_td]:border [&_td]:border-gray-300 [&_td]:p-2 [&_td]:align-top
+                        [&_th]:border [&_th]:border-gray-300 [&_th]:p-2 [&_th]:bg-gray-100 [&_th]:font-bold"
+                      style={{ 
+                        color: 'var(--foreground)',
+                        lineHeight: '1.6'
+                      }}
+                      dangerouslySetInnerHTML={{ __html: convenioData.anexo }}
+                    />
+                  </div>
                 </div>
               )}
-              {/* NUEVO: Mostrar archivo Word adjunto si existe */}
-              {datosBasicos.anexoWordFile && (
-                <div className="rounded-xl p-6 bg-gray-900 border border-gray-700 backdrop-blur-xl shadow-md mt-4">
-                  <h3 className="font-semibold text-gray-200 mb-3 text-lg flex items-center gap-2">
-                    <FileTextIcon className="h-5 w-5" />
-                    Archivo Word adjunto
-                  </h3>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-gray-100 font-medium">{datosBasicos.anexoWordFile.name}</span>
-                    <span className="text-xs text-gray-400">✅ Adjuntado (incluye tablas e imágenes)</span>
+              
+              {/* Archivo Word adjunto */}
+              {convenioData?.anexoWordFile && (
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-gray-500/10 via-gray-500/10 to-gray-600/10 rounded-xl blur-xl"></div>
+                  <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-gray-600 mb-4 flex items-center gap-2">
+                      <FileTextIcon className="h-5 w-5" />
+                      Archivo Word adjunto
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{convenioData.anexoWordFile.name}</span>
+                      <span className="text-xs text-muted-foreground">✅ Adjuntado (incluye tablas e imágenes)</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -951,29 +973,27 @@ export function ConvenioEspecificoForm({
                           onClick={async () => {
                             setIsSubmitting(true);
                             try {
-                              const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
-                              const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
-                              // ACTUALIZAR estructura de datos para backend
+                              // Usar datos directos del convenioData (nueva estructura)
                               const dbData = {
-                                entidad_nombre: parte.nombre || '',
-                                entidad_domicilio: parte.domicilio || '',
-                                entidad_cuit: parte.cuit || '',
-                                entidad_representante: parte.representanteNombre || '',
-                                entidad_dni: parte.representanteDni || '',
-                                entidad_cargo: parte.cargoRepresentante || '',
-                                convenio_marco_fecha: datosBasicos.convenioMarcoFecha || '',
-                                convenio_especifico_tipo: datosBasicos.convenioEspecificoTipo || '',
-                                unidad_ejecutora_facultad: datosBasicos.unidadEjecutoraFacultad || '',
-                                unidad_ejecutora_entidad: datosBasicos.unidadEjecutoraEntidad || '',
-                                dia: datosBasicos.dia || '',
-                                mes: datosBasicos.mes || '',
-                                anexo: datosBasicos.anexo || '' // NUEVO CAMPO UNIFICADO
+                                entidad_nombre: convenioData?.entidad_nombre || '',
+                                entidad_domicilio: convenioData?.entidad_domicilio || '',
+                                entidad_cuit: convenioData?.entidad_cuit || '',
+                                entidad_representante: convenioData?.entidad_representante || '',
+                                entidad_dni: convenioData?.entidad_dni || '',
+                                entidad_cargo: convenioData?.entidad_cargo || '',
+                                convenio_marco_fecha: convenioData?.convenio_marco_fecha || '',
+                                convenio_especifico_tipo: convenioData?.convenio_especifico_tipo || '',
+                                unidad_ejecutora_facultad: convenioData?.unidad_ejecutora_facultad || '',
+                                unidad_ejecutora_entidad: convenioData?.unidad_ejecutora_entidad || '',
+                                dia: convenioData?.dia || '',
+                                mes: convenioData?.mes || '',
+                                anexo: convenioData?.anexo || '' // NUEVO CAMPO UNIFICADO
                               };
                               const requestData = {
                                 title: dbData.entidad_nombre,
                                 convenio_type_id: 4, // ID del convenio específico según base de datos
                                 content_data: dbData,
-                                status: 'pendiente'
+                                status: 'enviado'
                               };
                               let response, responseData;
                               // Si tenemos ID desde la URL (modo corrección) o desde convenioData, usar PATCH

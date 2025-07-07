@@ -1,8 +1,13 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
 import { UpdateConvenioDTO } from "@/lib/types/convenio";
-import { moveFileToFolder, DRIVE_FOLDERS } from '@/app/lib/google-drive';
+import { moveFileToFolder, DRIVE_FOLDERS, uploadFileToDrive, deleteFileFromDrive } from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
+import { renderDocx } from '@/app/lib/utils/docx-templater';
+import { createDocument } from '@/app/lib/utils/doc-generator';
+import { Packer } from 'docx';
+import path from 'path';
+import fs from 'fs';
 
 // Obtener un convenio específico
 export async function GET(
@@ -217,7 +222,7 @@ export async function PATCH(
       .from('convenios')
       .update(updateData)
       .eq('id', params.id)
-      .select('document_path')
+      .select('document_path, convenio_type_id')
       .single();
 
     if (updateError) {
@@ -228,20 +233,113 @@ export async function PATCH(
       );
     }
 
-    // Si se está reenvíando después de corrección, mover archivo de ARCHIVED a PENDING
-    if (body.status === 'enviado' && convenio.status === 'revision' && updatedConvenio.document_path) {
+    // Si se está reenvíando después de corrección, regenerar el documento
+    if (body.status === 'enviado' && convenio.status === 'revision' && body.content_data) {
       try {
-        // Extraer el ID del archivo de la URL de Drive
-        const fileId = updatedConvenio.document_path.split('/d/')[1]?.split('/')[0];
-        if (fileId) {
-          await moveFileToFolder(fileId, DRIVE_FOLDERS.PENDING);
-        }
-      } catch (driveError) {
-        console.error('Error al mover el archivo en Drive:', driveError);
-        // No fallamos la operación si el movimiento en Drive falla
-      }
+        // Obtener el template del tipo de convenio
+        const { data: template, error: templateError } = await supabase
+          .from('convenio_types')
+          .select('name, template_content')
+          .eq('id', updatedConvenio.convenio_type_id)
+          .single();
 
-      // Enviar notificación de reenvío
+        if (templateError || !template) {
+          console.error('Error al obtener template:', templateError);
+          throw new Error('Template no encontrado');
+        }
+
+        // Generar documento usando template DOCX
+        const formData = body.content_data;
+        let buffer: Buffer | null = null;
+
+        try {
+          const templateDir = path.join(process.cwd(), 'templates');
+          const safeName = template.name ? template.name.toString() : '';
+          const safeNameLower = safeName.toLowerCase();
+          const safeNameNormalized = safeNameLower.normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+          
+          const slugify = (str: string) => str.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+          const removeStop = (str: string) => str.replace(/\b(de|del|la|el|en|con|por|para|y|o|a|un|una)\b/g, '').replace(/-+/g, '-').replace(/(^-|-$)+/g, '');
+          const norm = (str: string) => str.replace(/[^a-z0-9]/g, '');
+          
+          const targetSlug = removeStop(safeNameNormalized);
+          const allDocx = fs.readdirSync(templateDir).filter(f => f.endsWith('.docx'));
+          const scored: Array<{file: string, score: number}> = [];
+          
+          allDocx.forEach((f) => {
+            const fileSlug = slugify(path.parse(f).name);
+            const fileSlugClean = removeStop(fileSlug);
+            let score = -1;
+            if (fileSlug === safeNameNormalized) score = 0;
+            else if (fileSlugClean === targetSlug) score = 1;
+            else if (norm(fileSlug) === norm(safeNameNormalized)) score = 2;
+            else if (norm(fileSlugClean) === norm(targetSlug)) score = 3;
+            else if (norm(fileSlug).includes(norm(safeNameNormalized))) score = 4;
+            else if (norm(fileSlugClean).includes(norm(targetSlug))) score = 5;
+
+            if (score >= 0) scored.push({file: f, score});
+          });
+
+          scored.sort((a, b) => a.score - b.score || a.file.length - b.file.length);
+          const candidateFiles = scored.map((s) => s.file);
+
+          if (candidateFiles.length) {
+            const filePath = path.join(templateDir, candidateFiles[0]);
+            const templateBuffer = fs.readFileSync(filePath);
+            buffer = await renderDocx(templateBuffer, formData);
+          }
+        } catch (tplErr) {
+          console.warn('Fallo al procesar template DOCX:', tplErr);
+        }
+
+        // Fallback programático si no hay template DOCX
+        if (!buffer) {
+          const templateFields = Object.entries(formData).map(([key, value]) => ({
+            key,
+            value: String(value)
+          }));
+          const doc = createDocument(template.template_content, templateFields);
+          buffer = await Packer.toBuffer(doc);
+        }
+
+        if (buffer) {
+          // Primero, eliminar el documento viejo de Archivados si existe
+          if (updatedConvenio.document_path) {
+            try {
+              const oldFileId = updatedConvenio.document_path.split('/d/')[1]?.split('/')[0];
+              if (oldFileId) {
+                await deleteFileFromDrive(oldFileId);
+              }
+            } catch (deleteError) {
+              console.error('Error al eliminar documento viejo:', deleteError);
+              // No fallamos la operación si no se puede eliminar el archivo viejo
+            }
+          }
+
+          // Subir nuevo documento a Drive (automáticamente va a Pendientes)
+          const driveResponse = await uploadFileToDrive(
+            buffer,
+            `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}.docx`
+          );
+
+          // Actualizar el path del documento en la BD
+          const { error: pathUpdateError } = await supabase
+            .from('convenios')
+            .update({ document_path: driveResponse.webViewLink })
+            .eq('id', params.id);
+
+          if (pathUpdateError) {
+            console.error('Error al actualizar path del documento:', pathUpdateError);
+          }
+        }
+      } catch (docError) {
+        console.error('Error al regenerar documento:', docError);
+        // No fallamos la operación si la regeneración falla
+      }
+    }
+
+    // Enviar notificación de reenvío si se está reenvíando después de corrección
+    if (body.status === 'enviado' && convenio.status === 'revision') {
       try {
         const convenioTitle = convenio.title || "Sin título";
         await NotificationService.convenioResubmitted(user.id, convenioTitle, params.id);
