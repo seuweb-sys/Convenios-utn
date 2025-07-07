@@ -11,6 +11,7 @@ import {
 } from "@/app/components/dashboard";
 import { Button } from "@/app/components/ui/button";
 import { ConvenioFormLayout } from "@/app/components/convenios/ConvenioFormLayout";
+import { ConvenioInfoDisplay } from "@/app/components/convenios/convenio-info-display";
 import { convenioConfigs } from "@/app/components/convenios/convenio-configs";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 
@@ -33,13 +34,25 @@ export default function ConvenioPage() {
     }
   }, [isCreating, mode, paramId, initializeStore]);
 
+  // 3. Vista de solo lectura (por defecto para convenios existentes)
+  if (!isCreating && mode !== 'correccion') {
+    return (
+      <>
+        <BackgroundPattern />
+        <div className="p-8 w-full relative">
+          <ConvenioInfoDisplay convenioId={paramId} />
+        </div>
+      </>
+    );
+  }
+
   // 1. Creación de convenio nuevo
   if (isCreating && type && convenioConfigs[type]) {
     const config = convenioConfigs[type];
     return <ConvenioFormLayout config={config} />;
   }
 
-  // 2. Corrección de convenio existente con datos precargados
+  // 4. Corrección de convenio existente con datos precargados
   if (!isCreating && mode === 'correccion') {
     // Esperar a que los datos estén en el store
     if (!isStoreInitialized) {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FileTextIcon, HomeIcon, ClockIcon, CheckCircleIcon, UserIcon, SettingsIcon, ShieldIcon } from "lucide-react";
+import { useLoadingNavigation } from "@/app/hooks/use-loading-navigation";
 
 interface NavigationProps {
   userRole?: string;
@@ -10,16 +11,21 @@ interface NavigationProps {
 
 export function Navigation({ userRole }: NavigationProps) {
   const pathname = usePathname();
+  const { navigate } = useLoadingNavigation();
   const isActive = (path: string) => pathname === path;
   const isAdmin = userRole === "admin";
   const isProfesor = userRole === "profesor";
 
+  const handleNavigation = (path: string, label: string) => {
+    navigate(path, `Navegando a ${label}...`);
+  };
+
   return (
     <>
       <nav className="flex-1 px-3 py-4 space-y-1">
-        <Link 
-          href="/protected" 
-          className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+        <button 
+          onClick={() => handleNavigation('/protected', 'Dashboard')}
+          className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
             isActive('/protected') 
               ? 'bg-primary/10 text-primary' 
               : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -27,10 +33,10 @@ export function Navigation({ userRole }: NavigationProps) {
         >
           <HomeIcon className="h-4 w-4" />
           Dashboard
-        </Link>
-        <Link 
-          href="/protected/convenios-lista" 
-          className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+        </button>
+        <button 
+          onClick={() => handleNavigation('/protected/convenios-lista', 'Convenios')}
+          className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
             isActive('/protected/convenios-lista') 
               ? 'bg-primary/10 text-primary' 
               : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -38,10 +44,10 @@ export function Navigation({ userRole }: NavigationProps) {
         >
           <FileTextIcon className="h-4 w-4" />
           Convenios
-        </Link>
-        <Link 
-          href="/protected/actividad" 
-          className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+        </button>
+        <button 
+          onClick={() => handleNavigation('/protected/actividad', 'Actividad')}
+          className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
             isActive('/protected/actividad') 
               ? 'bg-primary/10 text-primary' 
               : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -49,10 +55,10 @@ export function Navigation({ userRole }: NavigationProps) {
         >
           <ClockIcon className="h-4 w-4" />
           Actividad
-        </Link>
-        <Link 
-          href="/protected/aprobaciones" 
-          className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+        </button>
+        <button 
+          onClick={() => handleNavigation('/protected/aprobaciones', 'Aprobaciones')}
+          className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
             isActive('/protected/aprobaciones') 
               ? 'bg-primary/10 text-primary' 
               : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -60,7 +66,7 @@ export function Navigation({ userRole }: NavigationProps) {
         >
           <CheckCircleIcon className="h-4 w-4" />
           Aprobaciones
-        </Link>
+        </button>
       </nav>
 
       <div className="px-3 py-4 border-t">
@@ -69,9 +75,9 @@ export function Navigation({ userRole }: NavigationProps) {
         </div>
         <nav className="space-y-1">
           {isAdmin && (
-            <Link 
-              href="/protected/admin" 
-              className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            <button 
+              onClick={() => handleNavigation('/protected/admin', 'Panel Admin')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 isActive('/protected/admin') 
                   ? 'bg-primary/10 text-primary' 
                   : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -79,25 +85,13 @@ export function Navigation({ userRole }: NavigationProps) {
             >
               <ShieldIcon className="h-4 w-4" />
               Panel Admin
-            </Link>
+            </button>
           )}
-          {isAdmin && (
-            <Link 
-              href="/protected/usuarios" 
-              className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                isActive('/protected/usuarios') 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-              }`}
-            >
-              <UserIcon className="h-4 w-4" />
-              Usuarios
-            </Link>
-          )}
+          
           {isProfesor && (
-            <Link 
-              href="/protected/profesor" 
-              className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+            <button 
+              onClick={() => handleNavigation('/protected/profesor', 'Profesor')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 isActive('/protected/profesor') 
                   ? 'bg-primary/10 text-primary' 
                   : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -105,20 +99,7 @@ export function Navigation({ userRole }: NavigationProps) {
             >
               <UserIcon className="h-4 w-4" />
               Profesor
-            </Link>
-          )}
-          {(isAdmin || isProfesor || userRole === "user") && (
-            <Link 
-              href="/protected/configuracion" 
-              className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                isActive('/protected/configuracion') 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-              }`}
-            >
-              <SettingsIcon className="h-4 w-4" />
-              Configuración
-            </Link>
+            </button>
           )}
         </nav>
       </div>

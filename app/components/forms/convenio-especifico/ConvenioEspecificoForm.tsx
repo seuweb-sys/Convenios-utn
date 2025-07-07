@@ -21,6 +21,7 @@ import { BuildingIcon, UserIcon, FileTextIcon, CheckIcon, ChevronLeftIcon, Chevr
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
+import { SuccessModal } from '@/app/components/ui/success-modal';
 import dynamic from 'next/dynamic';
 
 // Importar React Quill dinámicamente para evitar problemas de SSR
@@ -236,6 +237,7 @@ export function ConvenioEspecificoForm({
   const [validationSchema, setValidationSchema] = useState<z.ZodTypeAny>(entidadSchema);
   const [localStatus, setLocalStatus] = useState(convenioData?.status || 'enviado');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenContent, setFullscreenContent] = useState("");
   const [attachedWordFile, setAttachedWordFile] = useState<{name: string, file: File} | null>(null);
@@ -970,6 +972,7 @@ export function ConvenioEspecificoForm({
                         </Button>
                         <Button
                           variant="default"
+                          disabled={isSubmitting}
                           onClick={async () => {
                             setIsSubmitting(true);
                             try {
@@ -993,7 +996,7 @@ export function ConvenioEspecificoForm({
                                 title: dbData.entidad_nombre,
                                 convenio_type_id: 4, // ID del convenio específico según base de datos
                                 content_data: dbData,
-                                status: 'enviado'
+                                status: 'pendiente'
                               };
                               let response, responseData;
                               // Si tenemos ID desde la URL (modo corrección) o desde convenioData, usar PATCH
@@ -1018,10 +1021,7 @@ export function ConvenioEspecificoForm({
                               }
                               updateConvenioData('all', responseData);
                               setShowConfirmModal(false);
-                              // Forzar redirección más robusta
-                              setTimeout(() => {
-                                router.push('/protected');
-                              }, 100);
+                              setShowSuccessModal(true);
                             } catch (error) {
                               alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
                             } finally {
@@ -1052,7 +1052,19 @@ export function ConvenioEspecificoForm({
       
       <FullscreenEditor />
 
-
+      {/* Modal de éxito */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="¡Convenio Específico Enviado!"
+        message="Tu convenio específico ha sido enviado exitosamente y está en espera de revisión por parte del equipo administrativo."
+        redirectText="Volver al Inicio"
+        autoRedirectSeconds={5}
+        onRedirect={() => {
+          setShowSuccessModal(false);
+          router.push('/protected');
+        }}
+      />
     </div>
   );
 }

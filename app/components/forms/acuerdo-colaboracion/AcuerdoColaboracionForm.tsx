@@ -11,6 +11,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Label } from "@/app/components/ui/label";
+import { SuccessModal } from "@/app/components/ui/success-modal";
 import { cn } from "@/lib/utils";
 
 // Esquemas de validación para cada paso
@@ -78,6 +79,7 @@ export default function AcuerdoColaboracionForm({
   const { convenioData, updateConvenioData } = useConvenioMarcoStore();
   const router = useRouter();
   const [showModal, setShowModal] = React.useState(false);
+  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
 
   // Configurar formularios para cada paso
   const entidadForm = useForm<EntidadData>({
@@ -243,7 +245,7 @@ export default function AcuerdoColaboracionForm({
         title: convenioData.entidad_nombre,
         convenio_type_id: 3, // ID del acuerdo de colaboración
         content_data: convenioData,
-        status: 'enviado'
+        status: 'pendiente'
       };
 
       let response, responseData;
@@ -272,7 +274,7 @@ export default function AcuerdoColaboracionForm({
       responseData = await response.json();
       updateConvenioData('all', responseData);
       setShowModal(false);
-      router.push('/protected');
+      setShowSuccessModal(true);
     } catch (error) {
       console.error('Error:', error);
       alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
@@ -726,6 +728,20 @@ export default function AcuerdoColaboracionForm({
           </div>
         </div>
       )}
+
+      {/* Modal de éxito */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="¡Acuerdo de Colaboración Enviado!"
+        message="Tu acuerdo de colaboración ha sido enviado exitosamente y está en espera de revisión por parte del equipo administrativo."
+        redirectText="Volver al Inicio"
+        autoRedirectSeconds={5}
+        onRedirect={() => {
+          setShowSuccessModal(false);
+          router.push('/protected');
+        }}
+      />
     </>
   );
 } 

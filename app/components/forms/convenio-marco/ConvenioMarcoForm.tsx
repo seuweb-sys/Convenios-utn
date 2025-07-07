@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/app/components/ui/button";
+import { LoadingButton } from "@/app/components/ui/loading-button";
 import { Input } from "@/app/components/ui/input";
 import { Label } from "@/app/components/ui/label";
 import {
@@ -20,6 +21,9 @@ import { BuildingIcon, UserIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, Chevr
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
+import { SuccessModal } from '@/app/components/ui/success-modal';
+import { useAsyncOperation } from '@/app/hooks/use-async-operation';
+import { useFeedback } from '@/app/components/providers/feedback-provider';
 
 const STEPS = [
   {
@@ -85,9 +89,12 @@ export function ConvenioMarcoForm({
 }: ConvenioMarcoFormProps) {
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
+  const { execute } = useAsyncOperation();
+  const { showConvenioSuccess, showError } = useFeedback();
   const [validationSchema, setValidationSchema] = useState<z.ZodTypeAny>(entidadSchema);
   const [localStatus, setLocalStatus] = useState(convenioData?.status || 'enviado');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const meses = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -561,6 +568,7 @@ export function ConvenioMarcoForm({
                         </Button>
                         <Button
                           variant="default"
+                          disabled={isSubmitting}
                           onClick={async () => {
                             setIsSubmitting(true);
                             try {
@@ -605,7 +613,7 @@ export function ConvenioMarcoForm({
                               }
                               updateConvenioData('all', responseData);
                               setShowConfirmModal(false);
-                              router.push('/protected');
+                              setShowSuccessModal(true);
                             } catch (error) {
                               alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
                             } finally {
@@ -633,6 +641,20 @@ export function ConvenioMarcoForm({
           </div>
         </form>
       </Form>
+
+      {/* Modal de éxito */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="¡Convenio Enviado!"
+        message="Tu convenio marco ha sido enviado exitosamente y está en espera de revisión por parte del equipo administrativo."
+        redirectText="Volver al Inicio"
+        autoRedirectSeconds={5}
+        onRedirect={() => {
+          setShowSuccessModal(false);
+          router.push('/protected');
+        }}
+      />
     </div>
   );
 } 

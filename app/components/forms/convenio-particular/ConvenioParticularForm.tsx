@@ -11,6 +11,7 @@ import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
 import { Label } from "@/app/components/ui/label";
+import { SuccessModal } from "@/app/components/ui/success-modal";
 import { cn } from "@/lib/utils";
 
 // Esquemas de validación para cada paso
@@ -83,6 +84,7 @@ export default function ConvenioParticularForm({
   const { convenioData, updateConvenioData } = useConvenioMarcoStore();
   const router = useRouter();
   const [showModal, setShowModal] = React.useState(false);
+  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
 
   const meses = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -257,7 +259,7 @@ export default function ConvenioParticularForm({
         title: dbData.empresa_nombre || 'Empresa',
         convenio_type_id: 1,
         content_data: dbData,
-        status: 'enviado'
+        status: 'pendiente'
       };
 
       let response, responseData;
@@ -285,7 +287,7 @@ export default function ConvenioParticularForm({
       }
       
       setShowModal(false);
-      router.push("/protected");
+      setShowSuccessModal(true);
     } catch (error) {
       onError(error instanceof Error ? error.message : "Error al crear convenio");
       console.error("Error:", error);
@@ -763,6 +765,20 @@ export default function ConvenioParticularForm({
           </div>
         </div>
       )}
+
+      {/* Modal de éxito */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="¡Convenio Particular Enviado!"
+        message="Tu convenio particular de práctica supervisada ha sido enviado exitosamente y está en espera de revisión por parte del equipo administrativo."
+        redirectText="Volver al Inicio"
+        autoRedirectSeconds={5}
+        onRedirect={() => {
+          setShowSuccessModal(false);
+          router.push('/protected');
+        }}
+      />
     </>
   );
 } 

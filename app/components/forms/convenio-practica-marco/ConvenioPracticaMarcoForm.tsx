@@ -20,6 +20,7 @@ import { ChevronLeftIcon, ChevronRightIcon, BuildingIcon, UserIcon, CalendarIcon
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
+import { SuccessModal } from '@/app/components/ui/success-modal';
 
 const STEPS = [
   {
@@ -93,6 +94,7 @@ export function ConvenioPracticaMarcoForm({
   const [validationSchema, setValidationSchema] = useState<z.ZodTypeAny>(entidadSchema);
   const [localStatus, setLocalStatus] = useState(convenioData?.status || 'enviado');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const meses = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -609,6 +611,7 @@ export function ConvenioPracticaMarcoForm({
                         </Button>
                         <Button
                           variant="default"
+                          disabled={isSubmitting}
                           onClick={async () => {
                             setIsSubmitting(true);
                             try {
@@ -630,7 +633,7 @@ export function ConvenioPracticaMarcoForm({
                                 title: dbData.entidad_nombre,
                                 convenio_type_id: 5, // ID específico para práctica supervisada
                                 content_data: dbData,
-                                status: 'enviado'
+                                status: 'pendiente'
                               };
                               let response, responseData;
                               if (convenioIdFromUrl || convenioData?.id) {
@@ -653,7 +656,7 @@ export function ConvenioPracticaMarcoForm({
                               }
                               updateConvenioData('all', responseData);
                               setShowConfirmModal(false);
-                              router.push('/protected');
+                              setShowSuccessModal(true);
                             } catch (error) {
                               alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
                             } finally {
@@ -681,6 +684,20 @@ export function ConvenioPracticaMarcoForm({
           </div>
         </form>
       </Form>
+
+      {/* Modal de éxito */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="¡Convenio de Práctica Supervisada Enviado!"
+        message="Tu convenio marco de práctica supervisada ha sido enviado exitosamente y está en espera de revisión por parte del equipo administrativo."
+        redirectText="Volver al Inicio"
+        autoRedirectSeconds={5}
+        onRedirect={() => {
+          setShowSuccessModal(false);
+          router.push('/protected');
+        }}
+      />
     </div>
   );
 }
