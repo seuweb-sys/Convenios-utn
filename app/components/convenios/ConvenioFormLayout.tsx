@@ -81,8 +81,9 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   // Store de Zustand para manejo de estado global
   const { convenioData, updateConvenioData, stepStates } = useConvenioMarcoStore();
   const formFields = useConvenioStore((state) => state.formFields);
-  // const anexoWordFile = convenioData?.datosBasicos?.anexoWordFile;
   const previewRef = useRef<HTMLDivElement>(null);
+  // Referencia al archivo Word adjunto desde convenioData (no desde datosBasicos)
+  const anexoWordFile = (convenioData as any)?.anexoWordFile;
 
   // Simulamos la carga inicial
   useEffect(() => {
@@ -159,7 +160,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   const fields = getFieldsFromStore(convenioData, formFields);
 
   useEffect(() => {
-    if (isFullScreen && convenioData?.datosBasicos?.anexoWordFile && previewRef.current) {
+    if (isFullScreen && anexoWordFile && previewRef.current) {
       previewRef.current.innerHTML = '';
       const reader = new FileReader();
       reader.onload = function(e) {
@@ -168,9 +169,9 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
           renderAsync(arrayBuffer as ArrayBuffer, previewRef.current, undefined, { className: "docx-preview-rendered" });
         }
       };
-      reader.readAsArrayBuffer(convenioData.datosBasicos.anexoWordFile.file);
+      reader.readAsArrayBuffer(anexoWordFile.file);
     }
-  }, [isFullScreen, convenioData?.datosBasicos?.anexoWordFile]);
+  }, [isFullScreen, anexoWordFile]);
 
   return (
     <>
@@ -326,11 +327,11 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                   size="sm"
                   className={cn(
                     "w-full justify-start gap-2 text-sm transition-all",
-                    !convenioData?.datosBasicos?.anexoWordFile ? "opacity-50 cursor-not-allowed" : "border-primary text-primary hover:bg-primary/10"
+                    !anexoWordFile ? "opacity-50 cursor-not-allowed" : "border-primary text-primary hover:bg-primary/10"
                   )}
-                  disabled={!convenioData?.datosBasicos?.anexoWordFile}
+                  disabled={!anexoWordFile}
                   onClick={() => setIsFullScreen(true)}
-                  title={convenioData?.datosBasicos?.anexoWordFile ? "Ver vista previa del Word adjunto" : "Adjunta un Word para habilitar la vista previa"}
+                  title={anexoWordFile ? "Ver vista previa del Word adjunto" : "Adjunta un Word para habilitar la vista previa"}
                 >
                   <EyeIcon className="h-4 w-4" />
                   Vista previa Word
@@ -340,7 +341,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
           </div>
         </div>
       </div>
-      {isFullScreen && convenioData?.datosBasicos?.anexoWordFile && (
+      {isFullScreen && anexoWordFile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="bg-gray-100 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-0 relative border border-gray-300">
             <button

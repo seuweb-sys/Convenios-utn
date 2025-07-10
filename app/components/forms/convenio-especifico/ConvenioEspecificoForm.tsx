@@ -17,7 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/app/components/ui/form";
-import { BuildingIcon, UserIcon, FileTextIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MaximizeIcon, XIcon, UploadIcon } from "lucide-react";
+import { BuildingIcon, UserIcon, FileTextIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, MaximizeIcon, XIcon, UploadIcon, X } from "lucide-react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
@@ -242,6 +242,10 @@ export function ConvenioEspecificoForm({
   const [fullscreenContent, setFullscreenContent] = useState("");
   const [attachedWordFile, setAttachedWordFile] = useState<{name: string, file: File} | null>(null);
 
+  // NUEVO: Sistema de múltiples anexos
+  const [anexoFiles, setAnexoFiles] = useState<Array<{id: string, name: string, file: File, buffer: ArrayBuffer}>>([]);
+  const [anexoMode, setAnexoMode] = useState<'editor' | 'files' | null>(null);
+
   // Configurar el esquema de validación según el paso actual
   useEffect(() => {
     switch (currentStep) {
@@ -349,7 +353,10 @@ export function ConvenioEspecificoForm({
             dia: data.dia || '',
             mes: data.mes || '',
             anexo: data.anexo || '',
-            anexoWordFile: attachedWordFile,
+            anexoWordFile: anexoMode === 'files' && anexoFiles.length > 0 ? anexoFiles[0] : attachedWordFile,
+            // NUEVO: Anexos múltiples
+            anexosMultiples: anexoFiles,
+            anexoMode: anexoMode,
           });
           break;
       }
@@ -623,79 +630,200 @@ export function ConvenioEspecificoForm({
                     </Label>
                     
                     {/* Opción 1: Editor de texto */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">📝 Opción 1: Editor de texto</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={openFullscreen}
-                        className="text-xs px-2 py-1 h-6"
-                      >
-                        <MaximizeIcon className="h-3 w-3 mr-1" />
-                        Pantalla completa
-                      </Button>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium">📝 Opción 1: Editor de texto</span>
+                          {anexoMode === 'files' && (
+                            <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded dark:bg-amber-900/20 dark:text-amber-400">
+                              Deshabilitado (archivos seleccionados)
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          {anexoMode === 'files' && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={switchToEditorMode}
+                              className="text-xs px-2 py-1 h-6"
+                            >
+                              Cambiar a editor
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={openFullscreen}
+                            disabled={anexoMode === 'files'}
+                            className="text-xs px-2 py-1 h-6"
+                          >
+                            <MaximizeIcon className="h-3 w-3 mr-1" />
+                            Pantalla completa
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="border border-border rounded-md overflow-hidden relative">
+                        {anexoMode === 'files' && (
+                          <div className="absolute inset-0 bg-zinc-200 bg-opacity-80 z-10 flex flex-col items-center justify-center dark:bg-zinc-800 dark:bg-opacity-80">
+                            <span className="text-zinc-700 font-semibold text-sm dark:text-zinc-300">Editor deshabilitado</span>
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400">Tienes archivos anexo seleccionados</span>
+                          </div>
+                        )}
+                        <style dangerouslySetInnerHTML={{ __html: quillStyles }} />
+                        <ReactQuill
+                          value={form.watch("anexo") || ""}
+                          onChange={(content) => {
+                            if (anexoMode !== 'files') {
+                              form.setValue("anexo", content);
+                              if (content.trim() && anexoMode !== 'editor') {
+                                setAnexoMode('editor');
+                              }
+                            }
+                          }}
+                          modules={quillModules}
+                          formats={quillFormats}
+                          placeholder="Pegue aquí el contenido del anexo con formato (sin tablas)"
+                          style={{
+                            height: '300px',
+                            backgroundColor: '#ffffff',
+                            pointerEvents: anexoMode === 'files' ? 'none' : 'auto',
+                            opacity: anexoMode === 'files' ? 0.5 : 1
+                          }}
+                          readOnly={anexoMode === 'files'}
+                          theme="snow"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <div className="border border-border rounded-md overflow-hidden relative">
-                    {attachedWordFile && (
-                      <div className="absolute inset-0 bg-gray-200 bg-opacity-80 z-10 flex flex-col items-center justify-center">
-                        <span className="text-gray-700 font-semibold text-sm">El editor está deshabilitado porque hay un archivo Word adjunto.</span>
-                        <span className="text-xs text-gray-500">Elimina el archivo para volver a editar aquí.</span>
+
+                    {/* Opción 2: Múltiples archivos Word */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium">📄 Opción 2: Múltiples documentos Word</span>
+                          {anexoMode === 'editor' && (
+                            <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded dark:bg-amber-900/20 dark:text-amber-400">
+                              Deshabilitado (editor en uso)
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="file"
+                            id="multiple-word-upload"
+                            accept=".docx"
+                            multiple
+                            onChange={handleMultipleAnexosUpload}
+                            className="hidden"
+                            disabled={anexoMode === 'editor'}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById('multiple-word-upload')?.click()}
+                            disabled={anexoMode === 'editor'}
+                            className="text-xs px-2 py-1 h-6"
+                          >
+                            <UploadIcon className="h-3 w-3 mr-1" />
+                            Adjuntar .docx
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      {/* Lista de archivos anexo */}
+                      {anexoFiles.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-medium text-muted-foreground">
+                            Anexos agregados ({anexoFiles.length}):
+                          </h4>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {anexoFiles.map((anexo) => (
+                              <div key={anexo.id} className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/20 rounded-md dark:bg-blue-500/10 dark:border-blue-500/20">
+                                <div className="flex items-center gap-3">
+                                  <FileTextIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                  <div>
+                                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{anexo.name}</p>
+                                    <p className="text-xs text-blue-600 dark:text-blue-300">
+                                      {(anexo.file.size / 1024 / 1024).toFixed(2)} MB • Se convertirá a Google Doc
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => removeAnexoFile(anexo.id)}
+                                  className="text-xs px-2 py-1 h-7 text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
+                                >
+                                  <XIcon className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Instrucciones mejoradas */}
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <span className="text-blue-600 dark:text-blue-400 text-lg">💡</span>
+                        <div className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
+                          <p><strong>Instrucciones:</strong></p>
+                          <ul className="text-xs space-y-1">
+                            <li>📝 <strong>Editor de texto:</strong> Para contenido simple sin tablas complejas</li>
+                            <li>📄 <strong>Archivos múltiples:</strong> Los .docx se convertirán automáticamente a Google Docs</li>
+                            <li>⚠️ <strong>Ambas opciones son excluyentes:</strong> Solo puedes usar una a la vez</li>
+                            <li>🔄 <strong>Conversión:</strong> Los archivos mantendrán formato, tablas e imágenes</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Vista previa de múltiples archivos */}
+                    {anexoFiles.length > 0 && (
+                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          <span className="text-green-600 dark:text-green-400 text-lg">👁️</span>
+                          <div>
+                            <h4 className="text-sm font-medium text-green-800 dark:text-green-200">
+                              Vista previa de anexos ({anexoFiles.length})
+                            </h4>
+                            <p className="text-xs text-green-600 dark:text-green-300">
+                              Archivos que se convertirán a Google Docs
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
+                          {anexoFiles.map((anexo, index) => (
+                            <div key={anexo.id} className="flex items-center gap-3 text-xs p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-700">
+                              <span className="font-mono text-green-700 dark:text-green-300 w-6">#{index + 1}</span>
+                              <FileTextIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-green-800 dark:text-green-200 truncate">{anexo.name}</p>
+                                <p className="text-green-600 dark:text-green-400">
+                                  {(anexo.file.size / 1024 / 1024).toFixed(2)} MB → Google Doc
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
-                    <style dangerouslySetInnerHTML={{ __html: quillStyles }} />
-                    <ReactQuill
-                      value={form.watch("anexo") || ""}
-                      onChange={(content) => {
-                        if (!attachedWordFile) form.setValue("anexo", content);
-                      }}
-                      modules={quillModules}
-                      formats={quillFormats}
-                      placeholder="Pegue aquí el contenido del anexo con formato (sin tablas)"
-                      style={{
-                        height: '300px',
-                        backgroundColor: '#ffffff',
-                        pointerEvents: attachedWordFile ? 'none' : 'auto',
-                        opacity: attachedWordFile ? 0.5 : 1
-                      }}
-                      readOnly={!!attachedWordFile}
-                      theme="snow"
-                    />
-                  </div>
-                  {/* Opción 2: Subir archivo Word */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">📄 Opción 2: Adjuntar documento Word</span>
-                      <div className="flex gap-2">
-                        <input
-                          type="file"
-                          id="word-upload"
-                          accept=".docx"
-                          onChange={handleWordFileUpload}
-                          className="hidden"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => document.getElementById('word-upload')?.click()}
-                          className="text-xs px-2 py-1 h-6"
-                        >
-                          <UploadIcon className="h-3 w-3 mr-1" />
-                          Adjuntar Word
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    {/* Mostrar archivo adjunto si existe */}
+
+                    {/* Información del archivo adjunto anterior (para retrocompatibilidad) */}
                     {attachedWordFile && (
                       <div className="p-3 bg-gray-800 border border-gray-700 rounded-md">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <FileTextIcon className="h-4 w-4 text-gray-200" />
                             <span className="text-sm font-medium text-gray-100">{attachedWordFile.name}</span>
-                            <span className="text-xs text-gray-300">✅ Adjuntado (incluye tablas)</span>
+                            <span className="text-xs text-gray-300">✅ Adjuntado (archivo único)</span>
                           </div>
                           <Button
                             type="button"
@@ -712,15 +840,6 @@ export function ConvenioEspecificoForm({
                     )}
                   </div>
                   
-                  <p className="text-xs text-muted-foreground border-t pt-3">
-                    <strong>🎯 Instrucciones:</strong><br/>
-                    📝 <strong>Editor de texto:</strong> Copy/paste desde Word. ⚠️ Sin soporte para tablas complejas<br/>
-                    📄 <strong>Archivo adjunto:</strong> Mantiene formato original completo, incluyendo tablas e imágenes<br/>
-                    💡 <strong>Recomendación:</strong> Use archivo adjunto para documentos con tablas
-                  </p>
-                  {form.formState.errors.anexo?.message && (
-                    <p className="text-sm text-red-500">{String(form.formState.errors.anexo.message)}</p>
-                  )}
                 </div>
               </div>
             </div>
@@ -835,6 +954,33 @@ export function ConvenioEspecificoForm({
                   </div>
                 </div>
               )}
+
+              {/* Anexos múltiples */}
+              {anexoFiles.length > 0 && (
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-purple-500/10 to-purple-600/10 rounded-xl blur-xl"></div>
+                  <div className="relative bg-card/80 backdrop-blur-xl border border-border/60 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-purple-600 mb-4 flex items-center gap-2">
+                      <FileTextIcon className="h-5 w-5" />
+                      Anexos Múltiples ({anexoFiles.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {anexoFiles.map((anexo, index) => (
+                        <div key={anexo.id} className="flex items-center gap-3 text-sm p-3 bg-purple-50 dark:bg-purple-900/20 rounded border border-purple-200 dark:border-purple-700">
+                          <span className="font-mono text-purple-700 dark:text-purple-300 w-8">#{index + 1}</span>
+                          <FileTextIcon className="h-4 w-4 text-purple-500" />
+                          <div className="flex-1">
+                            <span className="font-medium text-purple-800 dark:text-purple-200">{anexo.name}</span>
+                            <div className="text-xs text-purple-600 dark:text-purple-300">
+                              {(anexo.file.size / 1024 / 1024).toFixed(2)} MB • Se convertirá a Google Doc
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -868,7 +1014,51 @@ export function ConvenioEspecificoForm({
   // Remover archivo adjunto
   const removeAttachedFile = () => {
     setAttachedWordFile(null);
-    alert('📄 Archivo adjunto removido');
+  };
+
+  // NUEVO: Funciones para múltiples anexos
+  const handleMultipleAnexosUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    // Cambiar a modo archivos y limpiar editor
+    setAnexoMode('files');
+    form.setValue("anexo", "");
+    setAttachedWordFile(null);
+
+    for (let file of Array.from(files)) {
+      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        try {
+          const buffer = await file.arrayBuffer();
+          const anexo = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            name: file.name,
+            file: file,
+            buffer: buffer
+          };
+          setAnexoFiles(prev => [...prev, anexo]);
+        } catch (error) {
+          console.error('Error procesando archivo:', file.name, error);
+          alert(`Error procesando ${file.name}: ${error}`);
+        }
+      } else {
+        alert(`${file.name} no es un archivo .docx válido`);
+      }
+    }
+    event.target.value = '';
+  };
+
+  const removeAnexoFile = (anexoId: string) => {
+    setAnexoFiles(prev => prev.filter(a => a.id !== anexoId));
+    if (anexoFiles.length <= 1) {
+      setAnexoMode(null);
+    }
+  };
+
+  const switchToEditorMode = () => {
+    setAnexoMode('editor');
+    setAnexoFiles([]);
+    setAttachedWordFile(null);
   };
 
   // Modal de pantalla completa para el editor
@@ -996,8 +1186,19 @@ export function ConvenioEspecificoForm({
                                 title: dbData.entidad_nombre,
                                 convenio_type_id: 4, // ID del convenio específico según base de datos
                                 content_data: dbData,
+                                // NUEVO: Anexos múltiples
+                                anexos: anexoFiles.map(anexo => ({
+                                  name: anexo.name,
+                                  buffer: Array.from(new Uint8Array(anexo.buffer)) // Convertir ArrayBuffer a array para JSON
+                                })),
                                 status: 'pendiente'
                               };
+                              
+                              console.log('📤 [Form] Enviando convenio específico con anexos:', {
+                                hasAnexos: anexoFiles.length > 0,
+                                anexosCount: anexoFiles.length,
+                                anexosNames: anexoFiles.map(a => a.name)
+                              });
                               let response, responseData;
                               // Si tenemos ID desde la URL (modo corrección) o desde convenioData, usar PATCH
                               if (convenioIdFromUrl || convenioData?.id) {

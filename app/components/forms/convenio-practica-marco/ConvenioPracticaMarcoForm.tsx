@@ -630,10 +630,10 @@ export function ConvenioPracticaMarcoForm({
                                 mes: convenioData?.mes || ''
                               };
                               const requestData = {
-                                title: dbData.entidad_nombre,
-                                convenio_type_id: 5, // ID específico para práctica supervisada
+                                title: `${dbData.entidad_nombre} - ${dbData.entidad_representante}`,
+                                convenio_type_id: 3, // ID del convenio particular según base de datos
                                 content_data: dbData,
-                                status: 'pendiente'
+                                status: 'enviado'
                               };
                               let response, responseData;
                               if (convenioIdFromUrl || convenioData?.id) {

@@ -1,51 +1,45 @@
-import PizZip from "pizzip";
-import Docxtemplater from "docxtemplater";
-import fs from "fs";
-import { htmlToText } from "./html-to-text";
+import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
 
 export async function renderDocx(templateBuffer: Buffer, data: Record<string, any>): Promise<Buffer> {
-  // Procesar campos HTML a texto plano
-  const processedData = { ...data };
-  if (processedData.anexo && typeof processedData.anexo === 'string') {
-    // Convertir HTML a texto plano
-    processedData.anexo = htmlToText(processedData.anexo);
-  }
-
-  const zip = new PizZip(templateBuffer);
-  const doc = new Docxtemplater(zip, {
-    paragraphLoop: true,
-    linebreaks: true,
-    nullGetter: () => '',
-  });
-
   try {
-    doc.render(processedData);
-  } catch (error: any) {
-    console.warn("Docxtemplater render error, intentando ignorar placeholders faltantes:", error);
-    // Intentar segunda pasada ignorando errores
-    try {
-      // Marcar todas las keys faltantes como vacías
-      if (error?.properties?.errors) {
-        error.properties.errors.forEach((e: any) => {
-          const tag = e.properties?.id || e.id;
-          if (tag && !(tag in processedData)) {
-            (processedData as any)[tag] = '';
-          }
-        });
-        doc.render(processedData);
+    console.log('📋 [DOCX Templater] Procesando template con datos...');
+    
+    // Limpiar datos para asegurar que son strings simples
+    const processedData: Record<string, any> = {};
+    
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === 'string') {
+        processedData[key] = value;
+      } else if (value != null) {
+        processedData[key] = String(value);
       } else {
-        throw error;
+        processedData[key] = '';
       }
-    } catch (err2) {
-      console.error("Falló render incluso tras limpiar placeholders:", err2);
-      throw err2;
     }
+
+    console.log('📝 [DOCX Templater] Datos procesados:', Object.keys(processedData));
+
+    // Procesar el template DOCX
+    const zip = new PizZip(templateBuffer);
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+    });
+
+    // Rellenar el template con los datos
+    doc.render(processedData);
+
+    // Generar el documento final
+    const output = doc.getZip().generate({
+      type: 'nodebuffer',
+      compression: 'DEFLATE',
+    });
+
+    console.log('✅ [DOCX Templater] Template procesado exitosamente');
+    return output;
+  } catch (error) {
+    console.error('❌ [DOCX Templater] Error al procesar template:', error);
+    throw new Error(`Error al procesar el template DOCX: ${error instanceof Error ? error.message : 'Error desconocido'}`);
   }
-
-  return Buffer.from(doc.getZip().generate({ type: "nodebuffer" }));
-}
-
-// Helper para leer archivo desde FS (solo para pruebas locales)
-export function loadTemplate(path: string): Buffer {
-  return fs.readFileSync(path);
 } 

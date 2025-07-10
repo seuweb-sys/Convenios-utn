@@ -256,10 +256,10 @@ export default function ConvenioParticularForm({
       console.log('DBData debug:', dbData);
 
       const requestData = {
-        title: dbData.empresa_nombre || 'Empresa',
-        convenio_type_id: 1,
+        title: `${dbData.empresa_nombre} - ${dbData.alumno_nombre}`,
+        convenio_type_id: 2, // ID específico para práctica supervisada
         content_data: dbData,
-        status: 'pendiente'
+        status: 'enviado'
       };
 
       let response, responseData;

@@ -588,9 +588,9 @@ export function ConvenioMarcoForm({
                               };
                               const requestData = {
                                 title: dbData.entidad_nombre,
-                                convenio_type_id: 2,
+                                convenio_type_id: 1,
                                 content_data: dbData,
-                                status: 'pendiente'
+                                status: 'enviado'
                               };
                               let response, responseData;
                               if (convenioIdFromUrl || convenioData?.id) {

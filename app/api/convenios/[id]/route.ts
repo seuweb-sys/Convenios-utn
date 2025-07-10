@@ -1,7 +1,7 @@
-import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
+import { createClient } from '@/utils/supabase/server';
 import { UpdateConvenioDTO } from "@/lib/types/convenio";
-import { moveFileToFolder, DRIVE_FOLDERS, uploadFileToDrive, deleteFileFromDrive } from '@/app/lib/google-drive';
+import { moveFileToFolder, moveFolderToFolder, DRIVE_FOLDERS, uploadFileToDrive, uploadConvenioEspecificoSimple, deleteFileFromDrive } from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 import { renderDocx } from '@/app/lib/utils/docx-templater';
 import { createDocument } from '@/app/lib/utils/doc-generator';
@@ -126,8 +126,10 @@ export async function PATCH(
 
     const userRole = profile.role;
 
-    // Obtener y validar el body
-    const body: UpdateConvenioDTO = await request.json();
+    // Obtener y validar el body de la request
+    const body = await request.json() as any; // Usar any para flexibilidad con anexos
+
+    let updateData: any = {};
 
     // Verificar que el convenio exista y el usuario tenga permiso
     const { data: convenio, error: checkError } = await supabase
@@ -156,9 +158,7 @@ export async function PATCH(
     }
 
     // Preparar datos de actualización
-    const updateData: any = {
-      updated_at: new Date().toISOString()
-    };
+    updateData.updated_at = new Date().toISOString();
 
     if (body.content_data) {
       updateData.form_data = body.content_data;
@@ -306,9 +306,23 @@ export async function PATCH(
           // Primero, eliminar el documento viejo de Archivados si existe
           if (updatedConvenio.document_path) {
             try {
-              const oldFileId = updatedConvenio.document_path.split('/d/')[1]?.split('/')[0];
-              if (oldFileId) {
-                await deleteFileFromDrive(oldFileId);
+              // Para convenio específico, extraer el ID de la carpeta en lugar del archivo
+              const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
+              
+              if (isConvenioEspecifico) {
+                // Si es convenio específico, el link es a una carpeta
+                const oldFolderId = updatedConvenio.document_path.split('/folders/')[1]?.split('?')[0];
+                if (oldFolderId) {
+                  console.log('🗑️ [Update] Eliminando carpeta vieja de convenio específico:', oldFolderId);
+                  await deleteFileFromDrive(oldFolderId); // Eliminar carpeta completa
+                }
+              } else {
+                // Si es convenio normal, el link es a un archivo
+                const oldFileId = updatedConvenio.document_path.split('/d/')[1]?.split('/')[0];
+                if (oldFileId) {
+                  console.log('🗑️ [Update] Eliminando archivo viejo:', oldFileId);
+                  await deleteFileFromDrive(oldFileId);
+                }
               }
             } catch (deleteError) {
               console.error('Error al eliminar documento viejo:', deleteError);
@@ -316,11 +330,67 @@ export async function PATCH(
             }
           }
 
-          // Subir nuevo documento a Drive (automáticamente va a Pendientes)
-          const driveResponse = await uploadFileToDrive(
-            buffer,
-            `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}.docx`
-          );
+          // Subir nuevo documento según el tipo
+          const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
+          let driveResponse;
+          
+          if (isConvenioEspecifico) {
+            console.log('📁 [Update] Regenerando convenio específico con carpeta...');
+            
+            // Preparar anexos si existen en body
+            const anexos = [];
+            if (body.anexos && Array.isArray(body.anexos)) {
+              console.log('📎 [Update] Procesando anexos...', body.anexos.length);
+              
+              for (const anexo of body.anexos) {
+                if (anexo.name && anexo.buffer) {
+                  try {
+                    // Convertir a ArrayBuffer según el tipo de entrada
+                    let buffer;
+                    if (Array.isArray(anexo.buffer)) {
+                      buffer = new Uint8Array(anexo.buffer).buffer;
+                    } else if (anexo.buffer instanceof ArrayBuffer) {
+                      buffer = anexo.buffer;
+                    } else {
+                      // Intentar convertir desde Buffer u otro formato
+                      buffer = new Uint8Array(anexo.buffer).buffer;
+                    }
+                    
+                    anexos.push({
+                      name: anexo.name,
+                      buffer: buffer
+                    });
+                    
+                    console.log(`✅ [Update] Anexo procesado: ${anexo.name}`);
+                  } catch (bufferError) {
+                    console.error(`❌ [Update] Error procesando anexo ${anexo.name}:`, bufferError);
+                  }
+                }
+              }
+            }
+            
+            console.log(`📎 [Update] Anexos procesados: ${anexos.length}`);
+            
+            // Usar nueva función para convenio específico
+            const convenioName = `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}`;
+            driveResponse = await uploadConvenioEspecificoSimple(
+              buffer,
+              convenioName,
+              anexos
+            );
+            
+            console.log('✅ [Update] Convenio específico regenerado en carpeta:', driveResponse);
+          } else {
+            console.log('📄 [Update] Regenerando convenio normal...');
+            
+            // Usar función original para otros tipos de convenio
+            driveResponse = await uploadFileToDrive(
+              buffer,
+              `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}.docx`
+            );
+            
+            console.log('✅ [Update] Convenio normal regenerado:', driveResponse);
+          }
 
           // Actualizar el path del documento en la BD
           const { error: pathUpdateError } = await supabase

@@ -243,9 +243,9 @@ export default function AcuerdoColaboracionForm({
     try {
       const requestData = {
         title: convenioData.entidad_nombre,
-        convenio_type_id: 3, // ID del acuerdo de colaboración
+        convenio_type_id: 5, // ID del acuerdo de colaboración según base de datos
         content_data: convenioData,
-        status: 'pendiente'
+        status: 'enviado'
       };
 
       let response, responseData;

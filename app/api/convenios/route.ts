@@ -5,7 +5,13 @@ import { CreateConvenioDTO } from "@/lib/types/convenio";
 import { Packer } from 'docx';
 import { createDocument } from '@/app/lib/utils/doc-generator';
 import { renderDocx } from '@/app/lib/utils/docx-templater';
-import { uploadFileToDrive } from '@/app/lib/google-drive';
+import { 
+  uploadFileToDrive, 
+  uploadConvenioEspecificoSimple,
+  // Nuevas funciones OAuth
+  uploadFileToOAuthDrive,
+  uploadConvenioEspecificoOAuth
+} from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 import path from 'path';
 import fs from 'fs';
@@ -367,11 +373,79 @@ fs.readdirSync(templateDir).forEach(f => {
     // Si el convenio se creó exitosamente, subir a Drive
     let documentPath = null;
     try {
-      const driveResponse = await uploadFileToDrive(
-        buffer as Buffer,
-        `Convenio_${body.title}_${new Date().toISOString().split('T')[0]}.docx`
-      );
-      documentPath = driveResponse.webViewLink;
+      // Detectar si es convenio específico (type_id 4)
+      const isConvenioEspecifico = body.convenio_type_id === 4;
+      
+      if (isConvenioEspecifico) {
+        console.log('📁 [API] Procesando convenio específico con carpeta...');
+        
+        // Preparar anexos si existen
+        const anexos = [];
+        if (body.anexos && Array.isArray(body.anexos)) {
+          console.log('📎 [API] Procesando anexos...', body.anexos.length);
+          
+          for (const anexo of body.anexos) {
+            if (anexo.name && anexo.buffer) {
+              console.log(`📎 [API] Procesando anexo: ${anexo.name}`, {
+                hasBuffer: !!anexo.buffer,
+                bufferType: typeof anexo.buffer,
+                bufferLength: anexo.buffer?.length || 0
+              });
+              
+              try {
+                // Convertir array de números a ArrayBuffer si es necesario
+                let buffer;
+                if (Array.isArray(anexo.buffer)) {
+                  buffer = new Uint8Array(anexo.buffer).buffer;
+                } else if (anexo.buffer instanceof ArrayBuffer) {
+                  buffer = anexo.buffer;
+                } else {
+                  // Intentar convertir desde otro formato
+                  buffer = new Uint8Array(anexo.buffer).buffer;
+                }
+                
+                anexos.push({
+                  name: anexo.name,
+                  buffer: buffer
+                });
+                
+                console.log(`✅ [API] Anexo procesado: ${anexo.name}`);
+              } catch (bufferError) {
+                console.error(`❌ [API] Error procesando anexo ${anexo.name}:`, bufferError);
+              }
+            } else {
+              console.warn(`⚠️ [API] Anexo inválido (sin name/buffer):`, anexo);
+            }
+          }
+        }
+        
+        console.log(`📎 [API] Total anexos procesados: ${anexos.length}`);
+        
+        // Usar función OAuth (nueva) - debería resolver el problema de Service Account
+        const convenioName = `Convenio_${body.title}_${new Date().toISOString().split('T')[0]}`;
+        console.log('🔐 [API] Usando OAuth para subir convenio específico...');
+        const driveResponse = await uploadConvenioEspecificoOAuth(
+          buffer as Buffer,
+          convenioName,
+          anexos
+        );
+        
+        documentPath = driveResponse.webViewLink; // Enlace a la carpeta
+        
+        console.log('✅ [API] Convenio específico subido a carpeta:', driveResponse);
+      } else {
+        console.log('📄 [API] Procesando convenio normal (archivo directo)...');
+        
+        // Usar función OAuth (nueva) - reemplaza Service Account
+        console.log('🔐 [API] Usando OAuth para subir convenio normal...');
+        const driveResponse = await uploadFileToOAuthDrive(
+          buffer as Buffer,
+          `Convenio_${body.title}_${new Date().toISOString().split('T')[0]}.docx`
+        );
+        documentPath = driveResponse.webViewLink;
+        
+        console.log('✅ [API] Convenio normal subido:', driveResponse);
+      }
 
       // Actualizar el convenio con el path del documento
       const { error: updateError } = await supabase
