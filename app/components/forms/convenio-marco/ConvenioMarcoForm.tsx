@@ -74,6 +74,7 @@ interface ConvenioMarcoFormProps {
   setIsSubmitting: (isSubmitting: boolean) => void;
   convenioIdFromUrl?: string | null;
   mode?: string | null;
+  onFinalSubmit: () => Promise<void>; // NUEVO: Recibimos la función
 }
 
 export function ConvenioMarcoForm({
@@ -85,7 +86,8 @@ export function ConvenioMarcoForm({
   isSubmitting,
   setIsSubmitting,
   convenioIdFromUrl,
-  mode
+  mode,
+  onFinalSubmit, // NUEVO
 }: ConvenioMarcoFormProps) {
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
@@ -569,57 +571,7 @@ export function ConvenioMarcoForm({
                         <Button
                           variant="default"
                           disabled={isSubmitting}
-                          onClick={async () => {
-                            setIsSubmitting(true);
-                            try {
-                              const parte = (convenioData?.partes?.[0] as Record<string, any>) || {};
-                              const datosBasicos = (convenioData?.datosBasicos as Record<string, any>) || {};
-                              const dbData = {
-                                entidad_nombre: parte.nombre || '',
-                                entidad_tipo: parte.tipo || 'empresa',
-                                entidad_domicilio: parte.domicilio || '',
-                                entidad_ciudad: parte.ciudad || '',
-                                entidad_cuit: parte.cuit || '',
-                                entidad_representante: parte.representanteNombre || '',
-                                entidad_dni: parte.representanteDni || '',
-                                entidad_cargo: parte.cargoRepresentante || '',
-                                dia: datosBasicos.dia || '',
-                                mes: datosBasicos.mes || ''
-                              };
-                              const requestData = {
-                                title: dbData.entidad_nombre,
-                                convenio_type_id: 1,
-                                content_data: dbData,
-                                status: 'enviado'
-                              };
-                              let response, responseData;
-                              if (convenioIdFromUrl || convenioData?.id) {
-                                const targetId = convenioIdFromUrl || convenioData.id;
-                                response = await fetch(`/api/convenios/${targetId}`, {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify(requestData),
-                                });
-                              } else {
-                                response = await fetch('/api/convenios', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify(requestData),
-                                });
-                              }
-                              responseData = await response.json();
-                              if (!response.ok) {
-                                throw new Error(responseData.error || 'Error al enviar el convenio');
-                              }
-                              updateConvenioData('all', responseData);
-                              setShowConfirmModal(false);
-                              setShowSuccessModal(true);
-                            } catch (error) {
-                              alert(error instanceof Error ? error.message : 'Error inesperado al enviar el convenio');
-                            } finally {
-                              setIsSubmitting(false);
-                            }
-                          }}
+                          onClick={onFinalSubmit} // USAR LA FUNCIÓN DEL PADRE
                         >
                           Sí, enviar
                         </Button>

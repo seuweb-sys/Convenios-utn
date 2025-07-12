@@ -451,63 +451,116 @@ function createLocalFallbackResponse(fileName: string, isGoogleDoc: boolean = fa
 // NUEVAS FUNCIONES OAUTH (para reemplazar Service Account)
 // ============================================================================
 
-import { createClient } from '@/utils/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 // Función para obtener cliente OAuth autenticado
 async function getOAuthClient() {
-  const supabase = await createClient();
-  
-  // CAMBIO: Obtener tokens del ADMIN único, no del usuario actual
-  // Esto permite que cualquier usuario use el Drive del admin
-  const { data: tokens, error } = await supabase
-    .from('google_oauth_tokens')
-    .select('access_token, refresh_token, expires_at')
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .single();
+  // Para esta operación específica, necesitamos un cliente con privilegios de administrador
+  // para poder leer los tokens de CUALQUIER usuario, sin importar quién esté logueado.
+  // Esto saltea las políticas de RLS (Row Level Security).
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
 
-  if (error || !tokens) {
-    throw new Error('❌ No se encontraron tokens OAuth del administrador. El admin debe conectar Google Drive en Configuración.');
+  // 1. Buscar TODOS los perfiles con rol de 'admin'
+  const { data: adminProfiles, error: adminError } = await supabaseAdmin
+    .from('profiles')
+    .select('id')
+    .eq('role', 'admin');
+
+  if (adminError) {
+    throw new Error(
+      `Error al buscar perfiles de administrador: ${adminError.message}`
+    );
+  }
+
+  if (!adminProfiles || adminProfiles.length === 0) {
+    throw new Error('No se encontró ningún perfil de administrador en el sistema.');
+  }
+
+  // Extraer los IDs de todos los admins
+  const adminUserIds = adminProfiles.map(p => p.id);
+
+  // 2. De esa lista de admins, encontrar el PRIMERO que tenga un token
+  const { data: tokens, error: tokenError } = await supabaseAdmin
+    .from('google_oauth_tokens')
+    .select('*')
+    .in('user_id', adminUserIds)
+    .limit(1)
+    .maybeSingle(); // .maybeSingle() no falla si no encuentra nada, solo devuelve null
+
+  if (tokenError) {
+    throw new Error(`Error al buscar el token de OAuth: ${tokenError.message}`);
+  }
+
+  if (!tokens) {
+    throw new Error(
+      '❌ Ninguno de los administradores tiene un token de Google Drive válido conectado. Conectar en Configuración.'
+    );
   }
 
   const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_OAUTH_CLIENT_ID,
-    process.env.GOOGLE_OAUTH_CLIENT_SECRET,
-    process.env.GOOGLE_OAUTH_REDIRECT_URI
+    process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_OAUTH_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_OAUTH_REDIRECT_URI
   );
 
-  // Configurar tokens
+  // Establecer credenciales
   oauth2Client.setCredentials({
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token,
+    expiry_date: tokens.expires_at
+      ? new Date(tokens.expires_at).getTime()
+      : null,
   });
 
-  // Verificar si el token está expirado y renovarlo si es necesario
-  if (tokens.expires_at && new Date(tokens.expires_at) <= new Date()) {
-    console.log('🔄 [OAuth] Token expirado, renovando...');
-    
-    try {
-      const { credentials } = await oauth2Client.refreshAccessToken();
-      
-      // Actualizar tokens en la base de datos
-      await supabase
-        .from('google_oauth_tokens')
-        .update({
-          access_token: credentials.access_token,
-          expires_at: credentials.expiry_date ? new Date(credentials.expiry_date).toISOString() : null,
-          updated_at: new Date().toISOString()
-        })
-        .eq('access_token', tokens.access_token);
-      
-      console.log('✅ [OAuth] Token renovado exitosamente');
-    } catch (refreshError) {
-      console.error('❌ [OAuth] Error renovando token:', refreshError);
-      throw new Error('Error renovando token OAuth. El administrador debe volver a conectar Google Drive.');
+  // Manejar la renovación automática del token si está cerca de expirar
+  if (tokens.expires_at) {
+    const now = new Date();
+    const expiryDate = new Date(tokens.expires_at);
+    const buffer = 5 * 60 * 1000; // 5 minutos de margen
+
+    if (expiryDate.getTime() < now.getTime() + buffer) {
+      console.log('🔄 [OAuth] Token expirado o a punto de expirar, renovando...');
+      try {
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        oauth2Client.setCredentials(credentials);
+
+        // Actualizar los nuevos tokens en la base de datos usando el cliente admin
+        await supabaseAdmin
+          .from('google_oauth_tokens')
+          .update({
+            access_token: credentials.access_token,
+            refresh_token:
+              credentials.refresh_token || tokens.refresh_token, // Mantener el viejo si no viene uno nuevo
+            expires_at: credentials.expiry_date
+              ? new Date(credentials.expiry_date).toISOString()
+              : null,
+          })
+          .eq('user_id', tokens.user_id); 
+
+        console.log(
+          '✅ [OAuth] Token renovado y actualizado en la base de datos.'
+        );
+      } catch (refreshError) {
+        console.error('❌ [OAuth] Error al renovar el token:', refreshError);
+        throw new Error(
+          'No se pudo renovar el token de acceso de Google Drive.'
+        );
+      }
     }
   }
 
   return google.drive({ version: 'v3', auth: oauth2Client });
 }
+
 
 // Nueva función para subir archivos usando OAuth (más simple)
 export async function uploadFileToOAuthDrive(

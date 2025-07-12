@@ -60,6 +60,8 @@ export async function GET(request: NextRequest) {
         refresh_token: tokens.refresh_token,
         expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
         updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'user_id'
       });
 
     if (tokenError) {

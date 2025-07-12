@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 import { Button } from "@/app/components/ui/button";
-import { CheckIcon, ExternalLinkIcon, SettingsIcon, AlertCircleIcon } from "lucide-react";
+import {
+  CheckCircleIcon,
+  AlertTriangle, // Corregido
+  CheckIcon,
+  ExternalLinkIcon,
+  SettingsIcon,
+  AlertCircleIcon,
+  X, // Corregido
+} from 'lucide-react'
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -179,22 +187,28 @@ export function GoogleDriveConfigClient({
               Conecta tu cuenta de Google Drive para permitir que la aplicación guarde convenios
             </p>
           </div>
-          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-            hasExistingTokens 
-              ? 'bg-green-100 text-green-700' 
-              : 'bg-red-100 text-red-700'
-          }`}>
-            {hasExistingTokens ? '✅ Conectado' : '❌ No conectado'}
+          <div className="flex items-center space-x-2">
+            <span className="pulsing-indicator">
+              <span 
+                className={`animate-ping ${hasExistingTokens ? 'bg-green-400' : 'bg-red-400'}`}
+              ></span>
+              <span 
+                className={`relative-dot ${hasExistingTokens ? 'bg-green-500' : 'bg-red-500'}`}
+              ></span>
+            </span>
+            <span className={`text-sm font-medium ${hasExistingTokens ? 'text-green-500' : 'text-red-500'}`}>
+              {hasExistingTokens ? 'Conectado' : 'No conectado'}
+            </span>
           </div>
         </div>
 
         {/* NUEVA SECCIÓN: Información del sistema */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="font-medium text-blue-900 flex items-center gap-2">
+        <div className="rounded-lg border bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/30">
+          <h4 className="flex items-center gap-2 font-medium text-blue-900 dark:text-blue-200">
             <SettingsIcon className="h-4 w-4" />
             Sistema de Administrador Único
           </h4>
-          <div className="mt-2 text-sm text-blue-800 space-y-2">
+          <div className="mt-2 space-y-2 text-sm text-blue-800 dark:text-blue-300">
             <p>
               • <strong>Tu cuenta Google Drive</strong> se usa para TODOS los convenios
             </p>

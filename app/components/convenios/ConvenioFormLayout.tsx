@@ -24,6 +24,7 @@ import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { cn } from "@/lib/utils";
 import { FullScreenPreview } from "@/app/components/convenios/full-screen-preview";
 import { useConvenioStore, getFieldsFromStore } from "@/stores/convenioStore";
+import { SuccessModal } from '@/app/components/ui/success-modal';
 
 // Tipos
 type Step = {
@@ -61,6 +62,27 @@ const FormSkeleton = () => (
   </div>
 );
 
+// Función para extraer y mapear datos del store a formato plano para API
+const mapConvenioDataToFields = (convenioData: any) => {
+  console.log('Datos crudos del store:', convenioData);
+  const parte = convenioData.partes?.[0] || {};
+  const datosBasicos = convenioData.datosBasicos || {};
+  const mappedData = {
+    entidad_nombre: parte.nombre || '',
+    entidad_tipo: parte.tipo || '',
+    entidad_domicilio: parte.domicilio || '',
+    entidad_ciudad: parte.ciudad || '',
+    entidad_cuit: parte.cuit || '',
+    entidad_representante: parte.representanteNombre || '',
+    entidad_dni: parte.representanteDni || '',
+    entidad_cargo: parte.cargoRepresentante || '',
+    dia: datosBasicos.dia || '',
+    mes: datosBasicos.mes || ''
+  };
+  console.log('Datos mapeados para API:', mappedData);
+  return mappedData;
+};
+
 export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   // Estado para el progreso del formulario
   const [currentStep, setCurrentStep] = useState(1);
@@ -71,6 +93,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   const [loading, setLoading] = useState(true);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Obtener parámetros de la URL
   const params = useParams<{ id: string }>();
@@ -137,6 +160,81 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
       setIsSending(false);
     }
   }, [convenioData?.id]);
+
+  const handleSaveAndContinue = useCallback(async (newStatus: 'borrador' | 'enviado' = 'borrador') => {
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      // 1. Convertir el título del config a un "slug" para la API
+      const templateSlug = config.title
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-');
+
+      // 2. Construir el payload
+      const finalData = mapConvenioDataToFields(convenioData);
+      if (Object.values(finalData).every(v => !v)) {
+        throw new Error('No hay datos en el formulario. Por favor completa los campos.');
+      }
+      const convenioPayload = {
+        title: convenioData.entidad?.nombre || config.title,
+        status: newStatus,
+        template_slug: templateSlug, // NUEVO: Enviar el slug en lugar del ID
+        form_data: finalData, // CORREGIDO: Usar form_data en lugar de content_data
+        user_id: convenioData.user_id,
+      };
+
+      // 3. Realizar la petición POST o PATCH
+      if (!convenioIdFromUrl && !templateSlug) {
+        throw new Error('ID o tipo de convenio no definido');
+      }
+      const response = await fetch(
+        convenioIdFromUrl ? `/api/convenios/${convenioIdFromUrl}` : '/api/convenios',
+        {
+          method: convenioIdFromUrl ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(convenioPayload),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al guardar el convenio');
+      }
+
+      const savedConvenio = await response.json();
+      
+      // Actualizar el store de Zustand con el nuevo ID si es un convenio nuevo
+      if (!convenioIdFromUrl && savedConvenio.id) {
+        useConvenioMarcoStore.setState({ convenioData: { ...convenioData, id: savedConvenio.id } });
+      }
+
+      // Si se envió, recargar para ver el estado final
+      if (newStatus === 'enviado') {
+        setShowSuccess(true);
+        setTimeout(() => {
+          window.location.href = '/protected';
+        }, 3000); // Redirect después de 3s
+      } else {
+        // Para 'borrador', simplemente avanzamos
+        if (currentStep < steps.length) {
+          setCurrentStep(currentStep + 1);
+        }
+      }
+
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [convenioData, config.title, convenioIdFromUrl, currentStep, steps.length]);
+
+  const handleFinalSubmit = async () => {
+    await handleSaveAndContinue('enviado');
+  };
 
   // Ejemplo de templateContent
   const templateContent = {
@@ -258,9 +356,12 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                     setIsSubmitting={setIsSubmitting}
                     convenioIdFromUrl={convenioIdFromUrl}
                     mode={mode}
+                    onFinalSubmit={handleFinalSubmit} // Pasamos la función de guardado final
                   />
                 </Suspense>
               )}
+
+              {/* Se eliminó la barra de navegación inferior con los botones "Anterior" y "Guardar y Continuar" */}
             </div>
           </div>
 
@@ -359,6 +460,16 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
             </div>
           </div>
         </div>
+      )}
+      {showSuccess && (
+        <SuccessModal
+          isOpen={showSuccess}
+          onClose={() => setShowSuccess(false)}
+          title="¡Convenio Creado!"
+          message="Tu convenio se creó exitosamente. Redirigiendo al dashboard..."
+          autoRedirectSeconds={3}
+          onRedirect={() => window.location.href = '/protected'}
+        />
       )}
     </>
   );

@@ -241,105 +241,72 @@ export async function POST(request: Request) {
 
     // Permitimos tanto form_data (nuevo) como content_data (compatibilidad)
     const formData = body.form_data || body.content_data;
+    console.log('📥 [API] Datos recibidos en form_data:', formData);
+    if (!formData || Object.keys(formData).length === 0) {
+      console.warn('⚠️ [API] form_data está vacío!');
+    }
+    const templateSlug = body.template_slug; // NUEVO: Recibimos el slug
 
-    if (!body.title || !body.convenio_type_id || !formData) {
+    if (!body.title || !templateSlug || !formData) {
       return NextResponse.json(
-        { error: "Faltan campos requeridos" },
+        { error: "Faltan campos requeridos (title, template_slug, form_data)" },
         { status: 400 }
       );
     }
 
-    // Obtener el template del tipo de convenio
-    const { data: template, error: templateError } = await supabase
-      .from('convenio_types')
-      .select('name, template_content')
-      .eq('id', body.convenio_type_id)
-      .single();
+    // SOLUCIÓN RADICAL: Mapeo hardcodeado de slugs a IDs
+    const TEMPLATE_MAPPING: { [key: string]: number } = {
+      'nuevo-convenio-marco': 2,
+      'convenio-marco': 2,
+      'nuevo-convenio-especifico': 4,
+      'convenio-especifico': 4,
+      'nuevo-convenio-particular-de-practica-supervisada': 3,
+      'convenio-particular': 3,
+      'nuevo-convenio-marco-practica-supervisada': 5,
+      'convenio-practica-marco': 5,
+      'nuevo-acuerdo-de-colaboracion': 1,
+      'acuerdo-colaboracion': 1
+    };
 
-    if (templateError || !template) {
-      console.error('Error al obtener template:', templateError);
+    const convenioTypeId = TEMPLATE_MAPPING[templateSlug];
+    
+    if (!convenioTypeId) {
+      console.error(`Template slug no reconocido: ${templateSlug}`);
       return NextResponse.json(
-        { error: 'Template no encontrado' },
-        { status: 404 }
+        { error: `Template no soportado: ${templateSlug}` },
+        { status: 400 }
       );
     }
 
+    console.log(`✅ Mapeo directo: ${templateSlug} -> tipo ${convenioTypeId}`);
+    
     let buffer: Buffer | null = null;
 
-    // ---------- Preferir template DOCX en /templates ----------
+    // ---------- Lógica simplificada para encontrar el template DOCX ----------
     try {
-      const safeName = (template as any)?.name ? (template as any).name.toString() : '';
-      const safeNameNormalized = safeName.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-
-      const slugify = (s: string) =>
-        s.toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/(^-|-$)+/g, '');
-
-      const removeStop = (slug: string) => slug.replace(/\b(de|del|la|el|los|las|y|e)\b-/g, '').replace(/-\b(de|del|la|el|los|las|y|e)\b/g, '');
-
-      const targetSlug = removeStop(safeNameNormalized);
-
+      // Remover 'nuevo-' si existe para coincidir con archivos existentes
+      let cleanSlug = templateSlug.replace(/^nuevo-/, '');
+      const templateFileName = `${cleanSlug}.docx`;
       const templateDir = path.join(process.cwd(), 'templates');
-      console.log('Convenios API → template.name =', safeName);
-console.log('Convenios API → safeNameNormalized =', safeNameNormalized);
-fs.readdirSync(templateDir).forEach(f => {
-  const slug = slugify(path.parse(f).name);
-  console.log('  archivo', f, '→ slug', slug);
-});
-      const allDocx = fs.existsSync(templateDir)
-        ? fs.readdirSync(templateDir).filter((f) => f.toLowerCase().endsWith('.docx'))
-        : [];
+      const filePath = path.join(templateDir, templateFileName);
 
-      const scored: {file: string; score: number}[] = [];
+      console.log(`Buscando template: ${filePath}`);
 
-      const norm = (s: string) => s.replace(/-/g, '');
-
-      allDocx.forEach((f) => {
-        const fileSlug = slugify(path.parse(f).name);
-        const fileSlugClean = removeStop(fileSlug);
-        let score = -1;
-        if (fileSlug === safeNameNormalized) score = 0; // match perfecto
-        else if (fileSlugClean === targetSlug) score = 1; // match perfecto sin stop
-        else if (norm(fileSlug) === norm(safeNameNormalized)) score = 2;
-        else if (norm(fileSlugClean) === norm(targetSlug)) score = 3;
-        else if (norm(fileSlug).includes(norm(safeNameNormalized))) score = 4;
-        else if (norm(fileSlugClean).includes(norm(targetSlug))) score = 5;
-
-        if (score >= 0) scored.push({file: f, score});
-      });
-
-      scored.sort((a, b) => a.score - b.score || a.file.length - b.file.length);
-      const candidateFiles = scored.map((s) => s.file);
-
-      console.log('Convenios API: candidate DOCX files', candidateFiles);
-      if (candidateFiles.length) {
-        const filePath = path.join(templateDir, candidateFiles[0]);
-        console.log('Convenios API: usando template DOCX', filePath);
+      if (fs.existsSync(filePath)) {
+        console.log(`✅ Template encontrado: ${templateFileName}`);
         const templateBuffer = fs.readFileSync(filePath);
         buffer = await renderDocx(templateBuffer, formData);
+        console.log('📤 [API] Buffer generado con tamaño:', buffer?.length);
       } else {
-        console.warn('Convenios API: no se encontró template DOCX, caerá al generador programático');
+        throw new Error(`No se encontró el template DOCX "${templateFileName}". Asegúrate de que el archivo exista en /templates.`);
       }
     } catch (tplErr) {
-      console.warn('Fallo al procesar template DOCX, se usará generador programático:', tplErr);
-    }
-
-    // ---------- Fallback programático ----------
-    if (!buffer) {
-      const templateFields: TemplateField[] = Object.entries(formData).map(([key, value]) => ({
-        key,
-        value: String(value)
-      }));
-
-      const doc = createDocument(template.template_content, templateFields);
-      buffer = await Packer.toBuffer(doc);
+      console.error('Error al procesar template DOCX:', tplErr);
+      throw new Error('No se pudo procesar el template DOCX. Verifica el archivo.');
     }
 
     if (!buffer) {
-      throw new Error('No se pudo generar el documento');
+      throw new Error('No se pudo generar el documento: template no encontrado');
     }
 
     // Generar número de serie
@@ -350,7 +317,7 @@ fs.readdirSync(templateDir).forEach(f => {
       .from('convenios')
       .insert({
         title: body.title,
-        convenio_type_id: body.convenio_type_id,
+        convenio_type_id: convenioTypeId, // Usar el ID del mapeo hardcodeado
         form_data: formData,
         status: 'enviado',
         user_id: user.id,
@@ -374,7 +341,7 @@ fs.readdirSync(templateDir).forEach(f => {
     let documentPath = null;
     try {
       // Detectar si es convenio específico (type_id 4)
-      const isConvenioEspecifico = body.convenio_type_id === 4;
+      const isConvenioEspecifico = convenioTypeId === 4;
       
       if (isConvenioEspecifico) {
         console.log('📁 [API] Procesando convenio específico con carpeta...');
@@ -491,7 +458,7 @@ fs.readdirSync(templateDir).forEach(f => {
           ip_address: request.headers.get('x-forwarded-for') || 'unknown',
           metadata: {
             title: body.title,
-            type: body.convenio_type_id,
+            type: convenioTypeId,
             document_path: documentPath
           }
         });

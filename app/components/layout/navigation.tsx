@@ -69,53 +69,53 @@ export function Navigation({ userRole }: NavigationProps) {
         </button>
       </nav>
 
-      <div className="px-3 py-4 border-t">
-        <div className="px-3 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Administración
-        </div>
-        <nav className="space-y-1">
-          {isAdmin && (
-            <>
-              <button 
-                onClick={() => handleNavigation('/protected/admin', 'Panel Admin')}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  isActive('/protected/admin') 
-                    ? 'bg-primary/10 text-primary' 
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                }`}
-              >
-                <ShieldIcon className="h-4 w-4" />
-                Panel Admin
-              </button>
-              <button 
-                onClick={() => handleNavigation('/protected/admin/configuracion', 'Configuración')}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                  isActive('/protected/admin/configuracion') 
-                    ? 'bg-primary/10 text-primary' 
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                }`}
-              >
-                <SettingsIcon className="h-4 w-4" />
-                Configuración
-              </button>
-            </>
-          )}
-          
-          {isProfesor && (
+      {isAdmin && (
+        <div className="px-3 py-4 border-t">
+          <div className="px-3 mb-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Administración
+          </div>
+          <nav className="space-y-1">
             <button 
-              onClick={() => handleNavigation('/protected/profesor', 'Profesor')}
+              onClick={() => handleNavigation('/protected/admin', 'Panel Admin')}
               className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                isActive('/protected/profesor') 
+                isActive('/protected/admin') 
                   ? 'bg-primary/10 text-primary' 
                   : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
               }`}
             >
-              <UserIcon className="h-4 w-4" />
-              Profesor
+              <ShieldIcon className="h-4 w-4" />
+              Panel Admin
             </button>
-          )}
-        </nav>
-      </div>
+            <button 
+              onClick={() => handleNavigation('/protected/admin/configuracion', 'Configuración')}
+              className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                isActive('/protected/admin/configuracion') 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              }`}
+            >
+              <SettingsIcon className="h-4 w-4" />
+              Configuración
+            </button>
+          </nav>
+        </div>
+      )}
+
+      {isProfesor && (
+        <div className="px-3 py-4 border-t">
+          <button 
+            onClick={() => handleNavigation('/protected/profesor', 'Profesor')}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              isActive('/protected/profesor') 
+                ? 'bg-primary/10 text-primary' 
+                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+            }`}
+          >
+            <UserIcon className="h-4 w-4" />
+            Profesor
+          </button>
+        </div>
+      )}
     </>
   );
 } 
