@@ -247,61 +247,168 @@ export async function POST(request: Request) {
     }
     const templateSlug = body.template_slug; // NUEVO: Recibimos el slug
 
-    if (!body.title || !templateSlug || !formData) {
+    // DEBUG: Verificar qué campos están llegando
+    console.log('🔍 [DEBUG] Validando campos:');
+    console.log('  - title:', body.title);
+    console.log('  - templateSlug:', templateSlug);
+    console.log('  - formData exists:', !!formData);
+    console.log('  - formData keys:', formData ? Object.keys(formData) : 'N/A');
+
+    // Aplicar fallbacks para campos críticos
+    const title = body.title || formData?.entidad_nombre || "Convenio Sin Título";
+    
+    // TRIPLE SISTEMA DE FALLBACK - A PRUEBA DE FALLOS
+    let finalTemplateSlug = templateSlug;
+    if (!finalTemplateSlug) {
+      console.warn('⚠️ [API] templateSlug no definido, activando sistema de respaldo...');
+      
+             // BACKUP 1: Usar el campo convenio_type enviado explícitamente
+       const explicitType = body.convenio_type;
+       if (explicitType) {
+         const TYPE_TO_SLUG_MAPPING: { [key: string]: string } = {
+           'marco': 'nuevo-convenio-marco',                          // ID: 2
+           'practica-marco': 'nuevo-convenio-marco-practica-supervisada', // ID: 5
+           'especifico': 'nuevo-convenio-especifico',                // ID: 4
+           'particular': 'nuevo-convenio-particular-de-practica-supervisada', // ID: 1
+           'acuerdo': 'nuevo-acuerdo-de-colaboracion'                // ID: 3
+         };
+        
+        finalTemplateSlug = TYPE_TO_SLUG_MAPPING[explicitType];
+        if (finalTemplateSlug) {
+          console.log(`🎯 [API] BACKUP 1 - Tipo explícito: ${explicitType} -> ${finalTemplateSlug}`);
+        }
+      }
+      
+      // BACKUP 2: Analizar URL de referencia
+      if (!finalTemplateSlug) {
+        const referrerUrl = request.headers.get('referer') || '';
+        console.log(`🔍 [API] BACKUP 2 - Referrer URL: ${referrerUrl}`);
+        
+        if (referrerUrl.includes('type=practica-marco')) {
+          finalTemplateSlug = 'nuevo-convenio-marco-practica-supervisada';
+          console.log(`🎯 [API] BACKUP 2 - Detectado practica-marco desde URL`);
+        } else if (referrerUrl.includes('type=especifico')) {
+          finalTemplateSlug = 'nuevo-convenio-especifico';
+        } else if (referrerUrl.includes('type=particular')) {
+          finalTemplateSlug = 'nuevo-convenio-particular-de-practica-supervisada';
+        } else if (referrerUrl.includes('type=acuerdo')) {
+          finalTemplateSlug = 'nuevo-acuerdo-de-colaboracion';
+        } else if (referrerUrl.includes('type=marco')) {
+          finalTemplateSlug = 'nuevo-convenio-marco';
+        }
+      }
+      
+      // BACKUP 3: Último recurso
+      if (!finalTemplateSlug) {
+        console.log(`🚨 [API] BACKUP 3 - Usando último recurso: convenio-marco`);
+        finalTemplateSlug = 'nuevo-convenio-marco';
+      }
+    }
+    
+    if (!title || !finalTemplateSlug || !formData) {
+      const missingFields = [];
+      if (!title) missingFields.push('title');
+      if (!finalTemplateSlug) missingFields.push('template_slug');
+      if (!formData) missingFields.push('form_data');
+      
+      console.error('❌ [API] Campos faltantes después de fallbacks:', missingFields);
       return NextResponse.json(
-        { error: "Faltan campos requeridos (title, template_slug, form_data)" },
+        { error: `Faltan campos requeridos: ${missingFields.join(', ')}` },
         { status: 400 }
       );
     }
 
-    // SOLUCIÓN RADICAL: Mapeo hardcodeado de slugs a IDs
+    // MAPEO CORREGIDO: Basado en la base de datos real
     const TEMPLATE_MAPPING: { [key: string]: number } = {
+      // Convenio Marco (ID: 2)
       'nuevo-convenio-marco': 2,
       'convenio-marco': 2,
+      'marco': 2,
+      
+      // Convenio Marco Práctica Supervisada (ID: 5)
+      'nuevo-convenio-marco-practica-supervisada': 5,
+      'convenio-marco-practica-supervisada': 5,
+      'convenio-practica-marco': 5,
+      'practica-marco': 5,
+      
+      // Convenio Específico (ID: 4)
       'nuevo-convenio-especifico': 4,
       'convenio-especifico': 4,
-      'nuevo-convenio-particular-de-practica-supervisada': 3,
-      'convenio-particular': 3,
-      'nuevo-convenio-marco-practica-supervisada': 5,
-      'convenio-practica-marco': 5,
-      'nuevo-acuerdo-de-colaboracion': 1,
-      'acuerdo-colaboracion': 1
+      'especifico': 4,
+      
+      // Convenio Particular de Práctica Supervisada (ID: 1) ← CORREGIDO
+      'nuevo-convenio-particular-de-practica-supervisada': 1,
+      'convenio-particular-de-practica-supervisada': 1,
+      'convenio-particular': 1,
+      'particular': 1,
+      
+      // Acuerdo de Colaboración (ID: 3) ← CORREGIDO
+      'nuevo-acuerdo-de-colaboracion': 3,
+      'acuerdo-de-colaboracion': 3,
+      'acuerdo-colaboracion': 3,
+      'acuerdo': 3
     };
 
-    const convenioTypeId = TEMPLATE_MAPPING[templateSlug];
+    const convenioTypeId = TEMPLATE_MAPPING[finalTemplateSlug];
     
     if (!convenioTypeId) {
-      console.error(`Template slug no reconocido: ${templateSlug}`);
+      console.error(`Template slug no reconocido: ${finalTemplateSlug}`);
+      console.error(`Slugs disponibles:`, Object.keys(TEMPLATE_MAPPING));
       return NextResponse.json(
-        { error: `Template no soportado: ${templateSlug}` },
+        { error: `Template no soportado: ${finalTemplateSlug}` },
         { status: 400 }
       );
     }
 
-    console.log(`✅ Mapeo directo: ${templateSlug} -> tipo ${convenioTypeId}`);
+    console.log(`✅ Mapeo directo: ${finalTemplateSlug} -> tipo ${convenioTypeId}`);
     
     let buffer: Buffer | null = null;
 
-    // ---------- Lógica simplificada para encontrar el template DOCX ----------
+    // ---------- Lógica ROBUSTA para encontrar el template DOCX ----------
     try {
       // Remover 'nuevo-' si existe para coincidir con archivos existentes
-      let cleanSlug = templateSlug.replace(/^nuevo-/, '');
-      const templateFileName = `${cleanSlug}.docx`;
+      let cleanSlug = finalTemplateSlug.replace(/^nuevo-/, '');
       const templateDir = path.join(process.cwd(), 'templates');
-      const filePath = path.join(templateDir, templateFileName);
+      
+      // Mapeo EXACTO de slugs a nombres de archivos
+      const TEMPLATE_FILE_MAPPING: { [key: string]: string } = {
+        'convenio-marco': 'convenio-marco.docx',
+        'convenio-marco-practica-supervisada': 'convenio-marco-practica-supervisada.docx',
+        'convenio-especifico': 'convenio-especifico.docx',
+        'convenio-particular-de-practica-supervisada': 'convenio-particular-de-practica-supervisada.docx',
+        'acuerdo-de-colaboracion': 'acuerdo-de-colaboracion.docx'
+      };
 
-      console.log(`Buscando template: ${filePath}`);
+      console.log(`🔍 [API] Limpiando slug: ${finalTemplateSlug} -> ${cleanSlug}`);
+      
+      // Buscar primero en el mapeo exacto
+      let templateFileName = TEMPLATE_FILE_MAPPING[cleanSlug];
+      
+      if (!templateFileName) {
+        // Fallback: usar el patrón tradicional
+        templateFileName = `${cleanSlug}.docx`;
+        console.log(`⚠️ [API] Slug no encontrado en mapeo, usando patrón: ${templateFileName}`);
+      } else {
+        console.log(`✅ [API] Mapeo exacto encontrado: ${cleanSlug} -> ${templateFileName}`);
+      }
+
+      const filePath = path.join(templateDir, templateFileName);
+      console.log(`🔍 [API] Buscando template: ${filePath}`);
 
       if (fs.existsSync(filePath)) {
-        console.log(`✅ Template encontrado: ${templateFileName}`);
+        console.log(`✅ [API] Template encontrado: ${templateFileName}`);
         const templateBuffer = fs.readFileSync(filePath);
+        console.log('📋 [API] Procesando template con renderDocx...');
         buffer = await renderDocx(templateBuffer, formData);
         console.log('📤 [API] Buffer generado con tamaño:', buffer?.length);
       } else {
+        console.error(`❌ [API] Template no encontrado: ${templateFileName}`);
+        console.error(`❌ [API] Archivos disponibles en templates:`, fs.readdirSync(templateDir));
+        console.error(`❌ [API] Mapeo de archivos:`, TEMPLATE_FILE_MAPPING);
         throw new Error(`No se encontró el template DOCX "${templateFileName}". Asegúrate de que el archivo exista en /templates.`);
       }
     } catch (tplErr) {
-      console.error('Error al procesar template DOCX:', tplErr);
+      console.error('❌ [API] Error al procesar template DOCX:', tplErr);
       throw new Error('No se pudo procesar el template DOCX. Verifica el archivo.');
     }
 
@@ -316,7 +423,7 @@ export async function POST(request: Request) {
     const { data: convenio, error: createError } = await supabase
       .from('convenios')
       .insert({
-        title: body.title,
+        title: title, // Usar el título con fallbacks
         convenio_type_id: convenioTypeId, // Usar el ID del mapeo hardcodeado
         form_data: formData,
         status: 'enviado',
@@ -389,7 +496,7 @@ export async function POST(request: Request) {
         console.log(`📎 [API] Total anexos procesados: ${anexos.length}`);
         
         // Usar función OAuth (nueva) - debería resolver el problema de Service Account
-        const convenioName = `Convenio_${body.title}_${new Date().toISOString().split('T')[0]}`;
+        const convenioName = `Convenio_${title}_${new Date().toISOString().split('T')[0]}`;
         console.log('🔐 [API] Usando OAuth para subir convenio específico...');
         const driveResponse = await uploadConvenioEspecificoOAuth(
           buffer as Buffer,
@@ -407,7 +514,7 @@ export async function POST(request: Request) {
         console.log('🔐 [API] Usando OAuth para subir convenio normal...');
         const driveResponse = await uploadFileToOAuthDrive(
           buffer as Buffer,
-          `Convenio_${body.title}_${new Date().toISOString().split('T')[0]}.docx`
+          `Convenio_${title}_${new Date().toISOString().split('T')[0]}.docx`
         );
         documentPath = driveResponse.webViewLink;
         

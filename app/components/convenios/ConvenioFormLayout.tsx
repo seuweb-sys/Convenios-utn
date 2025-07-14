@@ -83,6 +83,15 @@ const mapConvenioDataToFields = (convenioData: any) => {
   return mappedData;
 };
 
+// Mapeo directo y robusto basado en el tipo de URL (fuera del componente para evitar recreaciones)
+const SLUG_MAPPING: { [key: string]: string } = {
+  'marco': 'nuevo-convenio-marco',                          // ID: 2
+  'practica-marco': 'nuevo-convenio-marco-practica-supervisada', // ID: 5
+  'especifico': 'nuevo-convenio-especifico',                // ID: 4
+  'particular': 'nuevo-convenio-particular-de-practica-supervisada', // ID: 1
+  'acuerdo': 'nuevo-acuerdo-de-colaboracion'                // ID: 3
+};
+
 export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   // Estado para el progreso del formulario
   const [currentStep, setCurrentStep] = useState(1);
@@ -99,6 +108,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode');
+  const urlType = searchParams.get('type'); // Mover aquí para que esté disponible
   const convenioIdFromUrl = params.id !== "nuevo" ? params.id : null;
 
   // Store de Zustand para manejo de estado global
@@ -165,27 +175,57 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     setIsSubmitting(true);
     setError(null);
     try {
-      // 1. Convertir el título del config a un "slug" para la API
-      const templateSlug = config.title
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-');
+      // 1. Generar templateSlug robusto basado en el tipo de convenio
+      // Usar el mapeo directo o generar desde el título como fallback
+      const templateSlug = SLUG_MAPPING[urlType || ''] || 
+                          config.title
+                            .toLowerCase()
+                            .normalize('NFD')
+                            .replace(/[\u0300-\u036f]/g, '')
+                            .replace(/[^a-z0-9\s-]/g, '')
+                            .replace(/\s+/g, '-')
+                            .replace(/-+/g, '-');
 
       // 2. Construir el payload
       const finalData = mapConvenioDataToFields(convenioData);
       if (Object.values(finalData).every(v => !v)) {
         throw new Error('No hay datos en el formulario. Por favor completa los campos.');
       }
+      // Generar título robusto
+      const title = finalData.entidad_nombre || 
+                   convenioData.entidad?.nombre || 
+                   config.title || 
+                   "Nuevo Convenio";
+
       const convenioPayload = {
-        title: convenioData.entidad?.nombre || config.title,
+        title,
         status: newStatus,
         template_slug: templateSlug, // NUEVO: Enviar el slug en lugar del ID
+        convenio_type: urlType, // SÚPER BACKUP: Enviar tipo explícito también
         form_data: finalData, // CORREGIDO: Usar form_data en lugar de content_data
         user_id: convenioData.user_id,
       };
+
+      // DEBUG: Log del payload completo
+      console.log('🚀 [FRONTEND] Estado completo:', {
+        urlType,
+        urlTypeExists: !!urlType,
+        configTitle: config.title,
+        templateSlug,
+        templateSlugExists: !!templateSlug,
+        mapped: SLUG_MAPPING[urlType || ''] ? 'YES' : 'NO',
+        mappingResult: SLUG_MAPPING[urlType || ''],
+        availableMappings: Object.keys(SLUG_MAPPING),
+        searchParamsRaw: searchParams.toString(),
+        windowLocation: typeof window !== 'undefined' ? window.location.href : 'N/A'
+      });
+      
+      console.log('🚀 [FRONTEND] Enviando payload:', {
+        title,
+        template_slug: templateSlug,
+        form_data_keys: Object.keys(finalData || {}),
+        status: newStatus
+      });
 
       // 3. Realizar la petición POST o PATCH
       if (!convenioIdFromUrl && !templateSlug) {
@@ -230,7 +270,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [convenioData, config.title, convenioIdFromUrl, currentStep, steps.length]);
+  }, [convenioData, config.title, convenioIdFromUrl, currentStep, steps.length, urlType]);
 
   const handleFinalSubmit = async () => {
     await handleSaveAndContinue('enviado');
