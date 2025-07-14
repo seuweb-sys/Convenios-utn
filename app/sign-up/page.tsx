@@ -53,19 +53,20 @@ export default async function SignUp({
             <Link href="/" className="block cursor-pointer" aria-label="Ir a la página de inicio">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-teal-600/10 rounded-xl blur-lg"></div>
-              <div className="bg-white/90 backdrop-filter backdrop-blur-sm p-3 rounded-xl shadow-lg relative overflow-hidden w-[180px] h-[60px] flex items-center justify-center">
+              <div className="bg-white/95 backdrop-filter backdrop-blur-sm p-4 rounded-xl shadow-lg relative overflow-hidden w-[100px] h-[100px] flex items-center justify-center border border-gray-200">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-teal-50 opacity-90"></div>
                 <div className="absolute inset-0 bg-white/60 mix-blend-overlay"></div>
                 <Image 
                   src="/utn-logo.png" 
                   alt="Logo UTN" 
-                  width={180}
-                  height={60}
-                  className="w-[180px] h-[48px] object-contain relative z-10 contrast-125 brightness-105"
+                  width={80}
+                  height={64}
+                  className="w-[80px] h-[64px] object-contain relative z-10 contrast-125 brightness-105"
                   priority
                   style={{
-                    width: '180px',
-                    height: '48px'
+                    width: '80px',
+                    height: '64px',
+                    objectFit: 'contain'
                   }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-teal-500/10"></div>
