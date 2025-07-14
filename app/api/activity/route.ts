@@ -78,8 +78,8 @@ export async function GET(request: NextRequest) {
       responseData = defaultActivity;
     } else {
       // 4. Obtener IDs únicos para hacer fetch manual
-      const convenioIds = [...new Set(activityData.map(a => a.convenio_id).filter(Boolean))];
-      const userIds = [...new Set(activityData.map(a => a.user_id).filter(Boolean))];
+      const convenioIds = Array.from(new Set(activityData.map(a => a.convenio_id).filter(Boolean)));
+      const userIds = Array.from(new Set(activityData.map(a => a.user_id).filter(Boolean)));
 
       // 5. Fetch manual de convenios y perfiles en paralelo
       const [conveniosResult, profilesResult] = await Promise.all([
