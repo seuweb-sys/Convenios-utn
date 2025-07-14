@@ -57,7 +57,7 @@ export default async function SignUp({
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-teal-50 opacity-90"></div>
                 <div className="absolute inset-0 bg-white/60 mix-blend-overlay"></div>
                 <img 
-                  src="/utn-logo.png" 
+                  src="https://convenios-utn.vercel.app/utn-logo.png" 
                   alt="Logo UTN" 
                   className="w-[80px] h-[64px] object-contain relative z-10 contrast-125 brightness-105"
                   style={{
