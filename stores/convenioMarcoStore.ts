@@ -42,6 +42,8 @@ interface ConvenioMarcoState {
       objeto?: string;
       fechaInicio?: string;
       fechaFin?: string;
+      dia?: string;
+      mes?: string;
     };
     partes?: Array<{
       tipo?: string;
