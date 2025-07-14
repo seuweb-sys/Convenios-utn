@@ -58,7 +58,7 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const publicRoutes = ['/sign-in', '/sign-up', '/auth/callback']
+  const publicRoutes = ['/', '/sign-in', '/sign-up', '/auth/callback']
   const protectedRoute = '/protected'
 
   if (!user && !publicRoutes.includes(request.nextUrl.pathname) && !request.nextUrl.pathname.startsWith('/api')) {
