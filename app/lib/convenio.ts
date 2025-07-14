@@ -2,7 +2,7 @@
 
 // Asume que la interfaz de la API está definida y exportada
 // Importar desde la ruta [id] donde se define la interfaz con 'fields'
-import type { ConvenioTypeApiData } from "@/app/api/convenio-types/[id]/route";
+import type { ConvenioTypeApiData } from "@/app/api/convenio-types/route";
 
 // Interfaz para los detalles devueltos (ajusta según tu API)
 // Ya tenemos la de la API, pero podríamos definir una específica para el cliente
