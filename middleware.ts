@@ -58,19 +58,40 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const publicRoutes = ['/', '/sign-in', '/sign-up', '/auth/callback']
+  const publicRoutes = ['/sign-in', '/sign-up', '/auth/callback']
+  const homeRoute = '/'
   const protectedRoute = '/protected'
 
-  if (!user && !publicRoutes.includes(request.nextUrl.pathname) && !request.nextUrl.pathname.startsWith('/api')) {
+  // Si NO hay usuario
+  if (!user) {
+    // Permitir home, sign-in, sign-up, auth/callback y APIs
+    if (request.nextUrl.pathname === homeRoute || 
+        publicRoutes.includes(request.nextUrl.pathname) || 
+        request.nextUrl.pathname.startsWith('/api')) {
+      return response
+    }
+    // Cualquier otra ruta -> sign-in
     const url = request.nextUrl.clone()
     url.pathname = '/sign-in'
     return NextResponse.redirect(url)
   }
 
-  if (user && publicRoutes.includes(request.nextUrl.pathname)) {
-    const url = request.nextUrl.clone()
-    url.pathname = protectedRoute
-    return NextResponse.redirect(url)
+  // Si SÍ hay usuario loggeado
+  if (user) {
+    // Si está en home, sign-in o sign-up -> mandar a protected
+    if (request.nextUrl.pathname === homeRoute || 
+        request.nextUrl.pathname === '/sign-in' || 
+        request.nextUrl.pathname === '/sign-up') {
+      const url = request.nextUrl.clone()
+      url.pathname = protectedRoute
+      return NextResponse.redirect(url)
+    }
+    // Si está en auth/callback -> permitir (maneja su propia redirección)
+    if (request.nextUrl.pathname === '/auth/callback') {
+      return response
+    }
+    // Para cualquier otra ruta protegida -> permitir
+    return response
   }
 
   return response
