@@ -39,6 +39,8 @@ const practicaSchema = z.object({
   practica_tematica: z.string().min(10, "Descripción de la temática requerida"),
   facultad_docente_tutor_nombre: z.string().min(2, "Nombre del docente tutor requerido"),
   fecha_firma: z.string().min(1, "Fecha de firma requerida"),
+  mes: z.string().optional(),
+  dia: z.string().optional(),
 }).refine((data) => {
   if (data.fecha_inicio && data.fecha_fin) {
     return new Date(data.fecha_fin) >= new Date(data.fecha_inicio);
@@ -593,7 +595,7 @@ export default function ConvenioParticularForm({
             >
               <option value="">Seleccionar día</option>
               {(() => {
-                const mesIdx = meses.indexOf(practicaForm.watch("mes"));
+                const mesIdx = meses.indexOf(practicaForm.watch("mes") || "");
                 const dias = mesIdx >= 0 ? diasPorMes[mesIdx] : 31;
                 return Array.from({ length: dias }, (_, i) => i + 1).map(dia => (
                   <option key={dia} value={dia}>{dia}</option>
