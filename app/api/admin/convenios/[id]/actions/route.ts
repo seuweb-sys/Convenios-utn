@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
-import { moveFileToFolder, DRIVE_FOLDERS } from '@/app/lib/google-drive';
+import { moveFileToFolder, moveFileToFolderOAuth, DRIVE_FOLDERS } from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 
 export async function POST(
@@ -68,8 +68,8 @@ export async function POST(
       }
 
       try {
-        // Intentar mover el archivo a la carpeta de aprobados
-        await moveFileToFolder(fileId, DRIVE_FOLDERS.APPROVED);
+        // Intentar mover el archivo a la carpeta de aprobados usando OAuth
+        await moveFileToFolderOAuth(fileId, DRIVE_FOLDERS.APPROVED);
       } catch (driveError) {
         console.error("Error al mover el archivo en Drive:", driveError);
         return NextResponse.json(
@@ -135,7 +135,7 @@ export async function POST(
         // Extraer el ID del archivo de la URL de Drive
         const fileId = convenio.document_path.split('/d/')[1]?.split('/')[0];
         if (fileId) {
-          await moveFileToFolder(fileId, targetFolderId);
+          await moveFileToFolderOAuth(fileId, targetFolderId);
         }
       } catch (driveError) {
         console.error("Error al mover el archivo en Drive:", driveError);

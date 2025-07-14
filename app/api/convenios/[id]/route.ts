@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { UpdateConvenioDTO } from "@/lib/types/convenio";
-import { moveFileToFolder, moveFolderToFolder, DRIVE_FOLDERS, uploadFileToDrive, uploadConvenioEspecificoSimple, deleteFileFromDrive } from '@/app/lib/google-drive';
+import { moveFileToFolder, moveFileToFolderOAuth, moveFolderToFolder, DRIVE_FOLDERS, uploadFileToDrive, uploadConvenioEspecificoSimple, deleteFileFromDrive } from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 import { renderDocx } from '@/app/lib/utils/docx-templater';
 import { createDocument } from '@/app/lib/utils/doc-generator';
