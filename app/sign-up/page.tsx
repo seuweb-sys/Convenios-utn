@@ -56,13 +56,10 @@ export default async function SignUp({
               <div className="bg-white/95 backdrop-filter backdrop-blur-sm p-4 rounded-xl shadow-lg relative overflow-hidden w-[100px] h-[100px] flex items-center justify-center border border-gray-200">
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-teal-50 opacity-90"></div>
                 <div className="absolute inset-0 bg-white/60 mix-blend-overlay"></div>
-                <Image 
+                <img 
                   src="/utn-logo.png" 
                   alt="Logo UTN" 
-                  width={80}
-                  height={64}
                   className="w-[80px] h-[64px] object-contain relative z-10 contrast-125 brightness-105"
-                  priority
                   style={{
                     width: '80px',
                     height: '64px',
