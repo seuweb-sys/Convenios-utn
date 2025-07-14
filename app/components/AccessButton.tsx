@@ -7,7 +7,7 @@ import { Button } from "@/app/components/ui/button";
 
 export default function AccessButton() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const supabase = createClient();
 
   const handleAccess = async () => {
