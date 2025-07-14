@@ -737,6 +737,38 @@ export async function moveFileToFolderOAuth(fileId: string, targetFolderId: stri
   }
 }
 
+// Nueva función para mover carpetas usando OAuth
+export async function moveFolderToFolderOAuth(folderId: string, targetFolderId: string) {
+  try {
+    console.log(`📁 [OAuth Drive] Moviendo carpeta ${folderId} a carpeta ${targetFolderId}`);
+    
+    const driveClient = await getOAuthClient();
+    
+    // Obtener padres actuales
+    const folder = await driveClient.files.get({
+      fileId: folderId,
+      fields: 'parents',
+    });
+
+    // Mover carpeta
+    const previousParents = folder.data.parents?.join(',');
+    if (previousParents) {
+      await driveClient.files.update({
+        fileId: folderId,
+        removeParents: previousParents,
+        addParents: targetFolderId,
+        fields: 'id, parents',
+      });
+    }
+
+    console.log(`✅ [OAuth Drive] Carpeta movida exitosamente`);
+    return true;
+  } catch (error) {
+    console.error('❌ [OAuth Drive] Error moviendo carpeta:', error);
+    throw error;
+  }
+}
+
 // Nueva función para eliminar archivos usando OAuth
 export async function deleteFileFromOAuthDrive(fileId: string) {
   try {

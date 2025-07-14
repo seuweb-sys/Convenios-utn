@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   // https://supabase.com/docs/guides/auth/server-side/nextjs
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const redirect = requestUrl.searchParams.get("redirect");
   
   if (code) {
     const supabase = await createClient();
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  // Redirige a la página protegida después de la autenticación
-  return NextResponse.redirect(new URL("/protected", requestUrl.origin));
+  // Redirigir a la URL original o a protected por defecto
+  const redirectUrl = redirect && redirect.startsWith('/protected') ? redirect : "/protected";
+  return NextResponse.redirect(new URL(redirectUrl, requestUrl.origin));
 }

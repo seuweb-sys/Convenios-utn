@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
-import { moveFileToFolder, moveFileToFolderOAuth, DRIVE_FOLDERS } from '@/app/lib/google-drive';
+import { moveFileToFolder, moveFileToFolderOAuth, moveFolderToFolderOAuth, DRIVE_FOLDERS } from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 
 export async function POST(
@@ -35,10 +35,10 @@ export async function POST(
     // Obtener la acción y datos del body
     const { action } = await request.json();
 
-    // Obtener el convenio actual
+    // Obtener el convenio actual con tipo
     const { data: convenio } = await supabase
       .from("convenios")
-      .select("status, user_id, document_path, title")
+      .select("status, user_id, document_path, title, convenio_type_id")
       .eq("id", params.id)
       .single();
 
@@ -49,7 +49,7 @@ export async function POST(
       );
     }
 
-    // Verificar si el archivo existe en Drive antes de aprobar
+    // Verificar si el archivo/carpeta existe en Drive antes de aprobar
     if (action === "approve") {
       if (!convenio.document_path) {
         return NextResponse.json(
@@ -58,9 +58,19 @@ export async function POST(
         );
       }
 
-      // Extraer el ID del archivo de la URL de Drive
-      const fileId = convenio.document_path.split('/d/')[1]?.split('/')[0];
-      if (!fileId) {
+      // Detectar si es convenio específico (carpeta) o archivo normal
+      const isConvenioEspecifico = convenio.convenio_type_id === 4;
+      let itemId = null;
+
+      if (isConvenioEspecifico) {
+        // Para convenio específico, extraer ID de carpeta
+        itemId = convenio.document_path.split('/folders/')[1]?.split('?')[0];
+      } else {
+        // Para otros tipos, extraer ID de archivo
+        itemId = convenio.document_path.split('/d/')[1]?.split('/')[0];
+      }
+
+      if (!itemId) {
         return NextResponse.json(
           { error: "No se puede aprobar el convenio porque el ID del archivo no es válido" },
           { status: 400 }
@@ -68,10 +78,16 @@ export async function POST(
       }
 
       try {
-        // Intentar mover el archivo a la carpeta de aprobados usando OAuth
-        await moveFileToFolderOAuth(fileId, DRIVE_FOLDERS.APPROVED);
+        // Usar función apropiada según el tipo
+        if (isConvenioEspecifico) {
+          console.log('📁 [Admin] Moviendo carpeta de convenio específico...');
+          await moveFolderToFolderOAuth(itemId, DRIVE_FOLDERS.APPROVED);
+        } else {
+          console.log('📄 [Admin] Moviendo archivo de convenio normal...');
+          await moveFileToFolderOAuth(itemId, DRIVE_FOLDERS.APPROVED);
+        }
       } catch (driveError) {
-        console.error("Error al mover el archivo en Drive:", driveError);
+        console.error("Error al mover el archivo/carpeta en Drive:", driveError);
         return NextResponse.json(
           { error: "No se puede aprobar el convenio porque no se pudo acceder al archivo en Drive" },
           { status: 400 }
@@ -129,16 +145,33 @@ export async function POST(
       );
     }
 
-    // Mover el archivo en Drive si tenemos el ID del archivo
+    // Mover el archivo/carpeta en Drive si tenemos el ID
     if (targetFolderId && convenio.document_path) {
       try {
-        // Extraer el ID del archivo de la URL de Drive
-        const fileId = convenio.document_path.split('/d/')[1]?.split('/')[0];
-        if (fileId) {
-          await moveFileToFolderOAuth(fileId, targetFolderId);
+        // Detectar si es convenio específico (carpeta) o archivo normal
+        const isConvenioEspecifico = convenio.convenio_type_id === 4;
+        let itemId = null;
+
+        if (isConvenioEspecifico) {
+          // Para convenio específico, extraer ID de carpeta
+          itemId = convenio.document_path.split('/folders/')[1]?.split('?')[0];
+        } else {
+          // Para otros tipos, extraer ID de archivo
+          itemId = convenio.document_path.split('/d/')[1]?.split('/')[0];
+        }
+
+        if (itemId) {
+          // Usar función apropiada según el tipo
+          if (isConvenioEspecifico) {
+            console.log(`📁 [Admin] Moviendo carpeta de convenio específico a ${targetFolderId}...`);
+            await moveFolderToFolderOAuth(itemId, targetFolderId);
+          } else {
+            console.log(`📄 [Admin] Moviendo archivo de convenio normal a ${targetFolderId}...`);
+            await moveFileToFolderOAuth(itemId, targetFolderId);
+          }
         }
       } catch (driveError) {
-        console.error("Error al mover el archivo en Drive:", driveError);
+        console.error("Error al mover el archivo/carpeta en Drive:", driveError);
         // No fallamos si el movimiento en Drive falla
       }
     }

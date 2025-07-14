@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { UpdateConvenioDTO } from "@/lib/types/convenio";
-import { moveFileToFolder, moveFileToFolderOAuth, moveFolderToFolder, DRIVE_FOLDERS, uploadFileToDrive, uploadConvenioEspecificoSimple, deleteFileFromDrive } from '@/app/lib/google-drive';
+import { moveFileToFolder, moveFileToFolderOAuth, moveFolderToFolder, moveFolderToFolderOAuth, DRIVE_FOLDERS, uploadFileToDrive, uploadConvenioEspecificoSimple, deleteFileFromDrive } from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 import { renderDocx } from '@/app/lib/utils/docx-templater';
 import { createDocument } from '@/app/lib/utils/doc-generator';
@@ -405,6 +405,40 @@ export async function PATCH(
       } catch (docError) {
         console.error('Error al regenerar documento:', docError);
         // No fallamos la operación si la regeneración falla
+      }
+    }
+
+    // Mover archivo/carpeta de vuelta a pendientes si se reenvía después de corrección
+    if (body.status === 'enviado' && convenio.status === 'revision' && updatedConvenio.document_path) {
+      try {
+        console.log('📋 [Update] Moviendo convenio corregido de vuelta a pendientes...');
+        
+        // Detectar si es convenio específico (carpeta) o archivo normal
+        const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
+        let itemId = null;
+
+        if (isConvenioEspecifico) {
+          // Para convenio específico, extraer ID de carpeta
+          itemId = updatedConvenio.document_path.split('/folders/')[1]?.split('?')[0];
+        } else {
+          // Para otros tipos, extraer ID de archivo
+          itemId = updatedConvenio.document_path.split('/d/')[1]?.split('/')[0];
+        }
+
+        if (itemId) {
+          // Usar función apropiada según el tipo
+          if (isConvenioEspecifico) {
+            console.log('📁 [Update] Moviendo carpeta de convenio específico a pendientes...');
+            await moveFolderToFolderOAuth(itemId, DRIVE_FOLDERS.PENDING);
+          } else {
+            console.log('📄 [Update] Moviendo archivo de convenio normal a pendientes...');
+            await moveFileToFolderOAuth(itemId, DRIVE_FOLDERS.PENDING);
+          }
+          console.log('✅ [Update] Convenio movido exitosamente a pendientes');
+        }
+      } catch (driveError) {
+        console.error('Error al mover convenio de vuelta a pendientes:', driveError);
+        // No fallamos la operación si el movimiento en Drive falla
       }
     }
 

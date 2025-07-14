@@ -14,10 +14,15 @@ export default function LoginWithGoogle() {
     try {
       setIsLoading(true);
       
+      // Leer el parámetro de redirect de la URL actual
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirect = urlParams.get('redirect');
+      const redirectParam = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback${redirectParam}`,
           queryParams: {
             prompt: 'select_account',
           },

@@ -70,9 +70,11 @@ export async function middleware(request: NextRequest) {
         request.nextUrl.pathname.startsWith('/api')) {
       return response
     }
-    // Cualquier otra ruta -> sign-in
+    // Cualquier otra ruta -> sign-in con redirect
     const url = request.nextUrl.clone()
     url.pathname = '/sign-in'
+    // Preservar la URL original como parámetro de redirect
+    url.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search)
     return NextResponse.redirect(url)
   }
 
