@@ -98,12 +98,11 @@ convenios_utn/
 
 ## 📄 Licencia
 
-Este proyecto está licenciado bajo [MIT License](LICENSE).
+Este proyecto está licenciado bajo MIT License.
 
 ---
 
 <div align="center">
   <p>Desarrollado para la Universidad Tecnológica Nacional - Facultad Regional Resistencia</p>
-  <p>Contacto: <a href="mailto:contacto@example.com">santycabrera150@gmail.com</a></p>
+  <p>Contacto: <a href="mailto:santycabrera150@gmail.com">Santiago Cabrera</a> | <a href="mailto:agustin.eze.gambera@gmail.com">Agustín Gambera</a></p>
 </div>
-
