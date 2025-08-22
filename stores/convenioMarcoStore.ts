@@ -387,7 +387,9 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
     try {
       const payload = {
         title: convenioData.title || convenioData.empresa_nombre || convenioData.entidad_nombre || "Sin título",
-        content_data: convenioData
+        template_slug: 'nuevo-convenio-marco',
+        form_data: convenioData,
+        status: 'enviado'
       };
 
       const url = convenioId 
