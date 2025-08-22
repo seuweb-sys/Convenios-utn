@@ -5,16 +5,16 @@ import { Readable } from 'stream';
 
 // Configuración de las carpetas
 export const DRIVE_FOLDERS = {
-  ROOT: '1od2SuLoJPgxS5OTyps_UhCEvhvhWT3mz', // Carpeta padre del proyecto
-  PENDING: '1IwXiatPJ-j98oC7XKrd9xK7VF52fVNaJ', // Carpeta "pendientes"
-  APPROVED: '19BAZjx93AsHZ45s3U6afISMQJy5zdzPm', // Carpeta "aprobados"
-  REJECTED: '16JY2aSOp57qn7Ow4BBRZqqq1xK_kv7PQ', // Carpeta "rechazados"
-  ARCHIVED: '15LlGgNqCVMhjcpZBJUSVKvq4AwkRFSr1', // Carpeta "archivados"
+  ROOT: '1s8umVFmhbTkoiacD-KPb3_DtM-tlQVNU', // Carpeta padre del proyecto
+  PENDING: '1IxfgTScHTlTc5ul2L1O7X5TYlBk2YQCQ', // Carpeta "pendientes"
+  APPROVED: '1Wq5Hv5ael-PfgfMjekg1zKMehtvqMd1R', // Carpeta "aprobados"
+  REJECTED: '1FInwa_93e_Admwk0jTglS_CPNieDkxHg', // Carpeta "rechazados"
+  ARCHIVED: '18qHqBUGZOkrcPJ7rEUP0Vb1ya1VUk2Le', // Carpeta "archivados"
 } as const;
 
 // Inicializar el cliente de Google Drive
 const auth = new google.auth.GoogleAuth({
-  keyFile: path.join(process.cwd(), 'Credentials', process.env.GOOGLE_DRIVE_CREDENTIALS_FILE || 'stoked-monitor-460722-m4-bd38e8028b89.json'),
+  credentials: JSON.parse(process.env.GOOGLE_DRIVE_CREDENTIALS_JSON!),
   scopes: ['https://www.googleapis.com/auth/drive'],
 });
 
