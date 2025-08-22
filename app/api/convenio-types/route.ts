@@ -70,21 +70,32 @@ export async function GET() {
   // }
 
   try {
-    // TEMPORAL: Forzamos el uso del fallback para asegurar nombres correctos
-    // const { data, error } = await supabase
-    //   .from('convenio_types')
-    //   .select('id, name, description, active')
-    //   .eq('active', true);
+    const { data, error } = await supabase
+      .from('convenio_types')
+      .select('id, name, description, active')
+      .eq('active', true);
 
-    // if (error) {
-    //   console.error("API Error fetching convenio types:", error);
-    //   return NextResponse.json({ error: 'Error al obtener tipos de convenio', details: error.message }, { status: 500 });
-    // }
+    if (error) {
+      console.error("API Error fetching convenio types:", error);
+      return NextResponse.json({ error: 'Error al obtener tipos de convenio', details: error.message }, { status: 500 });
+    }
 
     let responseData: ConvenioTypeApiData[];
 
-    // TEMPORAL: Siempre usamos fallback para asegurar consistencia
-    responseData = defaultConvenioTypes;
+    if (!data || data.length === 0) {
+      // Si no hay datos, usamos los de fallback
+      responseData = defaultConvenioTypes;
+    } else {
+      // Transformamos los datos de la DB al formato de la API
+      responseData = data.map(type => ({
+        id: type.id,
+        title: type.name,
+        description: type.description || "Sin descripción",
+        iconName: type.name.toLowerCase().replace(/ /g, '-'),
+        colorName: type.name,
+        previewUrl: `/protected/convenio-types/${type.id}/preview`
+      }));
+    }
     
     // if (!data || data.length === 0) {
     //   // Si no hay datos, usamos los de fallback
