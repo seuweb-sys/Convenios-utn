@@ -91,7 +91,10 @@ export async function GET() {
         id: type.id,
         title: type.name,
         description: type.description || "Sin descripción",
-        iconName: type.name.toLowerCase().replace(/ /g, '-'),
+        iconName: type.name.toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+          .replace(/ /g, '-'), // Reemplazar espacios con guiones
         colorName: type.name,
         previewUrl: `/protected/convenio-types/${type.id}/preview`
       }));
