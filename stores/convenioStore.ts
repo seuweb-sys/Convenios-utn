@@ -355,13 +355,15 @@ export const useConvenioStore = create<ConvenioState>((set, get) => ({
       const payload = {
         title: convenioData.datosBasicos?.nombre || "Sin título",
         convenio_type_id: convenioTypeId!,
-        content_data: {
+        template_slug: 'nuevo-convenio-marco',
+        form_data: {
           datos_basicos: convenioData.datosBasicos,
           partes: convenioData.partes,
           clausulas: convenioData.clausulas,
           anexos: convenioData.anexos,
           revision: convenioData.revision,
-        }
+        },
+        status: 'enviado'
       };
 
       let response, savedConvenio;
