@@ -19,7 +19,7 @@ export interface ConvenioTypeApiData {
 // Datos de fallback (si no hay nada en la DB)
 const defaultConvenioTypes: ConvenioTypeApiData[] = [
   {
-    id: 1,
+    id: 2,
     title: "Convenio Marco",
     description: "Establece lineamientos generales de colaboración institucional.",
     iconName: "marco",
@@ -27,7 +27,7 @@ const defaultConvenioTypes: ConvenioTypeApiData[] = [
     previewUrl: "/plantillas/marco/preview"
   },
   {
-    id: 4,
+    id: 5,
     title: "Convenio Marco Práctica Supervisada",
     description: "Establece las condiciones generales para la realización de prácticas supervisadas de estudiantes entre la Facultad y una entidad externa.",
     iconName: "graduation-cap",
@@ -35,7 +35,7 @@ const defaultConvenioTypes: ConvenioTypeApiData[] = [
     previewUrl: "/plantillas/practica-marco/preview"
   },
   {
-    id: 3,
+    id: 4,
     title: "Convenio Específico",
     description: "Convenio específico para asistencia técnica, colaboración o capacitación entre la Facultad y una entidad externa.",
     iconName: "especifico",
@@ -43,7 +43,7 @@ const defaultConvenioTypes: ConvenioTypeApiData[] = [
     previewUrl: "/plantillas/especifico/preview"
   },
   {
-    id: 6,
+    id: 1,
     title: "Convenio Particular de Práctica Supervisada",
     description: "Para realizar prácticas laborales supervisadas en organizaciones externas.",
     iconName: "practicas",
@@ -51,7 +51,7 @@ const defaultConvenioTypes: ConvenioTypeApiData[] = [
     previewUrl: "/plantillas/practica-particular/preview"
   },
   {
-    id: 5,
+    id: 3,
     title: "Acuerdo de Colaboración",
     description: "Colaboración general entre la Facultad Regional Resistencia y una entidad externa para actividades académicas y técnicas.",
     iconName: "colaboracion",
