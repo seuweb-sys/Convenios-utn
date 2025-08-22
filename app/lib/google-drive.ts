@@ -651,14 +651,11 @@ export async function uploadConvenioEspecificoOAuth(
   parentFolderId: string = DRIVE_FOLDERS.PENDING
 ) {
   try {
-    console.log('📁 [OAuth Drive] Procesando convenio específico:', convenioName);
-    
     // 1. Crear carpeta para el convenio
     const folderResponse = await createFolderInOAuthDrive(convenioName, parentFolderId);
     const convenioFolderId = folderResponse.folderId!;
 
     // 2. Subir documento principal
-    console.log('📄 [OAuth Drive] Subiendo documento principal...');
     const mainDocResponse = await uploadFileToOAuthDrive(
       mainDocumentBuffer,
       `${convenioName}.docx`,

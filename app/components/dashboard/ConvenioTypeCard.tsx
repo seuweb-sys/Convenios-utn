@@ -96,6 +96,8 @@ export const ConvenioTypeCard = ({
                    titleLower === "convenio particular de practica supervisada" ||
                    titleLower === "acuerdo de colaboración" ||
                    titleLower === "acuerdo de colaboracion";
+  
+
 
   return (
     <div className={cn(

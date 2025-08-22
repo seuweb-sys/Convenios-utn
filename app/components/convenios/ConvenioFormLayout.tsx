@@ -206,26 +206,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         user_id: convenioData.user_id,
       };
 
-      // DEBUG: Log del payload completo
-      console.log('🚀 [FRONTEND] Estado completo:', {
-        urlType,
-        urlTypeExists: !!urlType,
-        configTitle: config.title,
-        templateSlug,
-        templateSlugExists: !!templateSlug,
-        mapped: SLUG_MAPPING[urlType || ''] ? 'YES' : 'NO',
-        mappingResult: SLUG_MAPPING[urlType || ''],
-        availableMappings: Object.keys(SLUG_MAPPING),
-        searchParamsRaw: searchParams.toString(),
-        windowLocation: typeof window !== 'undefined' ? window.location.href : 'N/A'
-      });
-      
-      console.log('🚀 [FRONTEND] Enviando payload:', {
-        title,
-        template_slug: templateSlug,
-        form_data_keys: Object.keys(finalData || {}),
-        status: newStatus
-      });
+
 
       // 3. Realizar la petición POST o PATCH
       if (!convenioIdFromUrl && !templateSlug) {

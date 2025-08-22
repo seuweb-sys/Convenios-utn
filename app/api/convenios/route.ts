@@ -247,13 +247,6 @@ export async function POST(request: Request) {
     }
     const templateSlug = body.template_slug; // NUEVO: Recibimos el slug
 
-    // DEBUG: Verificar qué campos están llegando
-    console.log('🔍 [DEBUG] Validando campos:');
-    console.log('  - title:', body.title);
-    console.log('  - templateSlug:', templateSlug);
-    console.log('  - formData exists:', !!formData);
-    console.log('  - formData keys:', formData ? Object.keys(formData) : 'N/A');
-
     // Aplicar fallbacks para campos críticos
     const title = body.title || formData?.entidad_nombre || "Convenio Sin Título";
     
