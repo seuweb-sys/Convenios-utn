@@ -19,7 +19,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "components/ui/table";
+} from "@/app/components/ui/table";
 
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
@@ -29,11 +29,15 @@ import { SearchIcon, InfoIcon, ChevronLeft, ChevronRight } from "lucide-react";
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  searchKey?: string;
+  emptyMessage?: string;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  searchKey = "title",
+  emptyMessage = "No hay datos para mostrar.",
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -58,9 +62,9 @@ export function DataTable<TData, TValue>({
       <div className="flex items-center py-4 px-4">
         <Input
           placeholder="Filtrar..."
-          value={(table.getColumn("title")?.getFilterValue() as string) ?? ""}
+          value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("title")?.setFilterValue(event.target.value)
+            table.getColumn(searchKey)?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -78,9 +82,9 @@ export function DataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}
@@ -113,8 +117,7 @@ export function DataTable<TData, TValue>({
                 >
                   <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                     <InfoIcon className="h-8 w-8 mb-2 text-muted-foreground/50" />
-                    <p>No hay convenios para mostrar.</p>
-                    <p className="text-sm mt-1">Los convenios aparecerán aquí cuando se creen.</p>
+                    <p>{emptyMessage}</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -153,4 +156,4 @@ export function DataTable<TData, TValue>({
       </div>
     </div>
   );
-} 
+}

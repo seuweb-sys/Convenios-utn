@@ -48,19 +48,36 @@ export default async function AdminPage() {
     `)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("Error al obtener convenios:", error);
+  // Obtener usuarios para la gestión
+  const { data: users, error: usersError } = await supabase
+    .from("profiles")
+    .select(`
+      *,
+      careers (
+        name,
+        code
+      )
+    `)
+    .order("created_at", { ascending: false });
+
+  const { data: careers } = await supabase
+    .from("careers")
+    .select("*")
+    .order("name");
+
+  if (error || usersError) {
+    console.error("Error al obtener datos:", error || usersError);
     return (
       <>
         <BackgroundPattern />
         <div className="p-6 w-full relative">
           <Suspense fallback={<div className="h-24 w-full skeleton"></div>}>
-            <DashboardHeader name="Panel Admin" subtitle="Error al cargar convenios" />
+            <DashboardHeader name="Panel Admin" subtitle="Error al cargar datos" />
           </Suspense>
           <div className="mt-6">
             <SectionContainer title="Error">
               <div className="text-center py-8 text-red-500">
-                <p className="text-lg font-semibold">Error al cargar los convenios</p>
+                <p className="text-lg font-semibold">Error al cargar los datos</p>
                 <p className="text-sm mt-2">Por favor, intenta recargar la página</p>
               </div>
             </SectionContainer>
@@ -75,13 +92,13 @@ export default async function AdminPage() {
       <BackgroundPattern />
       <div className="p-6 w-full relative">
         <Suspense fallback={<div className="h-24 w-full skeleton"></div>}>
-          <DashboardHeader 
-            name="Administración de Convenios" 
-            subtitle="Gestiona todos los convenios del sistema desde este panel" 
+          <DashboardHeader
+            name="Administración de Convenios"
+            subtitle="Gestiona convenios, usuarios y carreras del sistema"
           />
         </Suspense>
-        <AdminPanelClient convenios={convenios || []} />
+        <AdminPanelClient convenios={convenios || []} users={users || []} careers={careers || []} />
       </div>
     </>
   );
-} 
+}

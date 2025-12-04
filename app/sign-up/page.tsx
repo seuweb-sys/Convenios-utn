@@ -1,9 +1,8 @@
 import Link from "next/link";
-import Image from "next/image";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import LoginWithGoogle from "@/app/components/auth/login-with-google";
-import { signUpAction } from "@/app/actions";
+import { getCareers } from "@/app/lib/careers";
+import { SignUpForm } from "./SignUpForm";
 
 export default async function SignUp({
   searchParams,
@@ -12,7 +11,7 @@ export default async function SignUp({
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   // Obtener el mensaje de los parámetros de búsqueda
   const params = await searchParams;
   const message = params?.message;
@@ -20,6 +19,9 @@ export default async function SignUp({
   if (user) {
     return redirect("/protected/");
   }
+
+  // Fetch careers
+  const careers = await getCareers();
 
   return (
     <>
@@ -38,7 +40,7 @@ export default async function SignUp({
           <rect width='100%' height='100%' fill='url(#pattern2)' />
         </svg>
       </div>
-      
+
       {/* Efectos de fondo con animación */}
       <div className="fixed inset-0 -z-10 overflow-hidden">
         <div className="absolute -top-[30%] -left-[10%] w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-3xl animate-blob"></div>
@@ -51,125 +53,29 @@ export default async function SignUp({
           {/* Logo UTN envuelto en Link */}
           <div className="flex justify-center mb-8">
             <Link href="/" className="block cursor-pointer" aria-label="Ir a la página de inicio">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-teal-600/10 rounded-xl blur-lg"></div>
-              <div className="bg-white/95 backdrop-filter backdrop-blur-sm p-4 rounded-xl shadow-lg relative overflow-hidden w-[100px] h-[100px] flex items-center justify-center border border-gray-200">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-teal-50 opacity-90"></div>
-                <div className="absolute inset-0 bg-white/60 mix-blend-overlay"></div>
-                <img 
-                  src="/utn-logo.png" 
-                  alt="Logo UTN" 
-                  className="w-[80px] h-[64px] object-contain relative z-10 contrast-125 brightness-105"
-                  style={{
-                    width: '80px',
-                    height: '64px',
-                    objectFit: 'contain'
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-teal-500/10"></div>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-teal-600/10 rounded-xl blur-lg"></div>
+                <div className="bg-white/95 backdrop-filter backdrop-blur-sm p-4 rounded-xl shadow-lg relative overflow-hidden w-[100px] h-[100px] flex items-center justify-center border border-gray-200">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-teal-50 opacity-90"></div>
+                  <div className="absolute inset-0 bg-white/60 mix-blend-overlay"></div>
+                  <img
+                    src="/utn-logo.png"
+                    alt="Logo UTN"
+                    className="w-[80px] h-[64px] object-contain relative z-10 contrast-125 brightness-105"
+                    style={{
+                      width: '80px',
+                      height: '64px',
+                      objectFit: 'contain'
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-teal-500/10"></div>
+                </div>
+                <div className="absolute -inset-3 bg-gradient-to-r from-blue-500/20 via-transparent to-teal-500/20 blur-md -z-10"></div>
               </div>
-              <div className="absolute -inset-3 bg-gradient-to-r from-blue-500/20 via-transparent to-teal-500/20 blur-md -z-10"></div>
-            </div>
             </Link>
           </div>
 
-          {/* Formulario con estilo moderno */}
-          <div className="relative animate-fade-up">
-            <div className="absolute -inset-1 bg-gradient-to-r from-teal-600/20 to-blue-600/20 rounded-xl blur-md opacity-70"></div>
-            <div className="relative bg-card/80 backdrop-blur-sm rounded-xl p-8 border border-border/40 shadow-lg">
-              <div className="text-center mb-6">
-                <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-blue-500">Crear Cuenta</h1>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Regístrate para acceder al sistema de convenios
-                </p>
-              </div>
-
-              <form className="space-y-5" action={signUpAction}>
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="full_name" className="block text-sm font-medium">
-                      Nombre Completo
-                    </label>
-                    <input
-                      id="full_name"
-                      name="full_name"
-                      type="text"
-                      required
-                      className="mt-1 block w-full px-3 py-2.5 border border-border/60 rounded-md shadow-sm bg-black/20 backdrop-blur-sm focus:outline-none focus:ring-blue-500/40 focus:border-blue-500/40 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium">
-                      Correo electrónico
-                    </label>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      required
-                      className="mt-1 block w-full px-3 py-2.5 border border-border/60 rounded-md shadow-sm bg-black/20 backdrop-blur-sm focus:outline-none focus:ring-blue-500/40 focus:border-blue-500/40 text-white"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium">
-                      Contraseña
-                    </label>
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      required
-                      className="mt-1 block w-full px-3 py-2.5 border border-border/60 rounded-md shadow-sm bg-black/20 backdrop-blur-sm focus:outline-none focus:ring-blue-500/40 focus:border-blue-500/40 text-white"
-                    />
-                  </div>
-                </div>
-
-                {message && (
-                  <div className={`p-3 rounded-md text-center ${
-                    message.includes("Revisa tu correo") 
-                      ? "bg-green-500/15 text-green-500" 
-                      : "bg-destructive/15 text-destructive"
-                  }`}>
-                    <p className="text-sm">{message}</p>
-                  </div>
-                )}
-
-                <div>
-                  <button
-                    type="submit"
-                    className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-md shadow-md text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-blue-500 hover:from-teal-700 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 transition-all duration-200"
-                  >
-                    Registrarse
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                    </svg>
-                  </button>
-                </div>
-              </form>
-
-              <div className="relative mt-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-border/30"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-card/90 text-muted-foreground">O continuar con</span>
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <LoginWithGoogle />
-              </div>
-
-              <div className="text-center mt-6">
-                <p className="text-sm text-muted-foreground">
-                  ¿Ya tienes una cuenta?{" "}
-                  <Link href="/sign-in" className="font-medium text-blue-500 hover:text-blue-400 transition-colors">
-                    Inicia sesión
-                  </Link>
-                </p>
-              </div>
-            </div>
-          </div>
+          <SignUpForm careers={careers} message={message} />
 
           {/* Footer */}
           <div className="mt-8 text-center text-muted-foreground text-xs">
@@ -180,4 +86,4 @@ export default async function SignUp({
       </div>
     </>
   );
-} 
+}
