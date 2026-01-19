@@ -5,8 +5,8 @@ import { CreateConvenioDTO } from "@/lib/types/convenio";
 import { Packer } from 'docx';
 import { createDocument } from '@/app/lib/utils/doc-generator';
 import { renderDocx } from '@/app/lib/utils/docx-templater';
-import { 
-  uploadFileToDrive, 
+import {
+  uploadFileToDrive,
   uploadConvenioEspecificoSimple,
   // Nuevas funciones OAuth
   uploadFileToOAuthDrive,
@@ -42,11 +42,11 @@ function getConvenioTypeName(typeId: number | null, dbName?: string): string {
     4: "Convenio Específico",
     5: "Convenio Marco Práctica Supervisada"
   };
-  
+
   if (typeId && typeMap[typeId]) {
     return typeMap[typeId];
   }
-  
+
   return dbName || "Sin tipo";
 }
 
@@ -68,12 +68,17 @@ export async function GET(request: NextRequest) {
     // 2. Obtener el perfil y el rol
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_approved')
       .eq('id', user.id)
       .single();
 
     if (profileError || !profile) {
       return NextResponse.json({ error: 'No se pudo obtener el perfil del usuario' }, { status: 500 });
+    }
+
+    // Verificar que el usuario esté aprobado (o sea admin)
+    if (!profile.is_approved && profile.role !== 'admin') {
+      return NextResponse.json({ error: 'Usuario no aprobado' }, { status: 403 });
     }
 
     const userRole = profile.role;
@@ -158,7 +163,7 @@ export async function GET(request: NextRequest) {
         if (!isNaN(date.getTime())) {
           formattedDate = date.toLocaleDateString('es-AR', {
             day: '2-digit',
-            month: '2-digit', 
+            month: '2-digit',
             year: 'numeric'
           });
         }
@@ -188,7 +193,7 @@ export async function GET(request: NextRequest) {
 async function generateSerialNumber(supabase: any) {
   // Obtener el año actual
   const currentYear = new Date().getFullYear();
-  
+
   // Buscar el último número de serie del año actual
   const { data: lastConvenio } = await supabase
     .from('convenios')
@@ -199,7 +204,7 @@ async function generateSerialNumber(supabase: any) {
     .single();
 
   let nextNumber = 1;
-  
+
   if (lastConvenio?.serial_number) {
     const [year, number] = lastConvenio.serial_number.split('-');
     if (year === currentYear.toString()) {
@@ -214,10 +219,10 @@ async function generateSerialNumber(supabase: any) {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-    
+
     // Verificar autenticación
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: "No autorizado" },
@@ -225,15 +230,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // Obtener el perfil del usuario para el nombre
+    // Obtener el perfil del usuario para el nombre y verificación
     const { data: userProfile, error: profileError } = await supabase
       .from('profiles')
-      .select('full_name')
+      .select('full_name, role, is_approved')
       .eq('id', user.id)
       .single();
 
     if (profileError) {
       console.error('Error al obtener perfil del usuario:', profileError);
+      return NextResponse.json({ error: 'No se pudo obtener el perfil del usuario' }, { status: 500 });
+    }
+
+    // Verificar que el usuario esté aprobado (o sea admin)
+    if (!userProfile.is_approved && userProfile.role !== 'admin') {
+      return NextResponse.json({ error: 'Usuario no aprobado' }, { status: 403 });
     }
 
     // Obtener y validar el body
@@ -249,34 +260,34 @@ export async function POST(request: Request) {
 
     // Aplicar fallbacks para campos críticos
     const title = body.title || formData?.entidad_nombre || "Convenio Sin Título";
-    
+
     // TRIPLE SISTEMA DE FALLBACK - A PRUEBA DE FALLOS
     let finalTemplateSlug = templateSlug;
     if (!finalTemplateSlug) {
       console.warn('⚠️ [API] templateSlug no definido, activando sistema de respaldo...');
-      
-             // BACKUP 1: Usar el campo convenio_type enviado explícitamente
-       const explicitType = body.convenio_type;
-       if (explicitType) {
-         const TYPE_TO_SLUG_MAPPING: { [key: string]: string } = {
-           'marco': 'nuevo-convenio-marco',                          // ID: 2
-           'practica-marco': 'nuevo-convenio-marco-practica-supervisada', // ID: 5
-           'especifico': 'nuevo-convenio-especifico',                // ID: 4
-           'particular': 'nuevo-convenio-particular-de-practica-supervisada', // ID: 1
-           'acuerdo': 'nuevo-acuerdo-de-colaboracion'                // ID: 3
-         };
-        
+
+      // BACKUP 1: Usar el campo convenio_type enviado explícitamente
+      const explicitType = body.convenio_type;
+      if (explicitType) {
+        const TYPE_TO_SLUG_MAPPING: { [key: string]: string } = {
+          'marco': 'nuevo-convenio-marco',                          // ID: 2
+          'practica-marco': 'nuevo-convenio-marco-practica-supervisada', // ID: 5
+          'especifico': 'nuevo-convenio-especifico',                // ID: 4
+          'particular': 'nuevo-convenio-particular-de-practica-supervisada', // ID: 1
+          'acuerdo': 'nuevo-acuerdo-de-colaboracion'                // ID: 3
+        };
+
         finalTemplateSlug = TYPE_TO_SLUG_MAPPING[explicitType];
         if (finalTemplateSlug) {
           console.log(`🎯 [API] BACKUP 1 - Tipo explícito: ${explicitType} -> ${finalTemplateSlug}`);
         }
       }
-      
+
       // BACKUP 2: Analizar URL de referencia
       if (!finalTemplateSlug) {
         const referrerUrl = request.headers.get('referer') || '';
         console.log(`🔍 [API] BACKUP 2 - Referrer URL: ${referrerUrl}`);
-        
+
         if (referrerUrl.includes('type=practica-marco')) {
           finalTemplateSlug = 'nuevo-convenio-marco-practica-supervisada';
           console.log(`🎯 [API] BACKUP 2 - Detectado practica-marco desde URL`);
@@ -290,20 +301,20 @@ export async function POST(request: Request) {
           finalTemplateSlug = 'nuevo-convenio-marco';
         }
       }
-      
+
       // BACKUP 3: Último recurso
       if (!finalTemplateSlug) {
         console.log(`🚨 [API] BACKUP 3 - Usando último recurso: convenio-marco`);
         finalTemplateSlug = 'nuevo-convenio-marco';
       }
     }
-    
+
     if (!title || !finalTemplateSlug || !formData) {
       const missingFields = [];
       if (!title) missingFields.push('title');
       if (!finalTemplateSlug) missingFields.push('template_slug');
       if (!formData) missingFields.push('form_data');
-      
+
       console.error('❌ [API] Campos faltantes después de fallbacks:', missingFields);
       return NextResponse.json(
         { error: `Faltan campos requeridos: ${missingFields.join(', ')}` },
@@ -317,24 +328,24 @@ export async function POST(request: Request) {
       'nuevo-convenio-marco': 2,
       'convenio-marco': 2,
       'marco': 2,
-      
+
       // Convenio Marco Práctica Supervisada (ID: 5)
       'nuevo-convenio-marco-practica-supervisada': 5,
       'convenio-marco-practica-supervisada': 5,
       'convenio-practica-marco': 5,
       'practica-marco': 5,
-      
+
       // Convenio Específico (ID: 4)
       'nuevo-convenio-especifico': 4,
       'convenio-especifico': 4,
       'especifico': 4,
-      
+
       // Convenio Particular de Práctica Supervisada (ID: 1) ← CORREGIDO
       'nuevo-convenio-particular-de-practica-supervisada': 1,
       'convenio-particular-de-practica-supervisada': 1,
       'convenio-particular': 1,
       'particular': 1,
-      
+
       // Acuerdo de Colaboración (ID: 3) ← CORREGIDO
       'nuevo-acuerdo-de-colaboracion': 3,
       'acuerdo-de-colaboracion': 3,
@@ -343,7 +354,7 @@ export async function POST(request: Request) {
     };
 
     const convenioTypeId = TEMPLATE_MAPPING[finalTemplateSlug];
-    
+
     if (!convenioTypeId) {
       console.error(`Template slug no reconocido: ${finalTemplateSlug}`);
       console.error(`Slugs disponibles:`, Object.keys(TEMPLATE_MAPPING));
@@ -354,7 +365,7 @@ export async function POST(request: Request) {
     }
 
     console.log(`✅ Mapeo directo: ${finalTemplateSlug} -> tipo ${convenioTypeId}`);
-    
+
     let buffer: Buffer | null = null;
 
     // ---------- Lógica ROBUSTA para encontrar el template DOCX ----------
@@ -362,7 +373,7 @@ export async function POST(request: Request) {
       // Remover 'nuevo-' si existe para coincidir con archivos existentes
       let cleanSlug = finalTemplateSlug.replace(/^nuevo-/, '');
       const templateDir = path.join(process.cwd(), 'templates');
-      
+
       // Mapeo EXACTO de slugs a nombres de archivos
       const TEMPLATE_FILE_MAPPING: { [key: string]: string } = {
         'convenio-marco': 'convenio-marco.docx',
@@ -373,10 +384,10 @@ export async function POST(request: Request) {
       };
 
       console.log(`🔍 [API] Limpiando slug: ${finalTemplateSlug} -> ${cleanSlug}`);
-      
+
       // Buscar primero en el mapeo exacto
       let templateFileName = TEMPLATE_FILE_MAPPING[cleanSlug];
-      
+
       if (!templateFileName) {
         // Fallback: usar el patrón tradicional
         templateFileName = `${cleanSlug}.docx`;
@@ -442,15 +453,15 @@ export async function POST(request: Request) {
     try {
       // Detectar si es convenio específico (type_id 4)
       const isConvenioEspecifico = convenioTypeId === 4;
-      
+
       if (isConvenioEspecifico) {
         console.log('📁 [API] Procesando convenio específico con carpeta...');
-        
+
         // Preparar anexos si existen
         const anexos = [];
         if (body.anexos && Array.isArray(body.anexos)) {
           console.log('📎 [API] Procesando anexos...', body.anexos.length);
-          
+
           for (const anexo of body.anexos) {
             if (anexo.name && anexo.buffer) {
               console.log(`📎 [API] Procesando anexo: ${anexo.name}`, {
@@ -458,7 +469,7 @@ export async function POST(request: Request) {
                 bufferType: typeof anexo.buffer,
                 bufferLength: anexo.buffer?.length || 0
               });
-              
+
               try {
                 // Convertir array de números a ArrayBuffer si es necesario
                 let buffer;
@@ -470,12 +481,12 @@ export async function POST(request: Request) {
                   // Intentar convertir desde otro formato
                   buffer = new Uint8Array(anexo.buffer).buffer;
                 }
-                
+
                 anexos.push({
                   name: anexo.name,
                   buffer: buffer
                 });
-                
+
                 console.log(`✅ [API] Anexo procesado: ${anexo.name}`);
               } catch (bufferError) {
                 console.error(`❌ [API] Error procesando anexo ${anexo.name}:`, bufferError);
@@ -485,9 +496,9 @@ export async function POST(request: Request) {
             }
           }
         }
-        
+
         console.log(`📎 [API] Total anexos procesados: ${anexos.length}`);
-        
+
         // Usar función OAuth (nueva) - debería resolver el problema de Service Account
         const convenioName = `Convenio_${title}_${new Date().toISOString().split('T')[0]}`;
         console.log('🔐 [API] Usando OAuth para subir convenio específico...');
@@ -496,13 +507,13 @@ export async function POST(request: Request) {
           convenioName,
           anexos
         );
-        
+
         documentPath = driveResponse.webViewLink; // Enlace a la carpeta
-        
+
         console.log('✅ [API] Convenio específico subido a carpeta:', driveResponse);
       } else {
         console.log('📄 [API] Procesando convenio normal (archivo directo)...');
-        
+
         // Usar función OAuth (nueva) - reemplaza Service Account
         console.log('🔐 [API] Usando OAuth para subir convenio normal...');
         const driveResponse = await uploadFileToOAuthDrive(
@@ -510,7 +521,7 @@ export async function POST(request: Request) {
           `Convenio_${title}_${new Date().toISOString().split('T')[0]}.docx`
         );
         documentPath = driveResponse.webViewLink;
-        
+
         console.log('✅ [API] Convenio normal subido:', driveResponse);
       }
 
@@ -529,7 +540,7 @@ export async function POST(request: Request) {
       // Si falla la subida a Drive, actualizamos el estado del convenio
       const { error: updateError } = await supabase
         .from('convenios')
-        .update({ 
+        .update({
           status: 'borrador',
           document_path: null
         })

@@ -58,41 +58,103 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const publicRoutes = ['/sign-in', '/sign-up', '/auth/callback']
+  // Rutas públicas (no requieren autenticación)
+  const publicRoutes = ['/sign-in', '/sign-up', '/auth/callback', '/pending-approval']
   const homeRoute = '/'
   const protectedRoute = '/protected'
 
   // Si NO hay usuario
   if (!user) {
-    // Permitir home, sign-in, sign-up, auth/callback y APIs
-    if (request.nextUrl.pathname === homeRoute || 
-        publicRoutes.includes(request.nextUrl.pathname) || 
-        request.nextUrl.pathname.startsWith('/api')) {
+    // Permitir home, sign-in, sign-up, auth/callback, pending-approval y APIs públicas
+    if (request.nextUrl.pathname === homeRoute ||
+      publicRoutes.includes(request.nextUrl.pathname) ||
+      request.nextUrl.pathname.startsWith('/api/auth')) {
       return response
     }
     // Cualquier otra ruta -> sign-in con redirect
     const url = request.nextUrl.clone()
     url.pathname = '/sign-in'
-    // Preservar la URL original como parámetro de redirect
     url.searchParams.set('redirect', request.nextUrl.pathname + request.nextUrl.search)
     return NextResponse.redirect(url)
   }
 
   // Si SÍ hay usuario loggeado
   if (user) {
-    // Si está en home, sign-in o sign-up -> mandar a protected
-    if (request.nextUrl.pathname === homeRoute || 
-        request.nextUrl.pathname === '/sign-in' || 
-        request.nextUrl.pathname === '/sign-up') {
+    // Obtener perfil para verificar is_approved y role
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_approved, role')
+      .eq('id', user.id)
+      .single()
+
+    const isApproved = profile?.is_approved === true
+    const isAdmin = profile?.role === 'admin'
+
+    // Si está en home, sign-in o sign-up -> verificar aprobación primero
+    if (request.nextUrl.pathname === homeRoute ||
+      request.nextUrl.pathname === '/sign-in' ||
+      request.nextUrl.pathname === '/sign-up') {
       const url = request.nextUrl.clone()
+
+      // Si no está aprobado y no es admin -> pending-approval
+      if (!isApproved && !isAdmin) {
+        url.pathname = '/pending-approval'
+        return NextResponse.redirect(url)
+      }
+
+      // Si está aprobado o es admin -> protected
       url.pathname = protectedRoute
       return NextResponse.redirect(url)
     }
+
     // Si está en auth/callback -> permitir (maneja su propia redirección)
     if (request.nextUrl.pathname === '/auth/callback') {
       return response
     }
-    // Para cualquier otra ruta protegida -> permitir
+
+    // Si está en pending-approval
+    if (request.nextUrl.pathname === '/pending-approval') {
+      // Si ya está aprobado o es admin -> redirigir a protected
+      if (isApproved || isAdmin) {
+        const url = request.nextUrl.clone()
+        url.pathname = protectedRoute
+        return NextResponse.redirect(url)
+      }
+      // Si no está aprobado -> permitir ver pending-approval
+      return response
+    }
+
+    // Para rutas protegidas (/protected/*)
+    if (request.nextUrl.pathname.startsWith('/protected')) {
+      // Si no está aprobado y no es admin -> redirigir a pending-approval
+      if (!isApproved && !isAdmin) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/pending-approval'
+        return NextResponse.redirect(url)
+      }
+      // Si está aprobado o es admin -> permitir
+      return response
+    }
+
+    // Para APIs de negocio (no auth)
+    if (request.nextUrl.pathname.startsWith('/api') &&
+      !request.nextUrl.pathname.startsWith('/api/auth')) {
+      // Permitir update-profile incluso si no está aprobado (para completar perfil)
+      if (request.nextUrl.pathname === '/api/user/update-profile') {
+        return response
+      }
+
+      // Si no está aprobado y no es admin -> rechazar con 403
+      if (!isApproved && !isAdmin) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Usuario no aprobado' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+      return response
+    }
+
+    // Cualquier otra ruta -> permitir
     return response
   }
 
