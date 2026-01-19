@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
     // 2. Obtener el perfil y el rol
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role, is_approved')
+      .select('role, is_approved, career_id')
       .eq('id', user.id)
       .single();
 
@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
     }
 
     const userRole = profile.role;
+    const userCareerId = profile.career_id;
 
     // 3. Obtener el parámetro 'limit' de la URL (opcional)
     const searchParams = request.nextUrl.searchParams;
@@ -89,6 +90,7 @@ export async function GET(request: NextRequest) {
     const offsetParam = searchParams.get('offset');
     const statusParam = searchParams.get('status');
     const typeParam = searchParams.get('type');
+    const mineOnly = searchParams.get('mine') === 'true'; // Para profesor: solo mis convenios
 
     const limit = limitParam ? parseInt(limitParam, 10) : 20; // Default 20
     const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
@@ -107,7 +109,8 @@ export async function GET(request: NextRequest) {
         *,
         profiles:user_id (
           full_name,
-          role
+          role,
+          career_id
         ),
         convenio_types(name),
         observaciones (
@@ -137,9 +140,26 @@ export async function GET(request: NextRequest) {
     // Paginación
     query = query.range(offset, offset + limit - 1);
 
+    // Filtro por rol
     if (userRole === "user") {
+      // Usuario solo ve sus propios convenios
       query = query.eq('user_id', user.id);
+    } else if (userRole === "profesor") {
+      // Profesor ve convenios de su carrera
+      if (mineOnly) {
+        // Solo mis convenios
+        query = query.eq('user_id', user.id);
+      } else if (userCareerId) {
+        // Convenios de usuarios de la misma carrera
+        // Necesitamos filtrar por career_id del creador
+        // Esto requiere un join más complejo, así que filtramos después
+      }
+      // Si no tiene carrera asignada, solo ve sus propios convenios
+      if (!userCareerId) {
+        query = query.eq('user_id', user.id);
+      }
     }
+    // Admin ve todos (sin filtro adicional)
 
     const { data, error: dbError } = await query;
     if (dbError) {
@@ -147,15 +167,39 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al obtener convenios', details: dbError.message }, { status: 500 });
     }
 
+    // Filtrado post-query para profesor por carrera
+    let filteredData = data;
+    if (userRole === "profesor" && userCareerId && !mineOnly) {
+      // Filtrar solo convenios de usuarios de la misma carrera
+      filteredData = (data || []).filter((convenio: any) =>
+        convenio.profiles?.career_id === userCareerId
+      );
+    }
+
     // 5. Si el cliente pide datos completos (?full=true) devolvemos raw data
     const full = searchParams.get('full') === 'true';
 
     if (full) {
-      return NextResponse.json(data);
+      // Para profesor, limitar form_data si no es el dueño
+      if (userRole === "profesor") {
+        const limitedData = (filteredData || []).map((convenio: any) => {
+          if (convenio.user_id !== user.id) {
+            // No es el dueño, limitar información sensible
+            const { form_data, ...rest } = convenio;
+            return {
+              ...rest,
+              form_data_limited: true, // Indicador de que form_data fue limitado
+            };
+          }
+          return convenio;
+        });
+        return NextResponse.json(limitedData);
+      }
+      return NextResponse.json(filteredData);
     }
 
     // 5.b Transformar los datos al formato resumido (default)
-    const responseData = (data as unknown as ConvenioFromDB[]).map(convenio => {
+    const responseData = (filteredData as unknown as ConvenioFromDB[]).map(convenio => {
       // Formatear fecha de forma más robusta
       let formattedDate = "Sin fecha";
       try {

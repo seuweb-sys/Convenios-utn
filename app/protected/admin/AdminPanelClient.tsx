@@ -9,14 +9,22 @@ import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { SectionContainer } from "@/app/components/dashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 
-export function AdminPanelClient({ convenios, users, careers }: { convenios: any[], users: any[], careers: any[] }) {
+interface Career {
+  id: string;
+  name: string;
+  code: string;
+}
+
+export function AdminPanelClient({ convenios, users, careers }: { convenios: any[], users: any[], careers: Career[] }) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [careerFilter, setCareerFilter] = useState<string | null>(null);
 
   const filteredConvenios = (convenios || []).filter((c) => {
     const statusOk = !statusFilter || c.status === statusFilter;
     const typeOk = !typeFilter || c.convenio_types?.name === typeFilter;
-    return statusOk && typeOk;
+    const careerOk = !careerFilter || c.profiles?.career_id === careerFilter;
+    return statusOk && typeOk && careerOk;
   });
 
   return (
@@ -44,6 +52,9 @@ export function AdminPanelClient({ convenios, users, careers }: { convenios: any
                 setStatusFilter={setStatusFilter}
                 typeFilter={typeFilter}
                 setTypeFilter={setTypeFilter}
+                careerFilter={careerFilter}
+                setCareerFilter={setCareerFilter}
+                careers={careers}
               />
             </div>
           </div>

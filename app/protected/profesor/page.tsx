@@ -7,9 +7,11 @@ import {
   BackgroundPattern,
   DashboardHeader
 } from "@/app/components/dashboard";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 
 export default function ProfesorPage() {
-  const [convenios, setConvenios] = useState<any[]>([]);
+  const [misConvenios, setMisConvenios] = useState<any[]>([]);
+  const [conveniosCarrera, setConveniosCarrera] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<any>(null);
 
@@ -17,15 +19,24 @@ export default function ProfesorPage() {
     async function fetchData() {
       try {
         setLoading(true);
-        
-        const res = await fetch("/api/convenios?limit=1000&full=true");
-        if (!res.ok) {
-          throw new Error("Error al cargar convenios");
-        }
-        const conveniosData = await res.json();
 
-        setConvenios(conveniosData || []);
-        console.log("Convenios cargados:", conveniosData?.length);
+        // Fetch solo mis convenios
+        const resMine = await fetch("/api/convenios?limit=1000&full=true&mine=true");
+        if (!resMine.ok) {
+          throw new Error("Error al cargar mis convenios");
+        }
+        const mineData = await resMine.json();
+        setMisConvenios(mineData || []);
+
+        // Fetch convenios de mi carrera (todos los de la carrera)
+        const resCareer = await fetch("/api/convenios?limit=1000&full=true");
+        if (!resCareer.ok) {
+          throw new Error("Error al cargar convenios de carrera");
+        }
+        const careerData = await resCareer.json();
+        setConveniosCarrera(careerData || []);
+
+        console.log("Mis convenios:", mineData?.length, "Carrera:", careerData?.length);
       } catch (e) {
         console.error("Error:", e);
         setError(e);
@@ -75,12 +86,31 @@ export default function ProfesorPage() {
     <>
       <BackgroundPattern />
       <div className="p-6 w-full relative">
-        <DashboardHeader 
-          name="Panel de Profesor" 
-          subtitle="Visualiza y filtra todos los convenios del sistema" 
+        <DashboardHeader
+          name="Panel de Profesor"
+          subtitle="Visualiza convenios de tu carrera"
         />
-        <ProfesorPanelClient convenios={convenios} />
+        <div className="mt-6">
+          <Tabs defaultValue="carrera" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="carrera">
+                Convenios de mi Carrera ({conveniosCarrera.length})
+              </TabsTrigger>
+              <TabsTrigger value="mios">
+                Mis Convenios ({misConvenios.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="carrera">
+              <ProfesorPanelClient convenios={conveniosCarrera} showOwnerInfo={true} />
+            </TabsContent>
+
+            <TabsContent value="mios">
+              <ProfesorPanelClient convenios={misConvenios} showOwnerInfo={false} />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </>
   );
-} 
+}

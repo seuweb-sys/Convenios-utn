@@ -34,7 +34,8 @@ export default async function AdminPage() {
       *,
       profiles:user_id (
         full_name,
-        role
+        role,
+        career_id
       ),
       convenio_types (
         name

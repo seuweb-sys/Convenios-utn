@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { 
+import {
   FilterIcon,
   ClockIcon,
   CheckCircleIcon,
@@ -12,9 +12,16 @@ import {
   BriefcaseIcon,
   FileText,
   UserCheck,
-  HeartHandshake
+  HeartHandshake,
+  GraduationCapIcon
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+
+interface Career {
+  id: string;
+  name: string;
+  code: string;
+}
 
 interface AdminFiltersProps {
   data: any[];
@@ -22,6 +29,9 @@ interface AdminFiltersProps {
   setStatusFilter: (s: string | null) => void;
   typeFilter: string | null;
   setTypeFilter: (t: string | null) => void;
+  careerFilter: string | null;
+  setCareerFilter: (c: string | null) => void;
+  careers: Career[];
 }
 
 const tipoConvenioUI: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -42,12 +52,21 @@ const tipoConvenioUI: Record<string, { icon: React.ReactNode; color: string }> =
   },
 };
 
-export function AdminFilters({ data, statusFilter, setStatusFilter, typeFilter, setTypeFilter }: AdminFiltersProps) {
+export function AdminFilters({
+  data,
+  statusFilter,
+  setStatusFilter,
+  typeFilter,
+  setTypeFilter,
+  careerFilter,
+  setCareerFilter,
+  careers
+}: AdminFiltersProps) {
   // Extraer estados y tipos únicos
   const availableStatuses = Array.from(new Set(
     data.map((item: any) => (item as any).status).filter(Boolean)
   ));
-  
+
   const availableTypes = Array.from(new Set(
     data.map((item: any) => (item as any).convenio_types?.name).filter(Boolean)
   ));
@@ -61,6 +80,10 @@ export function AdminFilters({ data, statusFilter, setStatusFilter, typeFilter, 
     return data.filter((item: any) => (item as any).convenio_types?.name === type).length;
   };
 
+  const getCareerCount = (careerId: string) => {
+    return data.filter((item: any) => (item as any).profiles?.career_id === careerId).length;
+  };
+
   return (
     <div className="space-y-4">
       <div className="p-4 bg-card/80 backdrop-blur-sm shadow-lg rounded-xl border border-border/60">
@@ -68,28 +91,27 @@ export function AdminFilters({ data, statusFilter, setStatusFilter, typeFilter, 
           <FilterIcon className="h-5 w-5 text-muted-foreground" />
           Filtros
         </h3>
-        
-        {/* Filtros por Estado estilo convenios-lista */}
+
+        {/* Filtros por Estado */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm">
             <ClockIcon className="h-4 w-4 text-muted-foreground" />
-            <span 
+            <span
               className={`cursor-pointer transition-colors ${!statusFilter ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
               onClick={() => setStatusFilter(null)}
             >
               Todos los estados
             </span>
           </div>
-          
+
           <div className="space-y-2">
             {availableStatuses.map(status => (
-              <div 
+              <div
                 key={status}
-                className={`flex items-center gap-2 text-sm cursor-pointer p-2 rounded-md transition-colors ${
-                  statusFilter === status 
-                    ? 'bg-primary/10 text-primary font-medium' 
+                className={`flex items-center gap-2 text-sm cursor-pointer p-2 rounded-md transition-colors ${statusFilter === status
+                    ? 'bg-primary/10 text-primary font-medium'
                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
-                }`}
+                  }`}
                 onClick={() => setStatusFilter(status)}
               >
                 {status === 'enviado' && <ClockIcon className="h-4 w-4" />}
@@ -102,6 +124,39 @@ export function AdminFilters({ data, statusFilter, setStatusFilter, typeFilter, 
               </div>
             ))}
           </div>
+
+          {/* Filtro por Carrera - NUEVO */}
+          {careers && careers.length > 0 && (
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 text-sm mb-2">
+                <GraduationCapIcon className="h-4 w-4 text-muted-foreground" />
+                <span
+                  className={`cursor-pointer transition-colors ${!careerFilter ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setCareerFilter(null)}
+                >
+                  Todas las carreras
+                </span>
+              </div>
+              <div className="space-y-1">
+                {careers.map(career => (
+                  <div
+                    key={career.id}
+                    className={`flex items-center gap-2 text-sm cursor-pointer p-2 rounded-md transition-colors ${careerFilter === career.id
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                      }`}
+                    onClick={() => setCareerFilter(career.id)}
+                  >
+                    <GraduationCapIcon className="h-4 w-4" />
+                    <span className="truncate">{career.code || career.name}</span>
+                    <Badge variant="outline" className="ml-auto text-xs">
+                      {getCareerCount(career.id)}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="border-t pt-4">
             <div className="flex items-center gap-2 text-base font-semibold mb-2">
@@ -149,4 +204,4 @@ export function AdminFilters({ data, statusFilter, setStatusFilter, typeFilter, 
       </div>
     </div>
   );
-} 
+}
