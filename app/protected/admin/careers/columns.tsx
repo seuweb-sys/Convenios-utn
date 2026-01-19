@@ -27,7 +27,7 @@ export type Career = {
     created_at: string;
 };
 
-export const careerColumns: ColumnDef<Career>[] = [
+export const careerColumns: ColumnDef<Career, unknown>[] = [
     {
         accessorKey: "name",
         header: "Nombre",

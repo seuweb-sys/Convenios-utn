@@ -447,21 +447,72 @@ export async function POST(request: Request) {
         console.log(`✅ [API] Template encontrado: ${templateFileName}`);
         const templateBuffer = fs.readFileSync(filePath);
         console.log('📋 [API] Procesando template con renderDocx...');
+
+        // POLYFILL: Asegurar que 'partes' exista como array para el template nuevo (con loops)
+        // Si vienen datos viejos (planos), los convertimos a un array de 1 elemento.
+        if (!formData.partes && (formData.entidad_nombre || formData.empresa_nombre)) {
+          console.log('🔄 [API] Adaptando datos legacy a array de partes para template polimórfico');
+          formData.partes = [{
+            nombre: formData.entidad_nombre || formData.empresa_nombre || '',
+            tipo: formData.entidad_tipo || formData.empresa_tipo || '',
+            domicilio: formData.entidad_domicilio || formData.empresa_domicilio || '',
+            ciudad: formData.entidad_ciudad || formData.empresa_ciudad || '',
+            cuit: formData.entidad_cuit || formData.empresa_cuit || '',
+            representanteNombre: formData.entidad_representante || formData.representante_nombre || '',
+            representanteDni: formData.entidad_dni || formData.representante_dni || '',
+            cargoRepresentante: formData.entidad_cargo || formData.representante_cargo || ''
+          }];
+        }
+
+        // Log para debuggear partes
+        if (formData.partes) {
+          console.log('📋 [API] FormData tiene partes:', Array.isArray(formData.partes) ? formData.partes.length : 'no-array');
+        } else {
+          console.log('⚠️ [API] FormData NO tiene partes');
+        }
         buffer = await renderDocx(templateBuffer, formData);
         console.log('📤 [API] Buffer generado con tamaño:', buffer?.length);
       } else {
         console.error(`❌ [API] Template no encontrado: ${templateFileName}`);
-        console.error(`❌ [API] Archivos disponibles en templates:`, fs.readdirSync(templateDir));
-        console.error(`❌ [API] Mapeo de archivos:`, TEMPLATE_FILE_MAPPING);
+        // console.error(`❌ [API] Archivos disponibles en templates:`, fs.readdirSync(templateDir));
+        // console.error(`❌ [API] Mapeo de archivos:`, TEMPLATE_FILE_MAPPING);
         throw new Error(`No se encontró el template DOCX "${templateFileName}". Asegúrate de que el archivo exista en /templates.`);
       }
     } catch (tplErr) {
-      console.error('❌ [API] Error al procesar template DOCX:', tplErr);
-      throw new Error('No se pudo procesar el template DOCX. Verifica el archivo.');
+      console.log('ℹ️ [API] Saltando procesamiento de archivo físico, intentando generación programática...');
+      // console.error('❌ [API] Error al procesar template DOCX:', tplErr);
+      // throw new Error('No se pudo procesar el template DOCX. Verifica el archivo.');
     }
 
     if (!buffer) {
-      throw new Error('No se pudo generar el documento: template no encontrado');
+      console.log('⚠️ [API] No se pudo generar buffer desde archivo físico. Intentando fallback programático...');
+
+      // Obtener template de la DB usando el ID que ya determinamos
+      const { data: templateDB, error: templateError } = await supabase
+        .from('convenio_types')
+        .select('template_content')
+        .eq('id', convenioTypeId)
+        .single();
+
+      if (templateError || !templateDB) {
+        console.error('❌ [API] Fallback fallido: No se encontró template en DB', templateError);
+        throw new Error('No se pudo generar el documento: template no encontrado en DB ni físico');
+      }
+
+      console.log('📋 [API] Generando documento programáticamente con template de DB...');
+
+      try {
+        const doc = createDocument(templateDB.template_content, formData);
+        buffer = await Packer.toBuffer(doc);
+        console.log('✅ [API] Buffer generado programáticamente:', buffer?.length);
+      } catch (genError) {
+        console.error('❌ [API] Error generando documento programáticamente:', genError);
+        throw new Error('Error interno generando el documento');
+      }
+    }
+
+    if (!buffer) {
+      throw new Error('No se pudo generar el documento: buffer vacío después de intentos');
     }
 
     // Generar número de serie

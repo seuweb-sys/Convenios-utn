@@ -2,8 +2,8 @@
 
 import { useEffect, useState, Suspense, useCallback, useRef } from "react";
 import { useSearchParams, useParams } from 'next/navigation';
-import { 
-  ChevronLeftIcon, 
+import {
+  ChevronLeftIcon,
   CheckIcon,
   AlertCircleIcon,
   EyeIcon,
@@ -14,9 +14,9 @@ import Link from "next/link";
 import React from "react";
 import { renderAsync } from "docx-preview";
 
-import { 
-  BackgroundPattern, 
-  SectionContainer 
+import {
+  BackgroundPattern,
+  SectionContainer
 } from "@/app/components/dashboard";
 import { Button } from "@/app/components/ui/button";
 import { Progress } from "@/app/components/ui/progress";
@@ -77,7 +77,9 @@ const mapConvenioDataToFields = (convenioData: any) => {
     entidad_dni: parte.representanteDni || '',
     entidad_cargo: parte.cargoRepresentante || '',
     dia: datosBasicos.dia || '',
-    mes: datosBasicos.mes || ''
+    mes: datosBasicos.mes || '',
+    // R5: Incluir el array completo de partes para soporte multi-institución
+    partes: convenioData.partes || []
   };
   console.log('Datos mapeados para API:', mappedData);
   return mappedData;
@@ -135,7 +137,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   // Actualizar progreso cuando cambia el paso
   useEffect(() => {
     setProgress((currentStep / steps.length) * 100);
-    
+
     // Actualizar el store global según el paso completado
     if (currentStep > 1 && formState[1]) {
       updateConvenioData('entidad', formState[1]);
@@ -149,7 +151,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   }, [currentStep, steps.length, formState, updateConvenioData]);
 
   // Obtener el estado de validación de los pasos
-  const allStepsValid = [1,2,3].every(step => stepStates[step]?.isValid);
+  const allStepsValid = [1, 2, 3].every(step => stepStates[step]?.isValid);
   const status = convenioData?.status || 'enviado';
 
   // Función para enviar el convenio (PATCH status a 'enviado')
@@ -177,14 +179,14 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     try {
       // 1. Generar templateSlug robusto basado en el tipo de convenio
       // Usar el mapeo directo o generar desde el título como fallback
-      const templateSlug = SLUG_MAPPING[urlType || ''] || 
-                          config.title
-                            .toLowerCase()
-                            .normalize('NFD')
-                            .replace(/[\u0300-\u036f]/g, '')
-                            .replace(/[^a-z0-9\s-]/g, '')
-                            .replace(/\s+/g, '-')
-                            .replace(/-+/g, '-');
+      const templateSlug = SLUG_MAPPING[urlType || ''] ||
+        config.title
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-');
 
       // 2. Construir el payload
       const finalData = mapConvenioDataToFields(convenioData);
@@ -192,10 +194,10 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         throw new Error('No hay datos en el formulario. Por favor completa los campos.');
       }
       // Generar título robusto
-      const title = finalData.entidad_nombre || 
-                   convenioData.entidad?.nombre || 
-                   config.title || 
-                   "Nuevo Convenio";
+      const title = finalData.entidad_nombre ||
+        convenioData.entidad?.nombre ||
+        config.title ||
+        "Nuevo Convenio";
 
       const convenioPayload = {
         title,
@@ -227,7 +229,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
       }
 
       const savedConvenio = await response.json();
-      
+
       // Actualizar el store de Zustand con el nuevo ID si es un convenio nuevo
       if (!convenioIdFromUrl && savedConvenio.id) {
         useConvenioMarcoStore.setState({ convenioData: { ...convenioData, id: savedConvenio.id } });
@@ -282,7 +284,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     if (isFullScreen && anexoWordFile && previewRef.current) {
       previewRef.current.innerHTML = '';
       const reader = new FileReader();
-      reader.onload = function(e) {
+      reader.onload = function (e) {
         const arrayBuffer = e.target?.result;
         if (arrayBuffer && previewRef.current) {
           renderAsync(arrayBuffer as ArrayBuffer, previewRef.current, undefined, { className: "docx-preview-rendered" });
@@ -326,14 +328,14 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                       <div className={cn(
                         "flex items-center gap-2 transition-all duration-300",
                         step.status === "current" ? "text-primary font-medium" :
-                        step.status === "complete" ? "text-green-500" :
-                        "text-muted-foreground"
+                          step.status === "complete" ? "text-green-500" :
+                            "text-muted-foreground"
                       )}>
                         <div className={cn(
                           "w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300",
                           step.status === "current" ? "border-primary bg-primary/10" :
-                          step.status === "complete" ? "border-green-500 bg-green-500/10" :
-                          "border-muted-foreground/30 bg-background"
+                            step.status === "complete" ? "border-green-500 bg-green-500/10" :
+                              "border-muted-foreground/30 bg-background"
                         )}>
                           {step.status === "complete" ? (
                             <CheckIcon className="h-4 w-4" />
@@ -403,8 +405,8 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                       className={cn(
                         "w-full text-left p-4 rounded-lg border transition-all duration-300 focus:outline-none",
                         step.status === "current" ? "bg-primary/5 border-primary/20 scale-105 shadow-sm" :
-                        step.status === "complete" ? "bg-green-500/5 border-green-500/20" :
-                        "bg-card border-border",
+                          step.status === "complete" ? "bg-green-500/5 border-green-500/20" :
+                            "bg-card border-border",
                         isClickable ? "cursor-pointer hover:ring-2 hover:ring-primary/30" : "opacity-60 cursor-not-allowed"
                       )}
                       tabIndex={isClickable ? 0 : -1}
@@ -413,8 +415,8 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                         <div className={cn(
                           "p-2 rounded-lg",
                           step.status === "current" ? "bg-primary/10" :
-                          step.status === "complete" ? "bg-green-500/10" :
-                          "bg-muted"
+                            step.status === "complete" ? "bg-green-500/10" :
+                              "bg-muted"
                         )}>
                           {step.status === "complete" ? (
                             <CheckIcon className="h-5 w-5 text-green-500" />
@@ -426,8 +428,8 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                           <h3 className={cn(
                             "font-medium",
                             step.status === "current" ? "text-primary" :
-                            step.status === "complete" ? "text-green-500" :
-                            "text-muted-foreground"
+                              step.status === "complete" ? "text-green-500" :
+                                "text-muted-foreground"
                           )}>
                             {step.title}
                           </h3>
@@ -441,7 +443,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                 })}
               </div>
             </SectionContainer>
-            
+
             <SectionContainer title="Vista previa Word">
               <div className="space-y-3">
                 <Button

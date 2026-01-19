@@ -3,17 +3,11 @@ import { useState } from "react";
 import { DataTable } from "@/app/protected/admin/data-table";
 import { columns } from "@/app/protected/admin/columns";
 import { userColumns } from "@/app/protected/admin/users/columns";
-import { careerColumns } from "@/app/protected/admin/careers/columns";
+import { careerColumns, Career } from "@/app/protected/admin/careers/columns";
 import { CareerDialog } from "@/app/protected/admin/careers/career-dialog";
 import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { SectionContainer } from "@/app/components/dashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
-
-interface Career {
-  id: string;
-  name: string;
-  code: string;
-}
 
 export function AdminPanelClient({ convenios, users, careers }: { convenios: any[], users: any[], careers: Career[] }) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);

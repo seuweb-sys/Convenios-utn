@@ -2,7 +2,7 @@ import { Document, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
 
 interface TemplateField {
   key: string;
-  value: string;
+  value: string | any[]; // Ahora puede ser array
 }
 
 interface Clausula {
@@ -20,39 +20,42 @@ interface ConvenioTemplate {
 }
 
 // Normaliza valores dinámicos antes de ser inyectados en el documento
-function normalizeFields(fields: TemplateField[]): TemplateField[] {
-  return fields.map((field) => {
-    let value = field.value;
+function normalizeFields(fields: Record<string, any>): Record<string, any> {
+  const normalized: Record<string, any> = { ...fields };
 
-    switch (field.key) {
-      case 'entidad_cuit': {
-        // Formato XX-XXXXXXXX-X si vienen solo dígitos
-        const digits = String(value).replace(/[^0-9]/g, '');
-        if (digits.length === 11) {
-          value = digits.replace(/(\d{2})(\d{8})(\d)/, '$1-$2-$3');
-        }
-        break;
-      }
-      case 'mes': {
-        value = String(value)
-          .toLowerCase()
-          .replace(/^([a-zñáéíóúü])(.*)$/i, (_, first, rest) => first.toUpperCase() + rest);
-        break;
-      }
-      case 'convenio_especifico_tipo': {
-        value = String(value).replace(/tecnica/i, 'Técnica');
-        break;
-      }
-      default:
-        break;
+  // Normalizaciones específicas
+  if (normalized.entidad_cuit && typeof normalized.entidad_cuit === 'string') {
+    const digits = String(normalized.entidad_cuit).replace(/[^0-9]/g, '');
+    if (digits.length === 11) {
+      normalized.entidad_cuit = digits.replace(/(\d{2})(\d{8})(\d)/, '$1-$2-$3');
     }
+  }
 
-    return { ...field, value };
-  });
+  if (normalized.mes && typeof normalized.mes === 'string') {
+    normalized.mes = String(normalized.mes)
+      .toLowerCase()
+      .replace(/^([a-zñáéíóúü])(.*)$/i, (_, first, rest) => first.toUpperCase() + rest);
+  }
+
+  // Normalizar array de partes si existe
+  if (Array.isArray(normalized.partes)) {
+    normalized.partes = normalized.partes.map(p => {
+      // Normalizar cuit dentro de cada parte
+      if (p.cuit) {
+        const digits = String(p.cuit).replace(/[^0-9]/g, '');
+        if (digits.length === 11) {
+          return { ...p, cuit: digits.replace(/(\d{2})(\d{8})(\d)/, '$1-$2-$3') };
+        }
+      }
+      return p;
+    });
+  }
+
+  return normalized;
 }
 
-export function processTemplate(template: ConvenioTemplate, fields: TemplateField[]) {
-  const normalizedFields = normalizeFields(fields);
+export function processTemplate(template: ConvenioTemplate, fieldsRecord: Record<string, any>) {
+  const fields = normalizeFields(fieldsRecord);
   const children: any[] = [];
 
   // Validar y normalizar la estructura del template
@@ -65,79 +68,71 @@ export function processTemplate(template: ConvenioTemplate, fields: TemplateFiel
     cierre: template?.cierre || ''
   };
 
-  // Log para debuggear template incompleto
-  if (!template?.title || !template?.partes || !template?.considerandos || !template?.clausulas) {
-    console.warn('Template incompleto detectado:', {
-      title: !!template?.title,
-      partes: !!template?.partes,
-      considerandos: !!template?.considerandos,
-      clausulas: !!template?.clausulas,
-      cierre: !!template?.cierre
-    });
-  }
+  // Función helper para reemplazar campos con soporte de loops
+  // Retorna un array de strings (líneas) para manejar loops que generan múltiples líneas
+  const replaceFields = (text: string): string[] => {
+    if (text == null || typeof text !== 'string') return [''];
 
-  // Función helper para reemplazar campos
-  const replaceFields = (text: string) => {
-    // Validar que text no sea undefined o null
-    if (text == null || typeof text !== 'string') {
-      console.warn('Texto del template es null/undefined:', text);
-      return '';
+    // Detectar bloque loop: {#arrayName}contenido{/arrayName}
+    const loopRegex = /{#(\w+)}([\s\S]*?){\/\1}/g;
+    let processedText = text;
+
+    // Si no hay loops, comportamiento normal
+    if (!loopRegex.test(text)) {
+      return [replaceSingleString(text, fields)];
     }
-    
+
+    // Si hay loops, procesamos
+    // Nota: Por simplicidad, asumimos que si hay un loop, puede afectar a todo el párrafo 
+    // o lo dividimos. Para mantenerlo simple, expandimos el loop y retornamos array.
+
+    // Extraer partes estáticas y dinámicas
+    const result: string[] = [];
+    let lastIndex = 0;
+
+    // Reset regex
+    loopRegex.lastIndex = 0;
+    let match;
+
+    while ((match = loopRegex.exec(text)) !== null) {
+      const arrayName = match[1];
+      const itemsTemplate = match[2];
+      const beforeLoop = text.substring(lastIndex, match.index);
+
+      // Agregar texto antes del loop
+      if (beforeLoop) result.push(replaceSingleString(beforeLoop, fields));
+
+      const arrayData = fields[arrayName];
+      if (Array.isArray(arrayData)) {
+        arrayData.forEach(item => {
+          // Reemplazar campos del item en el template del loop
+          result.push(replaceSingleString(itemsTemplate, item));
+        });
+      }
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Texto después del loop
+    const afterLoop = text.substring(lastIndex);
+    if (afterLoop) result.push(replaceSingleString(afterLoop, fields));
+
+    return result;
+  };
+
+  const replaceSingleString = (text: string, data: Record<string, any>): string => {
     let processed = text;
-    
-    // Validar que fields sea un array válido
-    if (!Array.isArray(normalizedFields)) {
-      console.error('fields no es un array válido:', fields);
-      return processed;
-    }
-    
-    normalizedFields.forEach((field) => {
-      // Validar que field sea un objeto válido
-      if (!field || typeof field !== 'object') {
-        console.error('Field inválido:', field);
-        return;
-      }
-      
-      // Validar que field.key exista
-      if (!field.key || typeof field.key !== 'string') {
-        console.error('field.key inválido:', field);
-        return;
-      }
-      
-      // Validar que field.value no sea undefined o null
-      const safeValue = (field.value != null) ? String(field.value) : '';
-      
-      // Log para debuggear campos faltantes
-      if (!field.value) {
-        console.warn(`Campo '${field.key}' está vacío o undefined`);
-      }
-      
-      try {
-        processed = processed.replace(
-          new RegExp(`{${field.key}}`, 'g'),
-          safeValue
-        );
-      } catch (error) {
-        console.error(`Error procesando campo '${field.key}':`, error);
+    Object.entries(data).forEach(([key, value]) => {
+      if (typeof value === 'string' || typeof value === 'number') {
+        processed = processed.replace(new RegExp(`{${key}}`, 'g'), String(value));
       }
     });
-    
-    // Detectar placeholders no reemplazados
-    const unreplacedPlaceholders = processed.match(/{[^}]+}/g);
-    if (unreplacedPlaceholders) {
-      console.warn('Placeholders no encontrados:', unreplacedPlaceholders);
-      // Reemplazar placeholders no encontrados con texto por defecto
-      unreplacedPlaceholders.forEach(placeholder => {
-        try {
-          processed = processed.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), '[CAMPO FALTANTE]');
-        } catch (error) {
-          console.error(`Error reemplazando placeholder ${placeholder}:`, error);
-        }
-      });
-    }
-    
-    return processed;
+    // Limpiar placeholders no encontrados
+    return processed.replace(/{[^}]+}/g, (match) => {
+      // No eliminar si parece un tag de control
+      if (match.startsWith('{#') || match.startsWith('{/')) return match;
+      return '[FALTA]';
+    });
   };
 
   // Título
@@ -146,60 +141,60 @@ export function processTemplate(template: ConvenioTemplate, fields: TemplateFiel
       text: normalizedTemplate.title,
       heading: HeadingLevel.HEADING_1,
       alignment: AlignmentType.CENTER,
-      spacing: {
-        after: 400,
-      },
+      spacing: { after: 400 },
     })
   );
 
-  // Subtítulo (solo si existe)
+  // Subtítulo
   if (normalizedTemplate.subtitle) {
-    children.push(
-      new Paragraph({
-        text: replaceFields(normalizedTemplate.subtitle),
-        heading: HeadingLevel.HEADING_2,
-        alignment: AlignmentType.CENTER,
-        spacing: {
-          after: 400,
-        },
-      })
-    );
+    const subtitleLines = replaceFields(normalizedTemplate.subtitle);
+    subtitleLines.forEach(line => {
+      children.push(
+        new Paragraph({
+          text: line,
+          heading: HeadingLevel.HEADING_2,
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        })
+      );
+    });
   }
 
   // Partes
   normalizedTemplate.partes.forEach((parte) => {
-    children.push(
-      new Paragraph({
-        text: replaceFields(parte),
-        spacing: {
-          after: 200,
-        },
-      })
-    );
+    // replaceFields ahora retorna array de líneas
+    const lines = replaceFields(parte);
+    lines.forEach(line => {
+      if (!line.trim()) return; // Ignorar líneas vacías
+      children.push(
+        new Paragraph({
+          text: line,
+          spacing: { after: 200 },
+        })
+      );
+    });
   });
 
-  // Considerandos (solo si hay)
+  // Considerandos
   if (normalizedTemplate.considerandos.length > 0) {
     children.push(
       new Paragraph({
         text: "CONSIDERANDO:",
         heading: HeadingLevel.HEADING_2,
-        spacing: {
-          before: 400,
-          after: 200,
-        },
+        spacing: { before: 400, after: 200 },
       })
     );
 
     normalizedTemplate.considerandos.forEach((considerando) => {
-      children.push(
-        new Paragraph({
-          text: replaceFields(considerando),
-          spacing: {
-            after: 200,
-          },
-        })
-      );
+      const lines = replaceFields(considerando);
+      lines.forEach(line => {
+        children.push(
+          new Paragraph({
+            text: line,
+            spacing: { after: 200 },
+          })
+        );
+      });
     });
   }
 
@@ -209,50 +204,56 @@ export function processTemplate(template: ConvenioTemplate, fields: TemplateFiel
       new Paragraph({
         text: `CLÁUSULA ${clausula.titulo}:`,
         heading: HeadingLevel.HEADING_2,
-        spacing: {
-          before: 400,
-          after: 200,
-        },
+        spacing: { before: 400, after: 200 },
       })
     );
 
-    // Procesar el contenido que puede tener saltos de línea
-    const lineas = (clausula.contenido || '').split('\n');
-    lineas.forEach((linea) => {
-      children.push(
-        new Paragraph({
-          text: replaceFields(linea),
-          spacing: {
-            after: 200,
-          },
-        })
-      );
+    const mainLines = replaceFields(clausula.contenido);
+    mainLines.forEach(block => {
+      block.split('\n').forEach(line => {
+        children.push(
+          new Paragraph({
+            text: line,
+            spacing: { after: 200 },
+          })
+        );
+      });
     });
   });
 
-  // Cierre (solo si existe)
+  // Cierre
   if (normalizedTemplate.cierre) {
-    children.push(
-      new Paragraph({
-        text: replaceFields(normalizedTemplate.cierre),
-        spacing: {
-          before: 400,
-          after: 400,
-        },
-      })
-    );
+    const lines = replaceFields(normalizedTemplate.cierre);
+    lines.forEach(line => {
+      children.push(
+        new Paragraph({
+          text: line,
+          spacing: { before: 400, after: 400 },
+        })
+      );
+    });
   }
 
   return children;
 }
 
-export function createDocument(template: ConvenioTemplate, fields: TemplateField[]) {
+export function createDocument(template: ConvenioTemplate, fields: Record<string, any> | any[]) {
+  // Convertir array de fields a objeto si es necesario (compatibilidad)
+  let fieldsObj: Record<string, any> = {};
+  if (Array.isArray(fields)) {
+    fields.forEach(f => {
+      if (f.key) fieldsObj[f.key] = f.value;
+    });
+  } else {
+    fieldsObj = fields;
+  }
+
   const doc = new Document({
     sections: [{
       properties: {},
-      children: processTemplate(template, fields),
+      children: processTemplate(template, fieldsObj),
     }],
   });
 
   return doc;
-} 
+}
