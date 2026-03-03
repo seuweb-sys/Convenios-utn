@@ -27,7 +27,7 @@ export default async function AdminPage() {
     return redirect("/protected");
   }
 
-  // Obtener todos los convenios
+  // Obtener todos los convenios (incluyendo signed_pdf_path para PDF firmados)
   const { data: convenios, error } = await supabase
     .from("convenios")
     .select(`

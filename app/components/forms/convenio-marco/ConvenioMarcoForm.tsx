@@ -16,16 +16,17 @@ import {
   FormLabel,
   FormMessage,
 } from "@/app/components/ui/form";
-import { BuildingIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { BuildingIcon, CalendarIcon, CheckIcon, ChevronLeftIcon, ChevronRightIcon, FileTextIcon, UploadIcon, XIcon, PaperclipIcon } from "lucide-react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { Modal } from '@/app/components/ui/modal';
 import { SuccessModal } from '@/app/components/ui/success-modal';
 import { MultiInstitutionManager } from './MultiInstitutionManager';
 
-// Nuevos 3 pasos
+// 4 pasos incluyendo anexos
 const STEPS = [
   { title: "Instituciones", component: null },
   { title: "Fechas del Convenio", component: null },
+  { title: "Anexos", component: null },
   { title: "Revisión", component: null }
 ];
 
@@ -83,6 +84,9 @@ export function ConvenioMarcoForm({
     return (Array.isArray(partes) && partes.length > 0 ? partes : []) as Institucion[];
   });
 
+  // Estado para anexos (DNI, resolución, inscripción ARCA, otros)
+  const [anexoFiles, setAnexoFiles] = useState<Array<{id: string, name: string, file: File, buffer: ArrayBuffer, mimeType?: string}>>([]);
+
   const meses = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -123,6 +127,43 @@ export function ConvenioMarcoForm({
     updateConvenioData('partes', newInstituciones);
   };
 
+  // Funciones para manejar anexos
+  const handleAnexosUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/pdf' // .pdf
+    ];
+
+    for (let file of Array.from(files)) {
+      if (validTypes.includes(file.type)) {
+        try {
+          const buffer = await file.arrayBuffer();
+          const anexo = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            name: file.name,
+            file: file,
+            buffer: buffer,
+            mimeType: file.type
+          };
+          setAnexoFiles(prev => [...prev, anexo]);
+        } catch (error) {
+          console.error('Error procesando archivo:', file.name, error);
+          alert(`Error procesando ${file.name}: ${error}`);
+        }
+      } else {
+        alert(`${file.name} no es un archivo válido. Solo se aceptan .docx y .pdf`);
+      }
+    }
+    event.target.value = '';
+  };
+
+  const removeAnexoFile = (anexoId: string) => {
+    setAnexoFiles(prev => prev.filter(a => a.id !== anexoId));
+  };
+
   const handleNext = async () => {
     if (currentStep === 1) {
       // Validar que haya al menos una institución
@@ -144,6 +185,13 @@ export function ConvenioMarcoForm({
         mes: data.mes
       });
       onStepChange(3);
+    } else if (currentStep === 3) {
+      // Pasar anexos al store (opcional, se procesan al enviar)
+      updateConvenioData('all', {
+        ...convenioData,
+        anexosMarco: anexoFiles
+      });
+      onStepChange(4);
     }
   };
 
@@ -227,6 +275,94 @@ export function ConvenioMarcoForm({
         );
 
       case 3:
+        return (
+          <div className="space-y-6 animate-in fade-in-0">
+            <div className="space-y-2 mb-6">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <div className="p-1.5 rounded-full bg-orange-500/20 text-orange-600">
+                  <PaperclipIcon className="h-5 w-5" />
+                </div>
+                Anexos del Convenio
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Adjunta documentos complementarios (DNI representante, resolución, inscripción ARCA, otros). Formatos: .docx y .pdf
+              </p>
+            </div>
+
+            <div className="border border-border rounded-lg p-5 bg-card space-y-4">
+              {/* Botón para subir archivos */}
+              <div className="space-y-3">
+                <Label>Documentos anexos (opcional)</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="file"
+                    id="marco-anexos-upload"
+                    accept=".docx,.pdf"
+                    multiple
+                    onChange={handleAnexosUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('marco-anexos-upload')?.click()}
+                    className="flex-1"
+                  >
+                    <UploadIcon className="h-4 w-4 mr-2" />
+                    Seleccionar archivos (.docx / .pdf)
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Puedes adjuntar: DNI del representante, resolución de designación, inscripción en ARCA, u otros documentos relevantes.
+                </p>
+              </div>
+
+              {/* Lista de archivos anexos */}
+              {anexoFiles.length > 0 && (
+                <div className="space-y-2 mt-4">
+                  <h4 className="text-sm font-medium">Anexos agregados ({anexoFiles.length}):</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {anexoFiles.map((anexo) => {
+                      const isPdf = anexo.mimeType === 'application/pdf' || anexo.name.toLowerCase().endsWith('.pdf');
+                      return (
+                        <div key={anexo.id} className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                          <div className="flex items-center gap-3">
+                            <FileTextIcon className="h-5 w-5 text-blue-600" />
+                            <div>
+                              <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{anexo.name}</p>
+                              <p className="text-xs text-blue-600 dark:text-blue-300">
+                                {(anexo.file.size / 1024 / 1024).toFixed(2)} MB • {isPdf ? 'PDF' : 'Word (.docx)'}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeAnexoFile(anexo.id)}
+                            className="text-xs px-2 py-1 h-7 text-red-600 border-red-300 hover:bg-red-50"
+                          >
+                            <XIcon className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {anexoFiles.length === 0 && (
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                  <PaperclipIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No hay anexos adjuntos</p>
+                  <p className="text-xs">Los anexos son opcionales</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 4:
         const datosBasicos = (convenioData?.datosBasicos as any) || {};
         const partes = (convenioData?.partes || []) as Institucion[];
 
@@ -272,6 +408,28 @@ export function ConvenioMarcoForm({
                   {datosBasicos.dia} de {datosBasicos.mes}
                 </div>
               </div>
+
+              {/* Anexos */}
+              {anexoFiles.length > 0 && (
+                <div className="border border-border rounded-lg p-4 bg-card">
+                  <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                    <PaperclipIcon className="h-4 w-4 text-orange-500" />
+                    Anexos ({anexoFiles.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {anexoFiles.map((anexo, i) => {
+                      const isPdf = anexo.mimeType === 'application/pdf' || anexo.name.toLowerCase().endsWith('.pdf');
+                      return (
+                        <div key={anexo.id} className="text-sm p-2 bg-muted/30 rounded-md flex items-center gap-2">
+                          <FileTextIcon className="h-4 w-4 text-muted-foreground" />
+                          <span>{anexo.name}</span>
+                          <span className="text-xs text-muted-foreground">({isPdf ? 'PDF' : 'DOCX'})</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -298,7 +456,7 @@ export function ConvenioMarcoForm({
           </Button>
         )}
 
-        {currentStep < 3 && (
+        {currentStep < 4 && (
           <Button
             type="button"
             onClick={handleNext}
@@ -309,7 +467,7 @@ export function ConvenioMarcoForm({
           </Button>
         )}
 
-        {currentStep === 3 && (
+        {currentStep === 4 && (
           <>
             {convenioData?.status === 'enviado' ? (
               <div className="w-full text-center mt-2">
@@ -339,9 +497,15 @@ export function ConvenioMarcoForm({
                       variant="default"
                       disabled={isSubmitting}
                       onClick={() => {
-                        // Sincronizar explícitamente instituciones antes de enviar
+                        // Sincronizar explícitamente instituciones y anexos antes de enviar
                         console.log('Forzando sincronización de partes antes de enviar:', instituciones);
+                        console.log('Forzando sincronización de anexos antes de enviar:', anexoFiles.length);
                         updateConvenioData('partes', instituciones);
+                        updateConvenioData('all', {
+                          ...convenioData,
+                          partes: instituciones,
+                          anexosMarco: anexoFiles
+                        });
                         onFinalSubmit();
                       }}
                     >

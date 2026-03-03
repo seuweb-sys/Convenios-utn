@@ -134,7 +134,7 @@ export async function PATCH(
     // Verificar que el convenio exista y el usuario tenga permiso
     const { data: convenio, error: checkError } = await supabase
       .from('convenios')
-      .select('user_id, status, title')
+      .select('user_id, status, title, convenio_type_id')
       .eq('id', params.id)
       .single();
 
@@ -155,6 +155,34 @@ export async function PATCH(
         { error: 'No tienes permiso para actualizar este convenio' },
         { status: 403 }
       );
+    }
+
+    // R9: Validación de fechas para Convenio Específico (type_id 4) al actualizar a 'enviado'
+    if (convenio.convenio_type_id === 4 && body.status === 'enviado' && body.content_data) {
+      const formData = body.content_data;
+      const marcoFecha = formData.convenio_marco_fecha;
+      const dia = formData.dia;
+      const mes = formData.mes;
+      
+      if (marcoFecha && dia && mes) {
+        const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const marco = new Date(marcoFecha);
+        const mesIdx = meses.indexOf(mes);
+        const diaNum = parseInt(dia, 10);
+        
+        if (!isNaN(marco.getTime()) && mesIdx >= 0 && !isNaN(diaNum)) {
+          const fechaFirma = new Date(marco.getFullYear(), mesIdx, diaNum);
+          
+          if (fechaFirma < marco) {
+            console.error('❌ [API PATCH] Validación de fechas fallida: fecha de firma anterior al marco');
+            return NextResponse.json(
+              { error: 'La fecha de firma del Convenio Específico no puede ser anterior a la fecha del Convenio Marco' },
+              { status: 400 }
+            );
+          }
+          console.log('✅ [API PATCH] Validación de fechas OK');
+        }
+      }
     }
 
     // Preparar datos de actualización

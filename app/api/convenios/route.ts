@@ -410,6 +410,34 @@ export async function POST(request: Request) {
 
     console.log(`✅ Mapeo directo: ${finalTemplateSlug} -> tipo ${convenioTypeId}`);
 
+    // R9: Validación de fechas para Convenio Específico (type_id 4)
+    // La fecha de firma del específico no puede ser anterior a la del marco
+    if (convenioTypeId === 4) {
+      const marcoFecha = formData.convenio_marco_fecha;
+      const dia = formData.dia;
+      const mes = formData.mes;
+      
+      if (marcoFecha && dia && mes) {
+        const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const marco = new Date(marcoFecha);
+        const mesIdx = meses.indexOf(mes);
+        const diaNum = parseInt(dia, 10);
+        
+        if (!isNaN(marco.getTime()) && mesIdx >= 0 && !isNaN(diaNum)) {
+          const fechaFirma = new Date(marco.getFullYear(), mesIdx, diaNum);
+          
+          if (fechaFirma < marco) {
+            console.error('❌ [API] Validación de fechas fallida: fecha de firma anterior al marco');
+            return NextResponse.json(
+              { error: 'La fecha de firma del Convenio Específico no puede ser anterior a la fecha del Convenio Marco' },
+              { status: 400 }
+            );
+          }
+          console.log('✅ [API] Validación de fechas OK');
+        }
+      }
+    }
+
     let buffer: Buffer | null = null;
 
     // ---------- Lógica ROBUSTA para encontrar el template DOCX ----------
@@ -546,13 +574,15 @@ export async function POST(request: Request) {
     // Si el convenio se creó exitosamente, subir a Drive
     let documentPath = null;
     try {
-      // Detectar si es convenio específico (type_id 4)
+      // Detectar si es convenio específico (type_id 4) o convenio marco con anexos (type_id 2)
       const isConvenioEspecifico = convenioTypeId === 4;
+      const isConvenioMarcoConAnexos = convenioTypeId === 2 && body.anexos && Array.isArray(body.anexos) && body.anexos.length > 0;
 
-      if (isConvenioEspecifico) {
-        console.log('📁 [API] Procesando convenio específico con carpeta...');
+      if (isConvenioEspecifico || isConvenioMarcoConAnexos) {
+        const tipoConvenio = isConvenioEspecifico ? 'específico' : 'marco';
+        console.log(`📁 [API] Procesando convenio ${tipoConvenio} con carpeta...`);
 
-        // Preparar anexos si existen
+        // Preparar anexos si existen (con soporte para .docx y .pdf)
         const anexos = [];
         if (body.anexos && Array.isArray(body.anexos)) {
           console.log('📎 [API] Procesando anexos...', body.anexos.length);
@@ -562,7 +592,8 @@ export async function POST(request: Request) {
               console.log(`📎 [API] Procesando anexo: ${anexo.name}`, {
                 hasBuffer: !!anexo.buffer,
                 bufferType: typeof anexo.buffer,
-                bufferLength: anexo.buffer?.length || 0
+                bufferLength: anexo.buffer?.length || 0,
+                mimeType: anexo.mimeType || 'no especificado'
               });
 
               try {
@@ -579,10 +610,11 @@ export async function POST(request: Request) {
 
                 anexos.push({
                   name: anexo.name,
-                  buffer: buffer
+                  buffer: buffer,
+                  mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 });
 
-                console.log(`✅ [API] Anexo procesado: ${anexo.name}`);
+                console.log(`✅ [API] Anexo procesado: ${anexo.name} (${anexo.mimeType || 'docx'})`);
               } catch (bufferError) {
                 console.error(`❌ [API] Error procesando anexo ${anexo.name}:`, bufferError);
               }
@@ -594,9 +626,9 @@ export async function POST(request: Request) {
 
         console.log(`📎 [API] Total anexos procesados: ${anexos.length}`);
 
-        // Usar función OAuth (nueva) - debería resolver el problema de Service Account
+        // Usar función OAuth (nueva) - soporta convenio específico y marco con anexos
         const convenioName = `Convenio_${title}_${new Date().toISOString().split('T')[0]}`;
-        console.log('🔐 [API] Usando OAuth para subir convenio específico...');
+        console.log(`🔐 [API] Usando OAuth para subir convenio ${tipoConvenio}...`);
         const driveResponse = await uploadConvenioEspecificoOAuth(
           buffer as Buffer,
           convenioName,
@@ -605,7 +637,7 @@ export async function POST(request: Request) {
 
         documentPath = driveResponse.webViewLink; // Enlace a la carpeta
 
-        console.log('✅ [API] Convenio específico subido a carpeta:', driveResponse);
+        console.log(`✅ [API] Convenio ${tipoConvenio} subido a carpeta:`, driveResponse);
       } else {
         console.log('📄 [API] Procesando convenio normal (archivo directo)...');
 

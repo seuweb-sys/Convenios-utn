@@ -199,6 +199,14 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         config.title ||
         "Nuevo Convenio";
 
+      // Preparar anexos si existen (para Convenio Marco con anexos)
+      const anexos = (convenioData as any).anexosMarco || [];
+      const anexosPayload = anexos.map((anexo: any) => ({
+        name: anexo.name,
+        buffer: Array.from(new Uint8Array(anexo.buffer)),
+        mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      }));
+
       const convenioPayload = {
         title,
         status: newStatus,
@@ -206,6 +214,8 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         convenio_type: urlType, // SÚPER BACKUP: Enviar tipo explícito también
         form_data: finalData, // CORREGIDO: Usar form_data en lugar de content_data
         user_id: convenioData.user_id,
+        // Incluir anexos si existen (para Marco con anexos)
+        ...(anexosPayload.length > 0 && { anexos: anexosPayload })
       };
 
 

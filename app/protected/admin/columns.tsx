@@ -11,7 +11,9 @@ import {
   ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
-  HashIcon 
+  HashIcon,
+  FileSignature,
+  ExternalLink
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,6 +27,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useState } from "react";
 import { ObservacionesDialog } from "./observaciones-dialog";
+import { SignedPdfDialog } from "./signed-pdf-dialog";
 import { cn } from "@/lib/utils";
 
 // Tipos
@@ -34,6 +37,8 @@ type Convenio = {
   title: string;
   status: string;
   created_at: string;
+  signed_pdf_path?: string | null;
+  document_path?: string | null;
   profiles: {
     full_name: string;
     role: string;
@@ -240,6 +245,7 @@ export const columns: ColumnDef<Convenio>[] = [
     header: "Estado",
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
+      const signedPdfPath = row.original.signed_pdf_path;
       const statusMap: Record<string, { label: string }> = {
         enviado: { label: "Enviado" },
         aprobado: { label: "Aprobado" },
@@ -251,7 +257,16 @@ export const columns: ColumnDef<Convenio>[] = [
       const { label } = statusMap[status] || { label: status };
       const colorClasses = getStatusColor(status);
 
-      return <Badge variant="outline" className={colorClasses}>{label}</Badge>;
+      return (
+        <div className="flex items-center gap-1">
+          <Badge variant="outline" className={colorClasses}>{label}</Badge>
+          {signedPdfPath && (
+            <span title="PDF firmado disponible" className="text-green-600">
+              <FileSignature className="h-3.5 w-3.5" />
+            </span>
+          )}
+        </div>
+      );
     },
   },
   {
@@ -259,6 +274,9 @@ export const columns: ColumnDef<Convenio>[] = [
     cell: ({ row }) => {
       const convenio = row.original;
       const [showObservaciones, setShowObservaciones] = useState(false);
+      const [showSignedPdfDialog, setShowSignedPdfDialog] = useState(false);
+
+      const isApproved = convenio.status === 'aprobado' || convenio.status === 'aceptado';
 
       return (
         <>
@@ -272,27 +290,64 @@ export const columns: ColumnDef<Convenio>[] = [
             <DropdownMenuContent align="end" className="bg-card/80 backdrop-blur-sm border-border/60">
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleAction(convenio.id, "approve")}
-                className="text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
-              >
-                <Check className="mr-2 h-4 w-4" />
-                Aprobar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleAction(convenio.id, "reject")}
-                className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-              >
-                <X className="mr-2 h-4 w-4" />
-                Rechazar
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setShowObservaciones(true)}
-                className="text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
-              >
-                <AlertCircle className="mr-2 h-4 w-4" />
-                Solicitar corrección
-              </DropdownMenuItem>
+              
+              {!isApproved && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleAction(convenio.id, "approve")}
+                    className="text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                  >
+                    <Check className="mr-2 h-4 w-4" />
+                    Aprobar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleAction(convenio.id, "reject")}
+                    className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Rechazar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setShowObservaciones(true)}
+                    className="text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20"
+                  >
+                    <AlertCircle className="mr-2 h-4 w-4" />
+                    Solicitar corrección
+                  </DropdownMenuItem>
+                </>
+              )}
+
+              {isApproved && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => setShowSignedPdfDialog(true)}
+                    className="text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                  >
+                    <FileSignature className="mr-2 h-4 w-4" />
+                    {convenio.signed_pdf_path ? 'Reemplazar PDF firmado' : 'Subir PDF firmado'}
+                  </DropdownMenuItem>
+                  
+                  {convenio.signed_pdf_path && (
+                    <DropdownMenuItem
+                      onClick={() => window.open(convenio.signed_pdf_path!, '_blank')}
+                      className="text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Ver PDF firmado
+                    </DropdownMenuItem>
+                  )}
+                  
+                  {convenio.document_path && (
+                    <DropdownMenuItem
+                      onClick={() => window.open(convenio.document_path!, '_blank')}
+                      className="text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/20"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Ver documento original
+                    </DropdownMenuItem>
+                  )}
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -300,6 +355,14 @@ export const columns: ColumnDef<Convenio>[] = [
             isOpen={showObservaciones}
             onClose={() => setShowObservaciones(false)}
             onSubmit={(observaciones) => handleAction(convenio.id, "correct", observaciones)}
+          />
+
+          <SignedPdfDialog
+            isOpen={showSignedPdfDialog}
+            onClose={() => setShowSignedPdfDialog(false)}
+            convenioId={convenio.id}
+            convenioTitle={convenio.title}
+            existingSignedPdfPath={convenio.signed_pdf_path}
           />
         </>
       );

@@ -242,9 +242,40 @@ export function ConvenioEspecificoForm({
   const [fullscreenContent, setFullscreenContent] = useState("");
   const [attachedWordFile, setAttachedWordFile] = useState<{name: string, file: File} | null>(null);
 
-  // NUEVO: Sistema de múltiples anexos
-  const [anexoFiles, setAnexoFiles] = useState<Array<{id: string, name: string, file: File, buffer: ArrayBuffer}>>([]);
+  // NUEVO: Sistema de múltiples anexos (soporta .docx y .pdf)
+  const [anexoFiles, setAnexoFiles] = useState<Array<{id: string, name: string, file: File, buffer: ArrayBuffer, mimeType?: string}>>([]);
   const [anexoMode, setAnexoMode] = useState<'editor' | 'files' | null>(null);
+  
+  // Estado para error de validación de fechas
+  const [fechaError, setFechaError] = useState<string | null>(null);
+  
+  // Función para validar que la fecha de firma no sea anterior al convenio marco
+  const validateFechaFirma = (marcoFecha: string, dia: string, mes: string): boolean => {
+    if (!marcoFecha || !dia || !mes) {
+      setFechaError(null);
+      return true;
+    }
+    
+    const marco = new Date(marcoFecha);
+    const mesIdx = meses.indexOf(mes);
+    const diaNum = parseInt(dia, 10);
+    
+    if (isNaN(marco.getTime()) || mesIdx < 0 || isNaN(diaNum)) {
+      setFechaError(null);
+      return true;
+    }
+    
+    // Construir fecha de firma usando el año del convenio marco
+    const fechaFirma = new Date(marco.getFullYear(), mesIdx, diaNum);
+    
+    if (fechaFirma < marco) {
+      setFechaError("La fecha de firma del Convenio Específico no puede ser anterior a la fecha del Convenio Marco");
+      return false;
+    }
+    
+    setFechaError(null);
+    return true;
+  };
 
   // Configurar el esquema de validación según el paso actual
   useEffect(() => {
@@ -516,21 +547,12 @@ export function ConvenioEspecificoForm({
                     id="convenioMarcoFecha"
                     type="date"
                     className="border-border focus-visible:ring-primary"
-                    {...form.register("convenioMarcoFecha", {
-                      validate: (value) => {
-                        const marco = new Date(value);
-                        const mes = meses.indexOf(form.watch("mes"));
-                        const dia = parseInt(form.watch("dia"), 10);
-                        if (!value || mes < 0 || !form.watch("dia")) return true;
-                        if (!isNaN(marco.getTime()) && mes >= 0 && !isNaN(dia)) {
-                          const fechaFirma = new Date(marco.getFullYear(), mes, dia);
-                          if (fechaFirma < marco) {
-                            return "La fecha de firma no puede ser anterior al convenio marco";
-                          }
-                        }
-                        return true;
-                      }
-                    })}
+                    {...form.register("convenioMarcoFecha")}
+                    onChange={(e) => {
+                      form.setValue("convenioMarcoFecha", e.target.value);
+                      // Revalidar cuando cambia la fecha del marco
+                      validateFechaFirma(e.target.value, form.watch("dia"), form.watch("mes"));
+                    }}
                   />
                   {form.formState.errors.convenioMarcoFecha?.message && (
                     <p className="text-sm text-red-500">{String(form.formState.errors.convenioMarcoFecha.message)}</p>
@@ -585,6 +607,8 @@ export function ConvenioEspecificoForm({
                     onChange={e => {
                       form.setValue("mes", e.target.value);
                       form.setValue("dia", "");
+                      // Revalidar fechas
+                      validateFechaFirma(form.watch("convenioMarcoFecha"), "", e.target.value);
                     }}
                     value={form.watch("mes") || ""}
                   >
@@ -603,6 +627,11 @@ export function ConvenioEspecificoForm({
                     id="dia"
                     className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
                     {...form.register("dia", { required: true })}
+                    onChange={e => {
+                      form.setValue("dia", e.target.value);
+                      // Revalidar fechas
+                      validateFechaFirma(form.watch("convenioMarcoFecha"), e.target.value, form.watch("mes"));
+                    }}
                     value={form.watch("dia") || ""}
                   >
                     <option value="">Seleccionar día</option>
@@ -618,6 +647,16 @@ export function ConvenioEspecificoForm({
                     <p className="text-sm text-red-500">{String(form.formState.errors.dia.message)}</p>
                   )}
                 </div>
+
+                {/* Error de validación de fechas */}
+                {fechaError && (
+                  <div className="md:col-span-2 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                      <span>⚠️</span>
+                      {fechaError}
+                    </p>
+                  </div>
+                )}
 
                 {/* NUEVO CAMPO ANEXO - REEMPLAZA LOS 4 CAMPOS ANTERIORES */}
                 <div className="space-y-2 md:col-span-2">
@@ -703,7 +742,7 @@ export function ConvenioEspecificoForm({
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium">📄 Opción 2: Múltiples documentos Word</span>
+                          <span className="text-sm font-medium">📄 Opción 2: Múltiples documentos (Word/PDF)</span>
                           {anexoMode === 'editor' && (
                             <span className="text-xs text-amber-600 bg-amber-100 px-2 py-1 rounded dark:bg-amber-900/20 dark:text-amber-400">
                               Deshabilitado (editor en uso)
@@ -714,7 +753,7 @@ export function ConvenioEspecificoForm({
                           <input
                             type="file"
                             id="multiple-word-upload"
-                            accept=".docx"
+                            accept=".docx,.pdf"
                             multiple
                             onChange={handleMultipleAnexosUpload}
                             className="hidden"
@@ -729,7 +768,7 @@ export function ConvenioEspecificoForm({
                             className="text-xs px-2 py-1 h-6"
                           >
                             <UploadIcon className="h-3 w-3 mr-1" />
-                            Adjuntar .docx
+                            Adjuntar .docx/.pdf
                           </Button>
                         </div>
                       </div>
@@ -741,28 +780,31 @@ export function ConvenioEspecificoForm({
                             Anexos agregados ({anexoFiles.length}):
                           </h4>
                           <div className="space-y-2 max-h-48 overflow-y-auto">
-                            {anexoFiles.map((anexo) => (
-                              <div key={anexo.id} className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/20 rounded-md dark:bg-blue-500/10 dark:border-blue-500/20">
-                                <div className="flex items-center gap-3">
-                                  <FileTextIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                  <div>
-                                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{anexo.name}</p>
-                                    <p className="text-xs text-blue-600 dark:text-blue-300">
-                                      {(anexo.file.size / 1024 / 1024).toFixed(2)} MB • Se convertirá a Google Doc
-                                    </p>
+                            {anexoFiles.map((anexo) => {
+                              const isPdf = anexo.mimeType === 'application/pdf' || anexo.name.toLowerCase().endsWith('.pdf');
+                              return (
+                                <div key={anexo.id} className="flex items-center justify-between p-3 bg-blue-500/10 border border-blue-500/20 rounded-md dark:bg-blue-500/10 dark:border-blue-500/20">
+                                  <div className="flex items-center gap-3">
+                                    <FileTextIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                                    <div>
+                                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{anexo.name}</p>
+                                      <p className="text-xs text-blue-600 dark:text-blue-300">
+                                        {(anexo.file.size / 1024 / 1024).toFixed(2)} MB • {isPdf ? 'PDF (se sube directo)' : 'Se convertirá a Google Doc'}
+                                      </p>
+                                    </div>
                                   </div>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => removeAnexoFile(anexo.id)}
+                                    className="text-xs px-2 py-1 h-7 text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
+                                  >
+                                    <XIcon className="h-3 w-3" />
+                                  </Button>
                                 </div>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeAnexoFile(anexo.id)}
-                                  className="text-xs px-2 py-1 h-7 text-red-600 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
-                                >
-                                  <XIcon className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -776,9 +818,9 @@ export function ConvenioEspecificoForm({
                           <p><strong>Instrucciones:</strong></p>
                           <ul className="text-xs space-y-1">
                             <li>📝 <strong>Editor de texto:</strong> Para contenido simple sin tablas complejas</li>
-                            <li>📄 <strong>Archivos múltiples:</strong> Los .docx se convertirán automáticamente a Google Docs</li>
+                            <li>📄 <strong>Archivos múltiples:</strong> Los .docx se convertirán a Google Docs, los .pdf se suben directamente</li>
                             <li>⚠️ <strong>Ambas opciones son excluyentes:</strong> Solo puedes usar una a la vez</li>
-                            <li>🔄 <strong>Conversión:</strong> Los archivos mantendrán formato, tablas e imágenes</li>
+                            <li>🔄 <strong>Formatos aceptados:</strong> .docx (Word) y .pdf</li>
                           </ul>
                         </div>
                       </div>
@@ -794,24 +836,27 @@ export function ConvenioEspecificoForm({
                               Vista previa de anexos ({anexoFiles.length})
                             </h4>
                             <p className="text-xs text-green-600 dark:text-green-300">
-                              Archivos que se convertirán a Google Docs
+                              Archivos Word y PDF que se subirán
                             </p>
                           </div>
                         </div>
                         
                         <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {anexoFiles.map((anexo, index) => (
-                            <div key={anexo.id} className="flex items-center gap-3 text-xs p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-700">
-                              <span className="font-mono text-green-700 dark:text-green-300 w-6">#{index + 1}</span>
-                              <FileTextIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
-                              <div className="flex-1 min-w-0">
-                                <p className="font-medium text-green-800 dark:text-green-200 truncate">{anexo.name}</p>
-                                <p className="text-green-600 dark:text-green-400">
-                                  {(anexo.file.size / 1024 / 1024).toFixed(2)} MB → Google Doc
-                                </p>
+                          {anexoFiles.map((anexo, index) => {
+                            const isPdf = anexo.mimeType === 'application/pdf' || anexo.name.toLowerCase().endsWith('.pdf');
+                            return (
+                              <div key={anexo.id} className="flex items-center gap-3 text-xs p-2 bg-green-50 dark:bg-green-900/20 rounded border border-green-200 dark:border-green-700">
+                                <span className="font-mono text-green-700 dark:text-green-300 w-6">#{index + 1}</span>
+                                <FileTextIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-green-800 dark:text-green-200 truncate">{anexo.name}</p>
+                                  <p className="text-green-600 dark:text-green-400">
+                                    {(anexo.file.size / 1024 / 1024).toFixed(2)} MB → {isPdf ? 'PDF' : 'Google Doc'}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -1016,7 +1061,7 @@ export function ConvenioEspecificoForm({
     setAttachedWordFile(null);
   };
 
-  // NUEVO: Funciones para múltiples anexos
+  // NUEVO: Funciones para múltiples anexos (soporta .docx y .pdf)
   const handleMultipleAnexosUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
@@ -1026,15 +1071,21 @@ export function ConvenioEspecificoForm({
     form.setValue("anexo", "");
     setAttachedWordFile(null);
 
+    const validTypes = [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/pdf' // .pdf
+    ];
+
     for (let file of Array.from(files)) {
-      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      if (validTypes.includes(file.type)) {
         try {
           const buffer = await file.arrayBuffer();
           const anexo = {
             id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
             name: file.name,
             file: file,
-            buffer: buffer
+            buffer: buffer,
+            mimeType: file.type
           };
           setAnexoFiles(prev => [...prev, anexo]);
         } catch (error) {
@@ -1042,7 +1093,7 @@ export function ConvenioEspecificoForm({
           alert(`Error procesando ${file.name}: ${error}`);
         }
       } else {
-        alert(`${file.name} no es un archivo .docx válido`);
+        alert(`${file.name} no es un archivo válido. Solo se aceptan .docx y .pdf`);
       }
     }
     event.target.value = '';
@@ -1128,7 +1179,7 @@ export function ConvenioEspecificoForm({
               <Button
                 type="submit"
                 variant="default"
-                disabled={Object.values(form.formState.errors).length > 0 || isSubmitting}
+                disabled={Object.values(form.formState.errors).length > 0 || isSubmitting || !!fechaError}
                 className="px-4 transition-all"
               >
                 Siguiente <ChevronRightIcon className="h-4 w-4 ml-1" />
@@ -1186,10 +1237,11 @@ export function ConvenioEspecificoForm({
                                 title: dbData.entidad_nombre,
                                 convenio_type_id: 4, // ID del convenio específico según base de datos
                                 content_data: dbData,
-                                // NUEVO: Anexos múltiples
+                                // NUEVO: Anexos múltiples (con soporte para .docx y .pdf)
                                 anexos: anexoFiles.map(anexo => ({
                                   name: anexo.name,
-                                  buffer: Array.from(new Uint8Array(anexo.buffer)) // Convertir ArrayBuffer a array para JSON
+                                  buffer: Array.from(new Uint8Array(anexo.buffer)), // Convertir ArrayBuffer a array para JSON
+                                  mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                                 })),
                                 status: 'pendiente'
                               };

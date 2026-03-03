@@ -610,6 +610,56 @@ export async function uploadFileToOAuthDrive(
   }
 }
 
+// Nueva función para subir archivos con mimeType variable (docx, pdf, etc.)
+export async function uploadFileToOAuthDriveWithMimeType(
+  buffer: Buffer,
+  fileName: string,
+  folderId: string = DRIVE_FOLDERS.PENDING,
+  mimeType: string = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+) {
+  try {
+    console.log(`📄 [OAuth Drive] Subiendo archivo: ${fileName} (mimeType: ${mimeType})`);
+    
+    const driveClient = await getOAuthClient();
+    
+    const isPdf = mimeType === 'application/pdf';
+    
+    const fileMetadata: any = {
+      name: fileName,
+      parents: [folderId],
+    };
+
+    // Si es DOCX y queremos convertir a Google Doc (opcional, por ahora no convertimos)
+    // if (!isPdf) {
+    //   fileMetadata.mimeType = 'application/vnd.google-apps.document';
+    // }
+
+    const stream = Readable.from(buffer);
+
+    const media = {
+      mimeType: mimeType,
+      body: stream,
+    };
+
+    const response = await driveClient.files.create({
+      requestBody: fileMetadata,
+      media,
+      fields: 'id, webViewLink, webContentLink',
+    });
+
+    console.log(`✅ [OAuth Drive] Archivo subido: ${fileName}`);
+
+    return {
+      fileId: response.data.id,
+      webViewLink: response.data.webViewLink,
+      webContentLink: response.data.webContentLink,
+    };
+  } catch (error: any) {
+    console.error('❌ [OAuth Drive] Error subiendo archivo con mimeType:', error);
+    throw error;
+  }
+}
+
 // Nueva función para crear carpetas usando OAuth
 export async function createFolderInOAuthDrive(
   folderName: string,
@@ -644,10 +694,11 @@ export async function createFolderInOAuthDrive(
 }
 
 // Nueva función para convenio específico usando OAuth (simplificada)
+// Soporta anexos .docx y .pdf
 export async function uploadConvenioEspecificoOAuth(
   mainDocumentBuffer: Buffer,
   convenioName: string,
-  anexos: { name: string; buffer: ArrayBuffer }[] = [],
+  anexos: { name: string; buffer: ArrayBuffer; mimeType?: string }[] = [],
   parentFolderId: string = DRIVE_FOLDERS.PENDING
 ) {
   try {
@@ -663,22 +714,24 @@ export async function uploadConvenioEspecificoOAuth(
       false // Subir como .docx por ahora
     );
 
-    // 3. Subir anexos
+    // 3. Subir anexos (con soporte para .docx y .pdf)
     const anexosUploaded = [];
     for (const anexo of anexos) {
-      console.log(`📎 [OAuth Drive] Subiendo anexo: ${anexo.name}`);
+      const isPdf = anexo.mimeType === 'application/pdf' || anexo.name.toLowerCase().endsWith('.pdf');
+      console.log(`📎 [OAuth Drive] Subiendo anexo ${isPdf ? 'PDF' : 'DOCX'}: ${anexo.name}`);
       
       const anexoBuffer = Buffer.from(anexo.buffer);
       
-      const anexoResponse = await uploadFileToOAuthDrive(
+      const anexoResponse = await uploadFileToOAuthDriveWithMimeType(
         anexoBuffer,
         `ANEXO-${anexo.name}`,
         convenioFolderId,
-        false
+        anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       );
       
       anexosUploaded.push({
         name: anexo.name,
+        isPdf,
         ...anexoResponse
       });
     }
