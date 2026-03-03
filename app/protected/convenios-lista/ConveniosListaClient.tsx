@@ -5,15 +5,17 @@ import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { ConvenioItem } from "@/app/components/dashboard";
 import { ConvenioCardSkeleton } from "@/app/components/ui/skeleton";
 
-export function ConveniosListaClient({ convenios }: { convenios: any[] }) {
+export function ConveniosListaClient({ convenios, careers }: { convenios: any[], careers: any[] }) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [careerFilter, setCareerFilter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const filteredConvenios = (convenios || []).filter((convenio) => {
     const statusMatch = !statusFilter || convenio.status === statusFilter;
     const typeMatch = !typeFilter || convenio.convenio_type_id === typeFilter;
-    return statusMatch && typeMatch;
+    const careerMatch = !careerFilter || convenio.profiles?.career_id === careerFilter;
+    return statusMatch && typeMatch && careerMatch;
   });
 
   return (
@@ -25,6 +27,9 @@ export function ConveniosListaClient({ convenios }: { convenios: any[] }) {
           setStatusFilter={setStatusFilter}
           typeFilter={typeFilter}
           setTypeFilter={setTypeFilter}
+          careerFilter={careerFilter}
+          setCareerFilter={setCareerFilter}
+          careers={careers}
         />
       </div>
       <div className="md:col-span-3">
@@ -37,7 +42,7 @@ export function ConveniosListaClient({ convenios }: { convenios: any[] }) {
         ) : filteredConvenios.length > 0 ? (
           <div className="space-y-4 animate-in fade-in-0 duration-300">
             {filteredConvenios.map((convenio) => (
-              <ConvenioItem 
+              <ConvenioItem
                 key={convenio.id}
                 id={convenio.id}
                 title={convenio.title}

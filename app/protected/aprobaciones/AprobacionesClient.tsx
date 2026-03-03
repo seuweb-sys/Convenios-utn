@@ -4,19 +4,21 @@ import { useState } from "react";
 import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { ConvenioItem } from "@/app/components/dashboard";
 
-export function AprobacionesClient({ convenios }: { convenios: any[] }) {
+export function AprobacionesClient({ convenios, careers }: { convenios: any[], careers: any[] }) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
+  const [careerFilter, setCareerFilter] = useState<string | null>(null);
 
   // Filtra solo los que están 'enviado' o 'revision', que son los que requieren acción
-  const conveniosParaAprobar = (convenios || []).filter(c => 
+  const conveniosParaAprobar = (convenios || []).filter(c =>
     c.status === 'enviado' || c.status === 'revision'
   );
 
   const filteredConvenios = conveniosParaAprobar.filter((convenio) => {
     const statusMatch = !statusFilter || convenio.status === statusFilter;
     const typeMatch = !typeFilter || convenio.convenio_types?.name === typeFilter;
-    return statusMatch && typeMatch;
+    const careerMatch = !careerFilter || convenio.profiles?.career_id === careerFilter;
+    return statusMatch && typeMatch && careerMatch;
   });
 
   return (
@@ -28,13 +30,16 @@ export function AprobacionesClient({ convenios }: { convenios: any[] }) {
           setStatusFilter={setStatusFilter}
           typeFilter={typeFilter}
           setTypeFilter={setTypeFilter}
+          careerFilter={careerFilter}
+          setCareerFilter={setCareerFilter}
+          careers={careers}
         />
       </div>
       <div className="md:col-span-3">
         {filteredConvenios.length > 0 ? (
           <div className="space-y-4">
             {filteredConvenios.map((convenio) => (
-              <ConvenioItem 
+              <ConvenioItem
                 key={convenio.id}
                 id={convenio.id}
                 title={convenio.title}

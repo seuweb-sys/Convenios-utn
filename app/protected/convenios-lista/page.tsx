@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import { 
+import {
   BackgroundPattern,
   DashboardHeader
 } from "@/app/components/dashboard";
@@ -23,6 +23,11 @@ export default async function ConveniosListaPage() {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
+  const { data: careers } = await supabase
+    .from("careers")
+    .select("*")
+    .order("name");
+
   if (conveniosError) {
     console.error("Error fetching convenios:", conveniosError);
   }
@@ -35,7 +40,7 @@ export default async function ConveniosListaPage() {
           name="Mis Convenios"
           subtitle="Aquí puedes ver todos los convenios que has creado"
         />
-        <ConveniosListaClient convenios={convenios || []} />
+        <ConveniosListaClient convenios={convenios || []} careers={careers || []} />
       </div>
     </div>
   );

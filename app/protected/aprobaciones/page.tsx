@@ -1,6 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import { 
+import {
   BackgroundPattern,
   DashboardHeader
 } from "@/app/components/dashboard";
@@ -25,6 +25,11 @@ export default async function AprobacionesPage() {
     .select("*, convenio_types(name)")
     .order("created_at", { ascending: false });
 
+  const { data: careers } = await supabase
+    .from("careers")
+    .select("*")
+    .order("name");
+
   if (conveniosError) {
     console.error("Error fetching convenios for approval:", conveniosError);
     // Considerar un estado de error en la UI
@@ -38,7 +43,7 @@ export default async function AprobacionesPage() {
           name="Aprobaciones de Convenios"
           subtitle="Revisa y gestiona los convenios pendientes"
         />
-        <AprobacionesClient convenios={convenios || []} />
+        <AprobacionesClient convenios={convenios || []} careers={careers || []} />
       </div>
     </div>
   );
