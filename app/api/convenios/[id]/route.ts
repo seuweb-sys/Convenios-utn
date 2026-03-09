@@ -16,10 +16,10 @@ export async function GET(
 ) {
   try {
     const supabase = await createClient();
-    
+
     // Verificar autenticación
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: "No autorizado" },
@@ -74,12 +74,29 @@ export async function GET(
     if (
       convenio.user_id !== user.id &&
       userRole !== 'admin' &&
-      userRole !== 'profesor'
+      userRole !== 'profesor' &&
+      userRole !== 'rector'
     ) {
       return NextResponse.json(
         { error: 'No tienes permiso para ver este convenio' },
         { status: 403 }
       );
+    }
+
+    // Regla especial para Rector: no puede ver convenios si no provienen de una carrera
+    if (userRole === 'rector' && convenio.user_id !== user.id) {
+      const { data: creatorProfile } = await supabase
+        .from('profiles')
+        .select('career_id')
+        .eq('id', convenio.user_id)
+        .single();
+
+      if (!creatorProfile?.career_id) {
+        return NextResponse.json(
+          { error: 'No tienes permiso para ver este convenio (el creador no pertenece a ninguna carrera)' },
+          { status: 403 }
+        );
+      }
     }
 
     return NextResponse.json(convenio);
@@ -99,10 +116,10 @@ export async function PATCH(
 ) {
   try {
     const supabase = await createClient();
-    
+
     // Verificar autenticación
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: "No autorizado" },
@@ -163,16 +180,16 @@ export async function PATCH(
       const marcoFecha = formData.convenio_marco_fecha;
       const dia = formData.dia;
       const mes = formData.mes;
-      
+
       if (marcoFecha && dia && mes) {
         const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         const marco = new Date(marcoFecha);
         const mesIdx = meses.indexOf(mes);
         const diaNum = parseInt(dia, 10);
-        
+
         if (!isNaN(marco.getTime()) && mesIdx >= 0 && !isNaN(diaNum)) {
           const fechaFirma = new Date(marco.getFullYear(), mesIdx, diaNum);
-          
+
           if (fechaFirma < marco) {
             console.error('❌ [API PATCH] Validación de fechas fallida: fecha de firma anterior al marco');
             return NextResponse.json(
@@ -216,8 +233,8 @@ export async function PATCH(
     // Si se está cambiando el estado, registrar en activity_log
     if (body.status && body.status !== convenio.status) {
       try {
-        const action = body.status === 'enviado' && convenio.status === 'revision' 
-          ? 'resubmit_convenio' 
+        const action = body.status === 'enviado' && convenio.status === 'revision'
+          ? 'resubmit_convenio'
           : 'update_status';
 
         const { error: logError } = await supabase
@@ -285,15 +302,15 @@ export async function PATCH(
           const safeName = template.name ? template.name.toString() : '';
           const safeNameLower = safeName.toLowerCase();
           const safeNameNormalized = safeNameLower.normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-          
+
           const slugify = (str: string) => str.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
           const removeStop = (str: string) => str.replace(/\b(de|del|la|el|en|con|por|para|y|o|a|un|una)\b/g, '').replace(/-+/g, '-').replace(/(^-|-$)+/g, '');
           const norm = (str: string) => str.replace(/[^a-z0-9]/g, '');
-          
+
           const targetSlug = removeStop(safeNameNormalized);
           const allDocx = fs.readdirSync(templateDir).filter(f => f.endsWith('.docx'));
-          const scored: Array<{file: string, score: number}> = [];
-          
+          const scored: Array<{ file: string, score: number }> = [];
+
           allDocx.forEach((f) => {
             const fileSlug = slugify(path.parse(f).name);
             const fileSlugClean = removeStop(fileSlug);
@@ -305,7 +322,7 @@ export async function PATCH(
             else if (norm(fileSlug).includes(norm(safeNameNormalized))) score = 4;
             else if (norm(fileSlugClean).includes(norm(targetSlug))) score = 5;
 
-            if (score >= 0) scored.push({file: f, score});
+            if (score >= 0) scored.push({ file: f, score });
           });
 
           scored.sort((a, b) => a.score - b.score || a.file.length - b.file.length);
@@ -336,7 +353,7 @@ export async function PATCH(
             try {
               // Para convenio específico, extraer el ID de la carpeta en lugar del archivo
               const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
-              
+
               if (isConvenioEspecifico) {
                 // Si es convenio específico, el link es a una carpeta
                 const oldFolderId = updatedConvenio.document_path.split('/folders/')[1]?.split('?')[0];
@@ -361,15 +378,15 @@ export async function PATCH(
           // Subir nuevo documento según el tipo
           const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
           let driveResponse;
-          
+
           if (isConvenioEspecifico) {
             console.log('📁 [Update] Regenerando convenio específico con carpeta...');
-            
+
             // Preparar anexos si existen en body
             const anexos = [];
             if (body.anexos && Array.isArray(body.anexos)) {
               console.log('📎 [Update] Procesando anexos...', body.anexos.length);
-              
+
               for (const anexo of body.anexos) {
                 if (anexo.name && anexo.buffer) {
                   try {
@@ -383,12 +400,12 @@ export async function PATCH(
                       // Intentar convertir desde Buffer u otro formato
                       buffer = new Uint8Array(anexo.buffer).buffer;
                     }
-                    
+
                     anexos.push({
                       name: anexo.name,
                       buffer: buffer
                     });
-                    
+
                     console.log(`✅ [Update] Anexo procesado: ${anexo.name}`);
                   } catch (bufferError) {
                     console.error(`❌ [Update] Error procesando anexo ${anexo.name}:`, bufferError);
@@ -396,9 +413,9 @@ export async function PATCH(
                 }
               }
             }
-            
+
             console.log(`📎 [Update] Anexos procesados: ${anexos.length}`);
-            
+
             // Usar nueva función para convenio específico
             const convenioName = `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}`;
             driveResponse = await uploadConvenioEspecificoSimple(
@@ -406,17 +423,17 @@ export async function PATCH(
               convenioName,
               anexos
             );
-            
+
             console.log('✅ [Update] Convenio específico regenerado en carpeta:', driveResponse);
           } else {
             console.log('📄 [Update] Regenerando convenio normal...');
-            
+
             // Usar función original para otros tipos de convenio
             driveResponse = await uploadFileToDrive(
               buffer,
               `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}.docx`
             );
-            
+
             console.log('✅ [Update] Convenio normal regenerado:', driveResponse);
           }
 
@@ -440,7 +457,7 @@ export async function PATCH(
     if (body.status === 'enviado' && convenio.status === 'revision' && updatedConvenio.document_path) {
       try {
         console.log('📋 [Update] Moviendo convenio corregido de vuelta a pendientes...');
-        
+
         // Detectar si es convenio específico (carpeta) o archivo normal
         const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
         let itemId = null;
@@ -502,10 +519,10 @@ export async function DELETE(
 ) {
   try {
     const supabase = await createClient();
-    
+
     // Verificar autenticación
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
+
     if (authError || !user) {
       return NextResponse.json(
         { error: "No autorizado" },

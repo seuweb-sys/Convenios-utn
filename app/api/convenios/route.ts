@@ -158,6 +158,12 @@ export async function GET(request: NextRequest) {
       if (!userCareerId) {
         query = query.eq('user_id', user.id);
       }
+    } else if (userRole === "rector") {
+      // Rector ve todo, pero se filtrará después por "carrera obligatoria". 
+      // Si pasa "mine=true", ve los suyos propios
+      if (mineOnly) {
+        query = query.eq('user_id', user.id);
+      }
     }
     // Admin ve todos (sin filtro adicional)
 
@@ -167,12 +173,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al obtener convenios', details: dbError.message }, { status: 500 });
     }
 
-    // Filtrado post-query para profesor por carrera
+    // Filtrado post-query para profesor y rector
     let filteredData = data;
     if (userRole === "profesor" && userCareerId && !mineOnly) {
       // Filtrar solo convenios de usuarios de la misma carrera
       filteredData = (data || []).filter((convenio: any) =>
         convenio.profiles?.career_id === userCareerId
+      );
+    } else if (userRole === "rector" && !mineOnly) {
+      // Filtrar solo convenios cuyos creadores pertenezcan a ALGUN carrera explícitamente.
+      // Omitimos convenios creados por usuarios sin carrera asignada (ej. admins o roles globales).
+      filteredData = (data || []).filter((convenio: any) =>
+        convenio.profiles?.career_id !== null && convenio.profiles?.career_id !== undefined
       );
     }
 
@@ -180,8 +192,8 @@ export async function GET(request: NextRequest) {
     const full = searchParams.get('full') === 'true';
 
     if (full) {
-      // Para profesor, limitar form_data si no es el dueño
-      if (userRole === "profesor") {
+      // Para profesor o rector, limitar form_data si no es el dueño
+      if (userRole === "profesor" || userRole === "rector") {
         const limitedData = (filteredData || []).map((convenio: any) => {
           if (convenio.user_id !== user.id) {
             // No es el dueño, limitar información sensible
@@ -416,16 +428,16 @@ export async function POST(request: Request) {
       const marcoFecha = formData.convenio_marco_fecha;
       const dia = formData.dia;
       const mes = formData.mes;
-      
+
       if (marcoFecha && dia && mes) {
         const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         const marco = new Date(marcoFecha);
         const mesIdx = meses.indexOf(mes);
         const diaNum = parseInt(dia, 10);
-        
+
         if (!isNaN(marco.getTime()) && mesIdx >= 0 && !isNaN(diaNum)) {
           const fechaFirma = new Date(marco.getFullYear(), mesIdx, diaNum);
-          
+
           if (fechaFirma < marco) {
             console.error('❌ [API] Validación de fechas fallida: fecha de firma anterior al marco');
             return NextResponse.json(

@@ -73,28 +73,31 @@ export function PendingApprovalForm({
                     >
                         <option value="user">Usuario</option>
                         <option value="profesor">Profesor</option>
+                        <option value="rector">Rector</option>
                     </select>
                 </div>
 
                 {/* Career selector */}
-                <div>
-                    <label htmlFor="career" className="block text-sm font-medium text-muted-foreground mb-1">
-                        Carrera
-                    </label>
-                    <select
-                        id="career"
-                        value={careerId}
-                        onChange={(e) => setCareerId(e.target.value)}
-                        className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                    >
-                        <option value="">Seleccionar carrera...</option>
-                        {careers.map((career) => (
-                            <option key={career.id} value={career.id}>
-                                {career.name} {career.code ? `(${career.code})` : ""}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                {role !== 'rector' && (
+                    <div>
+                        <label htmlFor="career" className="block text-sm font-medium text-muted-foreground mb-1">
+                            Carrera
+                        </label>
+                        <select
+                            id="career"
+                            value={careerId}
+                            onChange={(e) => setCareerId(e.target.value)}
+                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
+                        >
+                            <option value="">Seleccionar carrera...</option>
+                            {careers.map((career) => (
+                                <option key={career.id} value={career.id}>
+                                    {career.name} {career.code ? `(${career.code})` : ""}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                )}
 
                 {/* Submit button */}
                 <button

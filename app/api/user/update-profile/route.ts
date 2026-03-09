@@ -16,7 +16,7 @@ export async function POST(request: Request) {
         const { role, career_id } = body;
 
         // Validar role
-        const validRoles = ["user", "profesor"];
+        const validRoles = ["user", "profesor", "rector"];
         if (role && !validRoles.includes(role)) {
             return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
         }

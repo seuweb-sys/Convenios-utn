@@ -1,5 +1,5 @@
 // Roles posibles en el sistema
-export type UserRole = 'admin' | 'reviewer' | 'user';
+export type UserRole = 'admin' | 'reviewer' | 'user' | 'profesor' | 'rector';
 
 // Estructura del perfil de usuario
 export interface Profile {

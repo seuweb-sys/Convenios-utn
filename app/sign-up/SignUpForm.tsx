@@ -98,15 +98,15 @@ export function SignUpForm({ careers, message }: SignUpFormProps) {
                                 className="mt-1 block w-full px-3 py-2.5 border border-border/60 rounded-md shadow-sm bg-black/20 backdrop-blur-sm focus:outline-none focus:ring-blue-500/40 focus:border-blue-500/40 text-white [&>option]:text-black"
                             >
                                 <option value="" disabled>Selecciona un rol</option>
+                                <option value="rector">Rector</option>
                                 <option value="profesor">Profesor / Docente</option>
                                 <option value="alumno">Alumno</option>
                                 <option value="externo">Externo / Otro</option>
                             </select>
                         </div>
 
-                        {/* Career Selection - Only if role is not 'externo' (or always if required, but user said "identify career") */}
-                        {/* Assuming 'externo' might not have a career, but let's show it for everyone or conditionally */}
-                        {selectedRole !== 'externo' && selectedRole !== '' && (
+                        {/* Career Selection - Only if role is not 'externo' and not 'rector' */}
+                        {selectedRole !== 'externo' && selectedRole !== 'rector' && selectedRole !== '' && (
                             <div className="animate-in fade-in slide-in-from-top-2">
                                 <label htmlFor="career_id" className="block text-sm font-medium">
                                     Carrera / Departamento
@@ -130,8 +130,8 @@ export function SignUpForm({ careers, message }: SignUpFormProps) {
 
                     {message && (
                         <div className={`p-3 rounded-md text-center ${message.includes("Revisa tu correo") || message.includes("Thanks")
-                                ? "bg-green-500/15 text-green-500"
-                                : "bg-destructive/15 text-destructive"
+                            ? "bg-green-500/15 text-green-500"
+                            : "bg-destructive/15 text-destructive"
                             }`}>
                             <p className="text-sm">{message}</p>
                         </div>

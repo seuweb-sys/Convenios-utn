@@ -40,8 +40,9 @@ export const userColumns: ColumnDef<UserProfile>[] = [
             const role = row.getValue("role") as string;
             return (
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${role === 'admin' ? 'bg-purple-100 text-purple-700' :
-                    role === 'profesor' ? 'bg-blue-100 text-blue-700' :
-                        'bg-gray-100 text-gray-700'
+                        role === 'rector' ? 'bg-amber-100 text-amber-700' :
+                            role === 'profesor' ? 'bg-blue-100 text-blue-700' :
+                                'bg-gray-100 text-gray-700'
                     }`}>
                     {role.charAt(0).toUpperCase() + role.slice(1)}
                 </span>
