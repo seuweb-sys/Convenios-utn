@@ -10,7 +10,6 @@ export const signUpAction = async (formData: FormData) => {
   const password = formData.get("password")?.toString();
   const fullName = formData.get("full_name")?.toString();
   const role = formData.get("role")?.toString();
-  const careerId = formData.get("career_id")?.toString();
 
   const supabase = await createClient();
   const origin = (await headers()).get("origin");
@@ -46,15 +45,15 @@ export const signUpAction = async (formData: FormData) => {
 
       // Esperamos un momento breve para asegurar que el trigger haya corrido (si es asíncrono)
       // O usamos upsert para asegurar.
+      // role en profiles queda solo para alcance global (admin/decano/user).
+      // Los permisos por area/carrera se manejan en profile_memberships.
+      const normalizedRole = role === "decano" ? "decano" : "user";
+
       const updates: any = {
         full_name: fullName,
-        role: role || 'user',
+        role: normalizedRole,
         is_approved: false, // Por defecto no aprobado
       };
-
-      if (careerId) {
-        updates.career_id = careerId;
-      }
 
       const { error: profileError } = await supabase
         .from('profiles')

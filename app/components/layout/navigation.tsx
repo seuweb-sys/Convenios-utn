@@ -7,14 +7,14 @@ import { useLoadingNavigation } from "@/app/hooks/use-loading-navigation";
 
 interface NavigationProps {
   userRole?: string;
+  hasProfessorAccess?: boolean;
 }
 
-export function Navigation({ userRole }: NavigationProps) {
+export function Navigation({ userRole, hasProfessorAccess = false }: NavigationProps) {
   const pathname = usePathname();
   const { navigate } = useLoadingNavigation();
   const isActive = (path: string) => pathname === path;
   const isAdmin = userRole === "admin";
-  const isProfesor = userRole === "profesor";
 
   const handleNavigation = (path: string, label: string) => {
     navigate(path, `Navegando a ${label}...`);
@@ -101,7 +101,7 @@ export function Navigation({ userRole }: NavigationProps) {
         </div>
       )}
 
-      {isProfesor && (
+      {hasProfessorAccess && (
         <div className="px-3 py-4 border-t">
           <button 
             onClick={() => handleNavigation('/protected/profesor', 'Profesor')}

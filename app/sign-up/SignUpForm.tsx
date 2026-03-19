@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Career } from "@/app/lib/careers";
 import { signUpAction } from "@/app/actions";
 import Link from "next/link";
 import LoginWithGoogle from "@/app/components/auth/login-with-google";
 
 interface SignUpFormProps {
-    careers: Career[];
     message?: string;
 }
 
@@ -31,8 +29,8 @@ function SubmitButton() {
     );
 }
 
-export function SignUpForm({ careers, message }: SignUpFormProps) {
-    const [selectedRole, setSelectedRole] = useState<string>("");
+export function SignUpForm({ message }: SignUpFormProps) {
+    const [selectedRole, setSelectedRole] = useState<string>("user");
 
     return (
         <div className="relative animate-fade-up">
@@ -84,7 +82,7 @@ export function SignUpForm({ careers, message }: SignUpFormProps) {
                             />
                         </div>
 
-                        {/* Role Selection */}
+                        {/* Role Selection (global) */}
                         <div>
                             <label htmlFor="role" className="block text-sm font-medium">
                                 Rol
@@ -97,35 +95,13 @@ export function SignUpForm({ careers, message }: SignUpFormProps) {
                                 onChange={(e) => setSelectedRole(e.target.value)}
                                 className="mt-1 block w-full px-3 py-2.5 border border-border/60 rounded-md shadow-sm bg-black/20 backdrop-blur-sm focus:outline-none focus:ring-blue-500/40 focus:border-blue-500/40 text-white [&>option]:text-black"
                             >
-                                <option value="" disabled>Selecciona un rol</option>
-                                <option value="rector">Rector</option>
-                                <option value="profesor">Profesor / Docente</option>
-                                <option value="alumno">Alumno</option>
-                                <option value="externo">Externo / Otro</option>
+                                <option value="decano">Decano</option>
+                                <option value="user">Usuario</option>
                             </select>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Los roles de area (profesor/director/secretario/miembro) se asignan por membresias.
+                            </p>
                         </div>
-
-                        {/* Career Selection - Only if role is not 'externo' and not 'rector' */}
-                        {selectedRole !== 'externo' && selectedRole !== 'rector' && selectedRole !== '' && (
-                            <div className="animate-in fade-in slide-in-from-top-2">
-                                <label htmlFor="career_id" className="block text-sm font-medium">
-                                    Carrera / Departamento
-                                </label>
-                                <select
-                                    id="career_id"
-                                    name="career_id"
-                                    required
-                                    className="mt-1 block w-full px-3 py-2.5 border border-border/60 rounded-md shadow-sm bg-black/20 backdrop-blur-sm focus:outline-none focus:ring-blue-500/40 focus:border-blue-500/40 text-white [&>option]:text-black"
-                                >
-                                    <option value="" disabled selected>Selecciona una carrera</option>
-                                    {careers.map((career) => (
-                                        <option key={career.id} value={career.id}>
-                                            {career.name} {career.code ? `(${career.code})` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
                     </div>
 
                     {message && (

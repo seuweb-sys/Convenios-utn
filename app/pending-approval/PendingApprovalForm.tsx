@@ -3,28 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface Career {
-    id: string;
-    name: string;
-    code: string;
-}
-
 interface PendingApprovalFormProps {
-    userId: string;
     currentRole?: string;
-    currentCareerId?: string;
-    careers: Career[];
 }
 
 export function PendingApprovalForm({
-    userId,
-    currentRole,
-    currentCareerId,
-    careers
+    currentRole
 }: PendingApprovalFormProps) {
     const router = useRouter();
     const [role, setRole] = useState(currentRole || "user");
-    const [careerId, setCareerId] = useState(currentCareerId || "");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -37,7 +24,7 @@ export function PendingApprovalForm({
             const response = await fetch("/api/user/update-profile", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role, career_id: careerId || null }),
+                body: JSON.stringify({ role }),
             });
 
             const data = await response.json();
@@ -72,32 +59,12 @@ export function PendingApprovalForm({
                         className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
                     >
                         <option value="user">Usuario</option>
-                        <option value="profesor">Profesor</option>
-                        <option value="rector">Rector</option>
+                        <option value="decano">Decano</option>
                     </select>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        Los roles de area se gestionan mediante membresias.
+                    </p>
                 </div>
-
-                {/* Career selector */}
-                {role !== 'rector' && (
-                    <div>
-                        <label htmlFor="career" className="block text-sm font-medium text-muted-foreground mb-1">
-                            Carrera
-                        </label>
-                        <select
-                            id="career"
-                            value={careerId}
-                            onChange={(e) => setCareerId(e.target.value)}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-lg text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                        >
-                            <option value="">Seleccionar carrera...</option>
-                            {careers.map((career) => (
-                                <option key={career.id} value={career.id}>
-                                    {career.name} {career.code ? `(${career.code})` : ""}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                )}
 
                 {/* Submit button */}
                 <button

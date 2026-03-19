@@ -13,6 +13,7 @@ import {
   uploadConvenioEspecificoOAuth
 } from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
+import { normalizeAgreementYear, validatePracticeHistoricalRule } from '@/app/lib/authz/scope-rules';
 import path from 'path';
 import fs from 'fs';
 
@@ -54,7 +55,7 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
   try {
-    // 1. Obtener y VALIDAR el usuario autenticado
+    // 1. Obtener y validar el usuario autenticado
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError) {
@@ -65,10 +66,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
-    // 2. Obtener el perfil y el rol
+    // 2. Obtener el perfil
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role, is_approved, career_id')
+      .select('role, is_approved')
       .eq('id', user.id)
       .single();
 
@@ -81,18 +82,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Usuario no aprobado' }, { status: 403 });
     }
 
-    const userRole = profile.role;
-    const userCareerId = profile.career_id;
-
-    // 3. Obtener el parámetro 'limit' de la URL (opcional)
+    // 3. Filtros de query
     const searchParams = request.nextUrl.searchParams;
     const limitParam = searchParams.get('limit');
     const offsetParam = searchParams.get('offset');
     const statusParam = searchParams.get('status');
     const typeParam = searchParams.get('type');
-    const mineOnly = searchParams.get('mine') === 'true'; // Para profesor: solo mis convenios
+    const secretariatParam = searchParams.get('secretariat');
+    const careerParam = searchParams.get('career');
+    const orgUnitParam = searchParams.get('org_unit');
+    const yearParam = searchParams.get('year');
+    const mineOnly = searchParams.get('mine') === 'true';
 
-    const limit = limitParam ? parseInt(limitParam, 10) : 20; // Default 20
+    const limit = limitParam ? parseInt(limitParam, 10) : 20;
     const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
 
     if (isNaN(limit) || limit <= 0) {
@@ -102,7 +104,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Parámetro offset inválido' }, { status: 400 });
     }
 
-    // 4. Consulta condicional según el rol
+    // 4. Consulta base (RLS resuelve visibilidad final)
     let query = supabase
       .from('convenios')
       .select(`
@@ -113,6 +115,22 @@ export async function GET(request: NextRequest) {
           career_id
         ),
         convenio_types(name),
+        secretariats:secretariat_id (
+          id,
+          code,
+          name
+        ),
+        careers:career_id (
+          id,
+          name,
+          code
+        ),
+        org_units:org_unit_id (
+          id,
+          code,
+          name,
+          unit_type
+        ),
         observaciones (
           id,
           content,
@@ -137,35 +155,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (secretariatParam && secretariatParam !== 'all') {
+      query = query.eq('secretariat_id', secretariatParam);
+    }
+    if (careerParam && careerParam !== 'all') {
+      query = query.eq('career_id', careerParam);
+    }
+    if (orgUnitParam && orgUnitParam !== 'all') {
+      query = query.eq('org_unit_id', orgUnitParam);
+    }
+    if (yearParam && yearParam !== 'all') {
+      const parsedYear = parseInt(yearParam, 10);
+      if (isNaN(parsedYear)) {
+        return NextResponse.json({ error: 'Parámetro year inválido' }, { status: 400 });
+      }
+      query = query.eq('agreement_year', parsedYear);
+    }
+
+    if (mineOnly) {
+      query = query.eq('user_id', user.id);
+    }
+
     // Paginación
     query = query.range(offset, offset + limit - 1);
-
-    // Filtro por rol
-    if (userRole === "user") {
-      // Usuario solo ve sus propios convenios
-      query = query.eq('user_id', user.id);
-    } else if (userRole === "profesor") {
-      // Profesor ve convenios de su carrera
-      if (mineOnly) {
-        // Solo mis convenios
-        query = query.eq('user_id', user.id);
-      } else if (userCareerId) {
-        // Convenios de usuarios de la misma carrera
-        // Necesitamos filtrar por career_id del creador
-        // Esto requiere un join más complejo, así que filtramos después
-      }
-      // Si no tiene carrera asignada, solo ve sus propios convenios
-      if (!userCareerId) {
-        query = query.eq('user_id', user.id);
-      }
-    } else if (userRole === "rector") {
-      // Rector ve todo, pero se filtrará después por "carrera obligatoria". 
-      // Si pasa "mine=true", ve los suyos propios
-      if (mineOnly) {
-        query = query.eq('user_id', user.id);
-      }
-    }
-    // Admin ve todos (sin filtro adicional)
 
     const { data, error: dbError } = await query;
     if (dbError) {
@@ -173,44 +185,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Error al obtener convenios', details: dbError.message }, { status: 500 });
     }
 
-    // Filtrado post-query para profesor y rector
-    let filteredData = data;
-    if (userRole === "profesor" && userCareerId && !mineOnly) {
-      // Filtrar solo convenios de usuarios de la misma carrera
-      filteredData = (data || []).filter((convenio: any) =>
-        convenio.profiles?.career_id === userCareerId
-      );
-    } else if (userRole === "rector" && !mineOnly) {
-      // Filtrar solo convenios cuyos creadores pertenezcan a ALGUN carrera explícitamente.
-      // Omitimos convenios creados por usuarios sin carrera asignada (ej. admins o roles globales).
-      filteredData = (data || []).filter((convenio: any) =>
-        convenio.profiles?.career_id !== null && convenio.profiles?.career_id !== undefined
-      );
-    }
+    const filteredData = data || [];
 
-    // 5. Si el cliente pide datos completos (?full=true) devolvemos raw data
+    // 5. Datos completos
     const full = searchParams.get('full') === 'true';
+    if (full) return NextResponse.json(filteredData);
 
-    if (full) {
-      // Para profesor o rector, limitar form_data si no es el dueño
-      if (userRole === "profesor" || userRole === "rector") {
-        const limitedData = (filteredData || []).map((convenio: any) => {
-          if (convenio.user_id !== user.id) {
-            // No es el dueño, limitar información sensible
-            const { form_data, ...rest } = convenio;
-            return {
-              ...rest,
-              form_data_limited: true, // Indicador de que form_data fue limitado
-            };
-          }
-          return convenio;
-        });
-        return NextResponse.json(limitedData);
-      }
-      return NextResponse.json(filteredData);
-    }
-
-    // 5.b Transformar los datos al formato resumido (default)
+    // 6. Formato resumido (default)
     const responseData = (filteredData as unknown as ConvenioFromDB[]).map(convenio => {
       // Formatear fecha de forma más robusta
       let formattedDate = "Sin fecha";
@@ -232,11 +213,15 @@ export async function GET(request: NextRequest) {
         title: convenio.title || "Sin título",
         date: formattedDate,
         type: getConvenioTypeName(convenio.convenio_type_id, convenio.convenio_types?.name),
-        status: convenio.status || "Desconocido"
+        status: convenio.status || "Desconocido",
+        serial_number: (convenio as any).serial_number || null,
+        secretariat: (convenio as any).secretariats?.name || null,
+        career: (convenio as any).careers?.name || null,
+        agreement_year: (convenio as any).agreement_year || null
       };
     });
 
-    // 6. Devolver los datos
+    // 7. Devolver los datos
     return NextResponse.json(responseData);
 
   } catch (e: any) {
@@ -245,31 +230,59 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// Función para generar número de serie
-async function generateSerialNumber(supabase: any) {
-  // Obtener el año actual
-  const currentYear = new Date().getFullYear();
+// Función para generar número de serie por año lógico
+async function generateSerialNumber(supabase: any, targetYear: number) {
+  const { data, error } = await supabase.rpc("generate_serial_number_for_year", {
+    target_year: targetYear,
+  });
 
-  // Buscar el último número de serie del año actual
+  if (!error && data) {
+    return data as string;
+  }
+
+  // Fallback defensivo por si la función aún no está desplegada
   const { data: lastConvenio } = await supabase
-    .from('convenios')
-    .select('serial_number')
-    .like('serial_number', `${currentYear}-%`)
-    .order('serial_number', { ascending: false })
+    .from("convenios")
+    .select("serial_number")
+    .like("serial_number", `${targetYear}-%`)
+    .order("serial_number", { ascending: false })
     .limit(1)
     .single();
 
   let nextNumber = 1;
-
   if (lastConvenio?.serial_number) {
-    const [year, number] = lastConvenio.serial_number.split('-');
-    if (year === currentYear.toString()) {
-      nextNumber = parseInt(number) + 1;
+    const [year, number] = String(lastConvenio.serial_number).split("-");
+    if (year === String(targetYear)) {
+      nextNumber = parseInt(number, 10) + 1;
     }
   }
 
-  // Formatear el número con ceros a la izquierda
-  return `${currentYear}-${nextNumber.toString().padStart(3, '0')}`;
+  return `${targetYear}-${nextNumber.toString().padStart(3, "0")}`;
+}
+
+async function canSetHiddenFromArea(
+  supabase: any,
+  userId: string,
+  role: string,
+  secretariatId: string | null
+) {
+  if (!secretariatId) return false;
+  if (role === "admin" || role === "decano") return true;
+
+  try {
+    const { data, error } = await supabase
+      .from("profile_memberships")
+      .select("id")
+      .eq("profile_id", userId)
+      .eq("membership_role", "secretario")
+      .eq("secretariat_id", secretariatId)
+      .eq("is_active", true)
+      .limit(1);
+
+    return !error && !!data && data.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(request: Request) {
@@ -289,7 +302,7 @@ export async function POST(request: Request) {
     // Obtener el perfil del usuario para el nombre y verificación
     const { data: userProfile, error: profileError } = await supabase
       .from('profiles')
-      .select('full_name, role, is_approved')
+      .select('full_name, role, is_approved, career_id')
       .eq('id', user.id)
       .single();
 
@@ -305,6 +318,12 @@ export async function POST(request: Request) {
 
     // Obtener y validar el body
     const body = await request.json() as any; // mantener flexibilidad
+
+    const secretariatId = body.secretariat_id || null;
+    const careerId = body.career_id || null;
+    const orgUnitId = body.org_unit_id || null;
+    const hiddenRequested = body.is_hidden_from_area === true;
+    const currentYear = new Date().getFullYear();
 
     // Permitimos tanto form_data (nuevo) como content_data (compatibilidad)
     const formData = body.form_data || body.content_data;
@@ -421,6 +440,48 @@ export async function POST(request: Request) {
     }
 
     console.log(`✅ Mapeo directo: ${finalTemplateSlug} -> tipo ${convenioTypeId}`);
+
+    // Scope/identificadores obligatorios para convenios nuevos clasificados
+    if (!secretariatId) {
+      return NextResponse.json(
+        { error: "Debe seleccionar la secretaría a la que pertenece el convenio" },
+        { status: 400 }
+      );
+    }
+
+    // Para tipos de práctica, carrera obligatoria y sin carga histórica
+    if ((convenioTypeId === 1 || convenioTypeId === 5) && !careerId) {
+      return NextResponse.json(
+        { error: "Para convenios de práctica, la carrera es obligatoria" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedYear = normalizeAgreementYear(body.agreement_year, currentYear);
+    if (!normalizedYear.valid) {
+      return NextResponse.json(
+        { error: normalizedYear.error },
+        { status: 400 }
+      );
+    }
+    const requestedYear = normalizedYear.year;
+    const practiceYearValidation = validatePracticeHistoricalRule(convenioTypeId, requestedYear, currentYear);
+    if (!practiceYearValidation.valid) {
+      return NextResponse.json(
+        { error: practiceYearValidation.error },
+        { status: 400 }
+      );
+    }
+
+    const canHide = hiddenRequested
+      ? await canSetHiddenFromArea(supabase, user.id, userProfile.role, secretariatId)
+      : false;
+    if (hiddenRequested && !canHide) {
+      return NextResponse.json(
+        { error: "No tienes permiso para ocultar convenios al área" },
+        { status: 403 }
+      );
+    }
 
     // R9: Validación de fechas para Convenio Específico (type_id 4)
     // La fecha de firma del específico no puede ser anterior a la del marco
@@ -555,8 +616,8 @@ export async function POST(request: Request) {
       throw new Error('No se pudo generar el documento: buffer vacío después de intentos');
     }
 
-    // Generar número de serie
-    const serialNumber = await generateSerialNumber(supabase);
+    // Generar número de serie por año lógico
+    const serialNumber = await generateSerialNumber(supabase, requestedYear);
 
     // Primero crear el convenio en la base de datos
     const { data: convenio, error: createError } = await supabase
@@ -568,6 +629,13 @@ export async function POST(request: Request) {
         status: 'enviado',
         user_id: user.id,
         serial_number: serialNumber,
+        secretariat_id: secretariatId,
+        career_id: careerId,
+        org_unit_id: orgUnitId,
+        agreement_year: requestedYear,
+        is_hidden_from_area: hiddenRequested && canHide,
+        hidden_set_by: hiddenRequested && canHide ? user.id : null,
+        legacy_unclassified: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         document_path: null // Inicialmente null, se actualizará después de subir a Drive
@@ -727,6 +795,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
+      id: convenio.id,
       convenio: {
         ...convenio,
         document_path: documentPath

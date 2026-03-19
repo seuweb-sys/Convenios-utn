@@ -13,10 +13,10 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { role, career_id } = body;
+        const { role } = body;
 
         // Validar role
-        const validRoles = ["user", "profesor", "rector"];
+        const validRoles = ["user", "decano"];
         if (role && !validRoles.includes(role)) {
             return NextResponse.json({ error: "Rol inválido" }, { status: 400 });
         }
@@ -24,7 +24,6 @@ export async function POST(request: Request) {
         // Actualizar perfil del usuario
         const updates: any = {};
         if (role) updates.role = role;
-        if (career_id !== undefined) updates.career_id = career_id || null;
 
         const { error: updateError } = await supabase
             .from("profiles")

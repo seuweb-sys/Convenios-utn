@@ -8,17 +8,30 @@ import { CareerDialog } from "@/app/protected/admin/careers/career-dialog";
 import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { SectionContainer } from "@/app/components/dashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
+import { MembershipsManager } from "@/app/protected/admin/memberships/MembershipsManager";
 
-export function AdminPanelClient({ convenios, users, careers }: { convenios: any[], users: any[], careers: Career[] }) {
+export function AdminPanelClient({
+  convenios,
+  users,
+  careers,
+  secretariats,
+}: {
+  convenios: any[];
+  users: any[];
+  careers: Career[];
+  secretariats: { id: string; code: string; name: string }[];
+}) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [careerFilter, setCareerFilter] = useState<string | null>(null);
+  const [secretariatFilter, setSecretariatFilter] = useState<string | null>(null);
 
   const filteredConvenios = (convenios || []).filter((c) => {
     const statusOk = !statusFilter || c.status === statusFilter;
     const typeOk = !typeFilter || c.convenio_types?.name === typeFilter;
     const careerOk = !careerFilter || c.profiles?.career_id === careerFilter;
-    return statusOk && typeOk && careerOk;
+    const secretariatOk = !secretariatFilter || c.secretariat_id === secretariatFilter;
+    return statusOk && typeOk && careerOk && secretariatOk;
   });
 
   return (
@@ -28,6 +41,7 @@ export function AdminPanelClient({ convenios, users, careers }: { convenios: any
           <TabsTrigger value="convenios">Convenios</TabsTrigger>
           <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
           <TabsTrigger value="carreras">Carreras</TabsTrigger>
+          <TabsTrigger value="membresias">Membresías</TabsTrigger>
         </TabsList>
 
         <TabsContent value="convenios">
@@ -49,6 +63,9 @@ export function AdminPanelClient({ convenios, users, careers }: { convenios: any
                 careerFilter={careerFilter}
                 setCareerFilter={setCareerFilter}
                 careers={careers}
+                secretariats={secretariats}
+                secretariatFilter={secretariatFilter}
+                setSecretariatFilter={setSecretariatFilter}
               />
             </div>
           </div>
@@ -70,6 +87,12 @@ export function AdminPanelClient({ convenios, users, careers }: { convenios: any
             <div className="bg-card/80 backdrop-blur-sm border border-border/60 rounded-lg overflow-hidden">
               <DataTable columns={careerColumns} data={careers} searchKey="name" emptyMessage="No hay carreras para mostrar." />
             </div>
+          </SectionContainer>
+        </TabsContent>
+
+        <TabsContent value="membresias">
+          <SectionContainer title="Gestión de Membresías">
+            <MembershipsManager />
           </SectionContainer>
         </TabsContent>
       </Tabs>

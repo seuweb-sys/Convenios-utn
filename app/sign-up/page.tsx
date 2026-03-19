@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import { getCareers } from "@/app/lib/careers";
 import { SignUpForm } from "./SignUpForm";
 
 export default async function SignUp({
@@ -19,9 +18,6 @@ export default async function SignUp({
   if (user) {
     return redirect("/protected/");
   }
-
-  // Fetch careers
-  const careers = await getCareers();
 
   return (
     <>
@@ -75,7 +71,7 @@ export default async function SignUp({
             </Link>
           </div>
 
-          <SignUpForm careers={careers} message={message} />
+          <SignUpForm message={message} />
 
           {/* Footer */}
           <div className="mt-8 text-center text-muted-foreground text-xs">

@@ -5,17 +5,27 @@ import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { ConvenioItem } from "@/app/components/dashboard";
 import { ConvenioCardSkeleton } from "@/app/components/ui/skeleton";
 
-export function ConveniosListaClient({ convenios, careers }: { convenios: any[], careers: any[] }) {
+export function ConveniosListaClient({
+  convenios,
+  careers,
+  secretariats,
+}: {
+  convenios: any[];
+  careers: any[];
+  secretariats: any[];
+}) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [careerFilter, setCareerFilter] = useState<string | null>(null);
+  const [secretariatFilter, setSecretariatFilter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const filteredConvenios = (convenios || []).filter((convenio) => {
     const statusMatch = !statusFilter || convenio.status === statusFilter;
-    const typeMatch = !typeFilter || convenio.convenio_type_id === typeFilter;
+    const typeMatch = !typeFilter || convenio.convenio_types?.name === typeFilter;
     const careerMatch = !careerFilter || convenio.profiles?.career_id === careerFilter;
-    return statusMatch && typeMatch && careerMatch;
+    const secretariatMatch = !secretariatFilter || convenio.secretariat_id === secretariatFilter;
+    return statusMatch && typeMatch && careerMatch && secretariatMatch;
   });
 
   return (
@@ -30,6 +40,9 @@ export function ConveniosListaClient({ convenios, careers }: { convenios: any[],
           careerFilter={careerFilter}
           setCareerFilter={setCareerFilter}
           careers={careers}
+          secretariats={secretariats}
+          secretariatFilter={secretariatFilter}
+          setSecretariatFilter={setSecretariatFilter}
         />
       </div>
       <div className="md:col-span-3">

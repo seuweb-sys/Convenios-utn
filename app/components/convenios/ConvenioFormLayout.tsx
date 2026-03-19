@@ -46,6 +46,14 @@ type ConvenioFormLayoutProps = {
   config: ConvenioConfig;
 };
 
+type ScopeOption = { id: string; code?: string; name: string; unit_type?: string; secretariat_id?: string };
+type Membership = {
+  membership_role: "secretario" | "director" | "profesor" | "miembro";
+  secretariat_id: string | null;
+  career_id: string | null;
+  org_unit_id: string | null;
+};
+
 // Componente de esqueleto
 const FormSkeleton = () => (
   <div className="space-y-6 animate-pulse p-6">
@@ -105,6 +113,18 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [scopeLoading, setScopeLoading] = useState(true);
+  const [scopeError, setScopeError] = useState<string | null>(null);
+  const [profileRole, setProfileRole] = useState<string>("user");
+  const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [secretariats, setSecretariats] = useState<ScopeOption[]>([]);
+  const [careers, setCareers] = useState<ScopeOption[]>([]);
+  const [orgUnits, setOrgUnits] = useState<ScopeOption[]>([]);
+  const [scopeSecretariatId, setScopeSecretariatId] = useState<string>("");
+  const [scopeCareerId, setScopeCareerId] = useState<string>("");
+  const [scopeOrgUnitId, setScopeOrgUnitId] = useState<string>("");
+  const [agreementYear, setAgreementYear] = useState<number>(new Date().getFullYear());
+  const [hiddenFromArea, setHiddenFromArea] = useState<boolean>(false);
 
   // Obtener parámetros de la URL
   const params = useParams<{ id: string }>();
@@ -126,6 +146,47 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
       setLoading(false);
     }, 500);
     return () => clearTimeout(timer);
+  }, []);
+
+  // Carga de alcance organizacional para clasificar el convenio
+  useEffect(() => {
+    let ignore = false;
+    const run = async () => {
+      try {
+        setScopeLoading(true);
+        setScopeError(null);
+        const res = await fetch("/api/org-scope", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "No se pudo cargar el alcance organizacional");
+        if (ignore) return;
+
+        const secretariatsData = data.secretariats || [];
+        const careersData = data.careers || [];
+        const orgUnitsData = data.org_units || [];
+        const membershipsData = data.memberships || [];
+        const role = data.profile?.role || "user";
+
+        setSecretariats(secretariatsData);
+        setCareers(careersData);
+        setOrgUnits(orgUnitsData);
+        setMemberships(membershipsData);
+        setProfileRole(role);
+
+        if (secretariatsData.length > 0 && !scopeSecretariatId) {
+          const firstMembershipSecretariat = membershipsData.find((m: Membership) => m.secretariat_id)?.secretariat_id;
+          const fallbackSecretariat = firstMembershipSecretariat || secretariatsData[0].id;
+          setScopeSecretariatId(fallbackSecretariat);
+        }
+      } catch (e: any) {
+        if (!ignore) setScopeError(e.message || "Error inesperado");
+      } finally {
+        if (!ignore) setScopeLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   // Mapear los pasos con status
@@ -153,6 +214,17 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   // Obtener el estado de validación de los pasos
   const allStepsValid = [1, 2, 3].every(step => stepStates[step]?.isValid);
   const status = convenioData?.status || 'enviado';
+  const isPracticeType = urlType === "particular" || urlType === "practica-marco";
+  const selectedSecretariat = secretariats.find((s) => s.id === scopeSecretariatId);
+  const selectedSecretariatCode = selectedSecretariat?.code || "";
+  const availableOrgUnits = orgUnits.filter((ou) => !scopeSecretariatId || ou.secretariat_id === scopeSecretariatId);
+  const availableCareers = selectedSecretariatCode === "SA" ? careers : [];
+  const canToggleHidden =
+    profileRole === "admin" ||
+    profileRole === "decano" ||
+    memberships.some(
+      (m) => m.membership_role === "secretario" && (!scopeSecretariatId || m.secretariat_id === scopeSecretariatId)
+    );
 
   // Función para enviar el convenio (PATCH status a 'enviado')
   const handleEnviarConvenio = useCallback(async () => {
@@ -193,6 +265,15 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
       if (Object.values(finalData).every(v => !v)) {
         throw new Error('No hay datos en el formulario. Por favor completa los campos.');
       }
+      if (!scopeSecretariatId) {
+        throw new Error("Debes seleccionar una secretaría");
+      }
+      if (isPracticeType && !scopeCareerId) {
+        throw new Error("Para convenios de práctica, debes seleccionar una carrera");
+      }
+      if (isPracticeType && agreementYear !== new Date().getFullYear()) {
+        throw new Error("Los convenios de práctica no permiten carga histórica");
+      }
       // Generar título robusto
       const title = finalData.entidad_nombre ||
         convenioData.entidad?.nombre ||
@@ -214,6 +295,11 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         convenio_type: urlType, // SÚPER BACKUP: Enviar tipo explícito también
         form_data: finalData, // CORREGIDO: Usar form_data en lugar de content_data
         user_id: convenioData.user_id,
+        secretariat_id: scopeSecretariatId,
+        career_id: scopeCareerId || null,
+        org_unit_id: scopeOrgUnitId || null,
+        agreement_year: agreementYear,
+        is_hidden_from_area: hiddenFromArea,
         // Incluir anexos si existen (para Marco con anexos)
         ...(anexosPayload.length > 0 && { anexos: anexosPayload })
       };
@@ -325,6 +411,82 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
             </div>
           </div>
         </Suspense>
+
+        <div className="mb-6 rounded-lg border border-border/60 bg-card/80 p-4">
+          <h2 className="text-sm font-semibold mb-3">Clasificación del convenio</h2>
+          {scopeLoading ? (
+            <p className="text-sm text-muted-foreground">Cargando opciones de secretaría/carrera...</p>
+          ) : scopeError ? (
+            <p className="text-sm text-red-600">{scopeError}</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+              <select
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                value={scopeSecretariatId}
+                onChange={(e) => {
+                  setScopeSecretariatId(e.target.value);
+                  setScopeCareerId("");
+                  setScopeOrgUnitId("");
+                }}
+              >
+                <option value="">Secretaría (obligatoria)</option>
+                {secretariats.map((sec) => (
+                  <option key={sec.id} value={sec.id}>
+                    {sec.code ? `${sec.code} - ` : ""}{sec.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                value={scopeCareerId}
+                onChange={(e) => setScopeCareerId(e.target.value)}
+                disabled={selectedSecretariatCode !== "SA"}
+              >
+                <option value="">Carrera ({isPracticeType ? "obligatoria" : "opcional"})</option>
+                {availableCareers.map((career) => (
+                  <option key={career.id} value={career.id}>
+                    {career.code ? `${career.code} - ` : ""}{career.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                value={scopeOrgUnitId}
+                onChange={(e) => setScopeOrgUnitId(e.target.value)}
+              >
+                <option value="">Subárea (opcional)</option>
+                {availableOrgUnits.map((orgUnit) => (
+                  <option key={orgUnit.id} value={orgUnit.id}>
+                    {orgUnit.name}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                type="number"
+                min={2000}
+                max={2100}
+                value={agreementYear}
+                onChange={(e) => setAgreementYear(parseInt(e.target.value || String(new Date().getFullYear()), 10))}
+                disabled={isPracticeType}
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                title={isPracticeType ? "Para práctica, el año es el actual" : "Año del convenio"}
+              />
+
+              <label className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={hiddenFromArea}
+                  onChange={(e) => setHiddenFromArea(e.target.checked)}
+                  disabled={!canToggleHidden}
+                />
+                Ocultar al área
+              </label>
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-2">
           {/* Contenido Principal */}

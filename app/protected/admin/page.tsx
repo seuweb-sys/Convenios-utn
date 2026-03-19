@@ -66,6 +66,12 @@ export default async function AdminPage() {
     .select("*")
     .order("name");
 
+  const { data: secretariats } = await supabase
+    .from("secretariats")
+    .select("id, code, name")
+    .eq("active", true)
+    .order("name");
+
   if (error || usersError) {
     console.error("Error al obtener datos:", error || usersError);
     return (
@@ -98,7 +104,12 @@ export default async function AdminPage() {
             subtitle="Gestiona convenios, usuarios y carreras del sistema"
           />
         </Suspense>
-        <AdminPanelClient convenios={convenios || []} users={users || []} careers={careers || []} />
+        <AdminPanelClient
+          convenios={convenios || []}
+          users={users || []}
+          careers={careers || []}
+          secretariats={secretariats || []}
+        />
       </div>
     </>
   );

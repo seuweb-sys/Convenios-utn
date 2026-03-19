@@ -40,17 +40,6 @@ export default function ConvenioDetallePage() {
           return;
         }
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
-
-        if (profile?.role !== "admin" && profile?.role !== "profesor") {
-          router.push("/protected");
-          return;
-        }
-
         const { data: convenioData, error: convenioError } = await supabase
           .from("convenios")
           .select(`

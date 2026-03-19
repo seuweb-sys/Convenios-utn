@@ -22,12 +22,42 @@ export default async function AprobacionesPage() {
   // Esto es más simple que hacer una consulta compleja con 'or'.
   const { data: convenios, error: conveniosError } = await supabase
     .from("convenios")
-    .select("*, convenio_types(name)")
+    .select(`
+      *,
+      convenio_types(name),
+      profiles:user_id (
+        full_name,
+        role,
+        career_id
+      ),
+      secretariats:secretariat_id (
+        id,
+        code,
+        name
+      ),
+      careers:career_id (
+        id,
+        name,
+        code
+      ),
+      org_units:org_unit_id (
+        id,
+        code,
+        name,
+        unit_type
+      )
+    `)
     .order("created_at", { ascending: false });
 
   const { data: careers } = await supabase
     .from("careers")
     .select("*")
+    .order("name");
+
+  const { data: secretariats } = await supabase
+    .from("secretariats")
+    .select("id, code, name")
+    .eq("active", true)
     .order("name");
 
   if (conveniosError) {
@@ -43,7 +73,11 @@ export default async function AprobacionesPage() {
           name="Aprobaciones de Convenios"
           subtitle="Revisa y gestiona los convenios pendientes"
         />
-        <AprobacionesClient convenios={convenios || []} careers={careers || []} />
+        <AprobacionesClient
+          convenios={convenios || []}
+          careers={careers || []}
+          secretariats={secretariats || []}
+        />
       </div>
     </div>
   );

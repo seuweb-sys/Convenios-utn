@@ -3,7 +3,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:rls": "vitest run tests/rls",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
@@ -52,10 +58,12 @@
     "zustand": "^4.5.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/node": "22.10.2",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.0.2",
     "postcss": "8.4.49",
-    "typescript": "5.7.2"
+    "typescript": "5.7.2",
+    "vitest": "^4.1.0"
   }
 }

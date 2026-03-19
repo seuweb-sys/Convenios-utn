@@ -9,6 +9,20 @@ import { Packer } from 'docx';
 import path from 'path';
 import fs from 'fs';
 
+async function isSecretaryInScope(supabase: any, userId: string, secretariatId: string | null) {
+  if (!secretariatId) return false;
+  const { data, error } = await supabase
+    .from("profile_memberships")
+    .select("id")
+    .eq("profile_id", userId)
+    .eq("membership_role", "secretario")
+    .eq("secretariat_id", secretariatId)
+    .eq("is_active", true)
+    .limit(1);
+
+  return !error && !!data && data.length > 0;
+}
+
 // Obtener un convenio específico
 export async function GET(
   request: Request,
@@ -30,7 +44,7 @@ export async function GET(
     // Verificar el perfil y rol del usuario
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_approved')
       .eq('id', user.id)
       .single();
 
@@ -42,6 +56,9 @@ export async function GET(
     }
 
     const userRole = profile.role;
+    if (!profile.is_approved && userRole !== "admin") {
+      return NextResponse.json({ error: "Usuario no aprobado" }, { status: 403 });
+    }
 
     // Obtener el convenio
     const { data: convenio, error: dbError } = await supabase
@@ -49,6 +66,22 @@ export async function GET(
       .select(`
         *,
         convenio_types(name),
+        secretariats:secretariat_id (
+          id,
+          code,
+          name
+        ),
+        careers:career_id (
+          id,
+          name,
+          code
+        ),
+        org_units:org_unit_id (
+          id,
+          code,
+          name,
+          unit_type
+        ),
         user:user_id(id, full_name),
         reviewer:reviewer_id(id, full_name)
       `)
@@ -68,35 +101,6 @@ export async function GET(
         { error: 'Convenio no encontrado' },
         { status: 404 }
       );
-    }
-
-    // Verificar que el usuario tenga permiso para ver el convenio
-    if (
-      convenio.user_id !== user.id &&
-      userRole !== 'admin' &&
-      userRole !== 'profesor' &&
-      userRole !== 'rector'
-    ) {
-      return NextResponse.json(
-        { error: 'No tienes permiso para ver este convenio' },
-        { status: 403 }
-      );
-    }
-
-    // Regla especial para Rector: no puede ver convenios si no provienen de una carrera
-    if (userRole === 'rector' && convenio.user_id !== user.id) {
-      const { data: creatorProfile } = await supabase
-        .from('profiles')
-        .select('career_id')
-        .eq('id', convenio.user_id)
-        .single();
-
-      if (!creatorProfile?.career_id) {
-        return NextResponse.json(
-          { error: 'No tienes permiso para ver este convenio (el creador no pertenece a ninguna carrera)' },
-          { status: 403 }
-        );
-      }
     }
 
     return NextResponse.json(convenio);
@@ -130,7 +134,7 @@ export async function PATCH(
     // Verificar el perfil y rol del usuario
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_approved')
       .eq('id', user.id)
       .single();
 
@@ -142,6 +146,9 @@ export async function PATCH(
     }
 
     const userRole = profile.role;
+    if (!profile.is_approved && userRole !== "admin") {
+      return NextResponse.json({ error: "Usuario no aprobado" }, { status: 403 });
+    }
 
     // Obtener y validar el body de la request
     const body = await request.json() as any; // Usar any para flexibilidad con anexos
@@ -151,7 +158,7 @@ export async function PATCH(
     // Verificar que el convenio exista y el usuario tenga permiso
     const { data: convenio, error: checkError } = await supabase
       .from('convenios')
-      .select('user_id, status, title, convenio_type_id')
+      .select('user_id, status, title, convenio_type_id, secretariat_id')
       .eq('id', params.id)
       .single();
 
@@ -162,14 +169,25 @@ export async function PATCH(
       );
     }
 
-    // Solo el creador o un admin pueden actualizar el convenio
-    if (
-      convenio.user_id !== user.id &&
-      userRole !== 'admin' &&
-      userRole !== 'profesor'
-    ) {
+    const isOwner = convenio.user_id === user.id;
+    const isAdmin = userRole === "admin";
+    const hiddenOnlyUpdate =
+      Object.keys(body).length > 0 &&
+      Object.keys(body).every((k) => k === "is_hidden_from_area");
+
+    let canUpdate = isOwner || isAdmin;
+
+    if (!canUpdate && hiddenOnlyUpdate) {
+      if (userRole === "decano") {
+        canUpdate = true;
+      } else {
+        canUpdate = await isSecretaryInScope(supabase, user.id, convenio.secretariat_id || null);
+      }
+    }
+
+    if (!canUpdate) {
       return NextResponse.json(
-        { error: 'No tienes permiso para actualizar este convenio' },
+        { error: "No tienes permiso para actualizar este convenio" },
         { status: 403 }
       );
     }
@@ -228,6 +246,11 @@ export async function PATCH(
           // No fallamos la operación si la actualización de observaciones falla
         }
       }
+    }
+
+    if (hiddenOnlyUpdate) {
+      updateData.is_hidden_from_area = body.is_hidden_from_area === true;
+      updateData.hidden_set_by = user.id;
     }
 
     // Si se está cambiando el estado, registrar en activity_log
@@ -533,7 +556,7 @@ export async function DELETE(
     // Verificar el perfil y rol del usuario
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_approved')
       .eq('id', user.id)
       .single();
 
@@ -545,6 +568,9 @@ export async function DELETE(
     }
 
     const userRole = profile.role;
+    if (!profile.is_approved && userRole !== "admin") {
+      return NextResponse.json({ error: "Usuario no aprobado" }, { status: 403 });
+    }
 
     // Verificar que el convenio exista y el usuario tenga permiso
     const { data: convenio, error: checkError } = await supabase
@@ -563,8 +589,7 @@ export async function DELETE(
     // Solo el creador o un admin pueden eliminar el convenio
     if (
       convenio.user_id !== user.id &&
-      userRole !== 'admin' &&
-      userRole !== 'profesor'
+      userRole !== 'admin'
     ) {
       return NextResponse.json(
         { error: 'No tienes permiso para eliminar este convenio' },

@@ -16,7 +16,7 @@ export default async function PendingApprovalPage() {
     // Verificar si ya está aprobado
     const { data: profile } = await supabase
         .from("profiles")
-        .select("is_approved, role, full_name, career_id")
+        .select("is_approved, role, full_name")
         .eq("id", user.id)
         .single();
 
@@ -25,14 +25,8 @@ export default async function PendingApprovalPage() {
         return redirect("/protected");
     }
 
-    // Obtener carreras para el selector
-    const { data: careers } = await supabase
-        .from("careers")
-        .select("id, name, code")
-        .order("name");
-
     // Verificar si el usuario necesita completar perfil (Google auth sin datos)
-    const needsProfileCompletion = !profile?.role || profile?.role === 'user' || !profile?.career_id;
+    const needsProfileCompletion = !profile?.role;
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
@@ -74,12 +68,9 @@ export default async function PendingApprovalPage() {
                     </p>
 
                     {/* Profile completion form for Google users */}
-                    {needsProfileCompletion && careers && careers.length > 0 && (
+                    {needsProfileCompletion && (
                         <PendingApprovalForm
-                            userId={user.id}
                             currentRole={profile?.role}
-                            currentCareerId={profile?.career_id}
-                            careers={careers}
                         />
                     )}
 

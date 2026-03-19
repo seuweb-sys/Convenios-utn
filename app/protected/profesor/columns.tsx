@@ -154,7 +154,7 @@ export const columns: ColumnDef<Convenio>[] = [
         <div className="flex justify-center">
           <div 
             className="h-9 w-9 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center text-primary font-semibold text-sm border border-primary/20 cursor-help"
-            title={`${fullName || "Usuario"} (${role === "admin" ? "Admin" : role === "profesor" ? "Profesor" : "Usuario"})`}
+            title={`${fullName || "Usuario"} (${role === "admin" ? "Admin" : "Usuario"})`}
           >
             {getInitials(fullName || "Usuario")}
           </div>

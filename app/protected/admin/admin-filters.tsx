@@ -13,11 +13,18 @@ import {
   FileText,
   UserCheck,
   HeartHandshake,
-  GraduationCapIcon
+  GraduationCapIcon,
+  BuildingIcon
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface Career {
+  id: string;
+  name: string;
+  code: string;
+}
+
+interface Secretariat {
   id: string;
   name: string;
   code: string;
@@ -32,6 +39,9 @@ interface AdminFiltersProps {
   careerFilter: string | null;
   setCareerFilter: (c: string | null) => void;
   careers: Career[];
+  secretariats?: Secretariat[];
+  secretariatFilter?: string | null;
+  setSecretariatFilter?: (s: string | null) => void;
 }
 
 const tipoConvenioUI: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -60,7 +70,10 @@ export function AdminFilters({
   setTypeFilter,
   careerFilter,
   setCareerFilter,
-  careers
+  careers,
+  secretariats = [],
+  secretariatFilter = null,
+  setSecretariatFilter
 }: AdminFiltersProps) {
   // Extraer estados y tipos únicos
   const availableStatuses = Array.from(new Set(
@@ -82,6 +95,10 @@ export function AdminFilters({
 
   const getCareerCount = (careerId: string) => {
     return data.filter((item: any) => (item as any).profiles?.career_id === careerId).length;
+  };
+
+  const getSecretariatCount = (secretariatId: string) => {
+    return data.filter((item: any) => (item as any).secretariat_id === secretariatId).length;
   };
 
   return (
@@ -151,6 +168,39 @@ export function AdminFilters({
                     <span className="truncate">{career.code || career.name}</span>
                     <Badge variant="outline" className="ml-auto text-xs">
                       {getCareerCount(career.id)}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Filtro por Secretaría */}
+          {secretariats && setSecretariatFilter && secretariatFilter !== undefined && secretariats.length > 0 && (
+            <div className="border-t pt-4">
+              <div className="flex items-center gap-2 text-sm mb-2">
+                <BuildingIcon className="h-4 w-4 text-muted-foreground" />
+                <span
+                  className={`cursor-pointer transition-colors ${!secretariatFilter ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}
+                  onClick={() => setSecretariatFilter(null)}
+                >
+                  Todas las secretarías
+                </span>
+              </div>
+              <div className="space-y-1">
+                {secretariats.map((secretariat) => (
+                  <div
+                    key={secretariat.id}
+                    className={`flex items-center gap-2 text-sm cursor-pointer p-2 rounded-md transition-colors ${secretariatFilter === secretariat.id
+                        ? 'bg-primary/10 text-primary font-medium'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/30'
+                      }`}
+                    onClick={() => setSecretariatFilter(secretariat.id)}
+                  >
+                    <BuildingIcon className="h-4 w-4" />
+                    <span className="truncate">{secretariat.code || secretariat.name}</span>
+                    <Badge variant="outline" className="ml-auto text-xs">
+                      {getSecretariatCount(secretariat.id)}
                     </Badge>
                   </div>
                 ))}

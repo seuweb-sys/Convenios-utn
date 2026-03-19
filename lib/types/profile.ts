@@ -1,5 +1,6 @@
-// Roles posibles en el sistema
-export type UserRole = 'admin' | 'reviewer' | 'user' | 'profesor' | 'rector';
+// Roles globales posibles en el sistema.
+// Los permisos por area/carrera/subarea se resuelven con profile_memberships.
+export type UserRole = 'admin' | 'reviewer' | 'user' | 'decano';
 
 // Estructura del perfil de usuario
 export interface Profile {

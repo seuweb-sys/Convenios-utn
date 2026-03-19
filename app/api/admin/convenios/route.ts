@@ -36,6 +36,22 @@ export async function GET(request: Request) {
           full_name,
           role
         ),
+        secretariats:secretariat_id (
+          id,
+          code,
+          name
+        ),
+        careers:career_id (
+          id,
+          name,
+          code
+        ),
+        org_units:org_unit_id (
+          id,
+          code,
+          name,
+          unit_type
+        ),
         convenio_types (
           name
         ),
