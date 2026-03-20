@@ -3,7 +3,15 @@ import { createClient } from '@/utils/supabase/server';
 import { isPracticeType } from '@/app/lib/authz/scope-rules';
 import { shouldApplyProfesorPracticeOnlyConvenioFilter } from '@/app/lib/authz/profesor-membership-scope';
 import { UpdateConvenioDTO } from "@/lib/types/convenio";
-import { moveFileToFolder, moveFileToFolderOAuth, moveFolderToFolder, moveFolderToFolderOAuth, DRIVE_FOLDERS, uploadFileToDrive, uploadConvenioEspecificoSimple, deleteFileFromDrive } from '@/app/lib/google-drive';
+import {
+  moveFileToFolderOAuth,
+  moveFolderToFolderOAuth,
+  DRIVE_FOLDERS,
+  uploadFileToOAuthDrive,
+  uploadConvenioEspecificoOAuth,
+  deleteFileFromOAuthDrive,
+  deleteFileFromDrive,
+} from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 import { renderDocx } from '@/app/lib/utils/docx-templater';
 import { createDocument } from '@/app/lib/utils/doc-generator';
@@ -334,8 +342,18 @@ export async function PATCH(
       );
     }
 
+    const isResubmissionAfterCorrection = body.status === 'enviado' && convenio.status === 'revision';
+    const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
+    let latestDocumentPath: string | null = updatedConvenio.document_path;
+    let uploadedDirectlyToPending = false;
+
+    const extractDriveItemId = (documentPath: string, isFolder: boolean) => {
+      if (isFolder) return documentPath.split('/folders/')[1]?.split('?')[0] ?? null;
+      return documentPath.split('/d/')[1]?.split('/')[0] ?? null;
+    };
+
     // Si se está reenvíando después de corrección, regenerar el documento
-    if (body.status === 'enviado' && convenio.status === 'revision' && body.content_data) {
+    if (isResubmissionAfterCorrection && body.content_data) {
       try {
         // Obtener el template del tipo de convenio
         const { data: template, error: templateError } = await supabase
@@ -405,24 +423,16 @@ export async function PATCH(
 
         if (buffer) {
           // Primero, eliminar el documento viejo de Archivados si existe
-          if (updatedConvenio.document_path) {
+          if (latestDocumentPath) {
             try {
-              // Para convenio específico, extraer el ID de la carpeta en lugar del archivo
-              const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
-
-              if (isConvenioEspecifico) {
-                // Si es convenio específico, el link es a una carpeta
-                const oldFolderId = updatedConvenio.document_path.split('/folders/')[1]?.split('?')[0];
-                if (oldFolderId) {
-                  console.log('🗑️ [Update] Eliminando carpeta vieja de convenio específico:', oldFolderId);
-                  await deleteFileFromDrive(oldFolderId); // Eliminar carpeta completa
-                }
-              } else {
-                // Si es convenio normal, el link es a un archivo
-                const oldFileId = updatedConvenio.document_path.split('/d/')[1]?.split('/')[0];
-                if (oldFileId) {
-                  console.log('🗑️ [Update] Eliminando archivo viejo:', oldFileId);
-                  await deleteFileFromDrive(oldFileId);
+              const oldItemId = extractDriveItemId(latestDocumentPath, isConvenioEspecifico);
+              if (oldItemId) {
+                try {
+                  console.log('🗑️ [Update] Eliminando documento viejo con OAuth:', oldItemId);
+                  await deleteFileFromOAuthDrive(oldItemId);
+                } catch (oauthDeleteError) {
+                  console.warn('⚠️ [Update] Falló borrado OAuth, usando fallback Service Account:', oauthDeleteError);
+                  await deleteFileFromDrive(oldItemId);
                 }
               }
             } catch (deleteError) {
@@ -432,8 +442,7 @@ export async function PATCH(
           }
 
           // Subir nuevo documento según el tipo
-          const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
-          let driveResponse;
+          let driveResponse: { webViewLink?: string | null } | null = null;
 
           if (isConvenioEspecifico) {
             console.log('📁 [Update] Regenerando convenio específico con carpeta...');
@@ -472,35 +481,44 @@ export async function PATCH(
 
             console.log(`📎 [Update] Anexos procesados: ${anexos.length}`);
 
-            // Usar nueva función para convenio específico
+            // Regenerar en Drive con OAuth (misma estrategia que POST)
             const convenioName = `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}`;
-            driveResponse = await uploadConvenioEspecificoSimple(
+            driveResponse = await uploadConvenioEspecificoOAuth(
               buffer,
               convenioName,
-              anexos
+              anexos,
+              DRIVE_FOLDERS.PENDING
             );
 
             console.log('✅ [Update] Convenio específico regenerado en carpeta:', driveResponse);
           } else {
             console.log('📄 [Update] Regenerando convenio normal...');
 
-            // Usar función original para otros tipos de convenio
-            driveResponse = await uploadFileToDrive(
+            // Regenerar en Drive con OAuth para mantener paridad con el alta
+            driveResponse = await uploadFileToOAuthDrive(
               buffer,
-              `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}.docx`
+              `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}.docx`,
+              DRIVE_FOLDERS.PENDING,
+              false
             );
 
             console.log('✅ [Update] Convenio normal regenerado:', driveResponse);
           }
 
-          // Actualizar el path del documento en la BD
-          const { error: pathUpdateError } = await supabase
-            .from('convenios')
-            .update({ document_path: driveResponse.webViewLink })
-            .eq('id', params.id);
+          if (typeof driveResponse?.webViewLink === 'string') {
+            latestDocumentPath = driveResponse.webViewLink;
+            uploadedDirectlyToPending = true;
+            updatedConvenio.document_path = driveResponse.webViewLink;
 
-          if (pathUpdateError) {
-            console.error('Error al actualizar path del documento:', pathUpdateError);
+            // Actualizar el path del documento en la BD
+            const { error: pathUpdateError } = await supabase
+              .from('convenios')
+              .update({ document_path: driveResponse.webViewLink })
+              .eq('id', params.id);
+
+            if (pathUpdateError) {
+              console.error('Error al actualizar path del documento:', pathUpdateError);
+            }
           }
         }
       } catch (docError) {
@@ -510,32 +528,26 @@ export async function PATCH(
     }
 
     // Mover archivo/carpeta de vuelta a pendientes si se reenvía después de corrección
-    if (body.status === 'enviado' && convenio.status === 'revision' && updatedConvenio.document_path) {
+    if (isResubmissionAfterCorrection && latestDocumentPath) {
       try {
-        console.log('📋 [Update] Moviendo convenio corregido de vuelta a pendientes...');
-
-        // Detectar si es convenio específico (carpeta) o archivo normal
-        const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
-        let itemId = null;
-
-        if (isConvenioEspecifico) {
-          // Para convenio específico, extraer ID de carpeta
-          itemId = updatedConvenio.document_path.split('/folders/')[1]?.split('?')[0];
+        if (uploadedDirectlyToPending) {
+          console.log('✅ [Update] Convenio ya subido directamente en pendientes; se omite movimiento adicional.');
         } else {
-          // Para otros tipos, extraer ID de archivo
-          itemId = updatedConvenio.document_path.split('/d/')[1]?.split('/')[0];
-        }
+          console.log('📋 [Update] Moviendo convenio corregido de vuelta a pendientes...');
 
-        if (itemId) {
-          // Usar función apropiada según el tipo
-          if (isConvenioEspecifico) {
-            console.log('📁 [Update] Moviendo carpeta de convenio específico a pendientes...');
-            await moveFolderToFolderOAuth(itemId, DRIVE_FOLDERS.PENDING);
-          } else {
-            console.log('📄 [Update] Moviendo archivo de convenio normal a pendientes...');
-            await moveFileToFolderOAuth(itemId, DRIVE_FOLDERS.PENDING);
+          const itemId = extractDriveItemId(latestDocumentPath, isConvenioEspecifico);
+
+          if (itemId) {
+            // Usar función apropiada según el tipo
+            if (isConvenioEspecifico) {
+              console.log('📁 [Update] Moviendo carpeta de convenio específico a pendientes...');
+              await moveFolderToFolderOAuth(itemId, DRIVE_FOLDERS.PENDING);
+            } else {
+              console.log('📄 [Update] Moviendo archivo de convenio normal a pendientes...');
+              await moveFileToFolderOAuth(itemId, DRIVE_FOLDERS.PENDING);
+            }
+            console.log('✅ [Update] Convenio movido exitosamente a pendientes');
           }
-          console.log('✅ [Update] Convenio movido exitosamente a pendientes');
         }
       } catch (driveError) {
         console.error('Error al mover convenio de vuelta a pendientes:', driveError);
@@ -544,7 +556,7 @@ export async function PATCH(
     }
 
     // Enviar notificación de reenvío si se está reenvíando después de corrección
-    if (body.status === 'enviado' && convenio.status === 'revision') {
+    if (isResubmissionAfterCorrection) {
       try {
         const convenioTitle = convenio.title || "Sin título";
         await NotificationService.convenioResubmitted(user.id, convenioTitle, params.id);

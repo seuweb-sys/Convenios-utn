@@ -1243,7 +1243,7 @@ export function ConvenioEspecificoForm({
                                   buffer: Array.from(new Uint8Array(anexo.buffer)), // Convertir ArrayBuffer a array para JSON
                                   mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                                 })),
-                                status: 'pendiente'
+                                status: 'enviado'
                               };
                               
                               console.log('📤 [Form] Enviando convenio específico con anexos:', {
