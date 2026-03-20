@@ -15,6 +15,11 @@ import {
 import { NotificationService } from '@/app/lib/services/notification-service';
 import { normalizeAgreementYear, validatePracticeHistoricalRule } from '@/app/lib/authz/scope-rules';
 import {
+  computeConstrainedClassification,
+  validateCreateClassification,
+  type MembershipRow,
+} from '@/app/lib/authz/classification-scope';
+import {
   getPracticeConvenioTypeIds,
   shouldApplyProfesorPracticeOnlyConvenioFilter,
 } from '@/app/lib/authz/profesor-membership-scope';
@@ -537,6 +542,38 @@ export async function POST(request: Request) {
         { error: "Debe seleccionar la secretaría a la que pertenece el convenio" },
         { status: 400 }
       );
+    }
+
+    if (userProfile.role !== "admin" && userProfile.role !== "decano") {
+      const { data: saRow } = await supabase
+        .from("secretariats")
+        .select("id")
+        .eq("code", "SA")
+        .eq("active", true)
+        .maybeSingle();
+      const { data: memRows, error: memErr } = await supabase
+        .from("profile_memberships")
+        .select("membership_role, secretariat_id, career_id, org_unit_id, is_active")
+        .eq("profile_id", user.id)
+        .eq("is_active", true);
+      if (memErr) {
+        console.error("memberships for classification", memErr);
+        return NextResponse.json({ error: "No se pudo validar el ámbito" }, { status: 500 });
+      }
+      const constrained = computeConstrainedClassification(
+        userProfile.role,
+        (memRows || []) as MembershipRow[],
+        saRow?.id ?? null
+      );
+      const scopeCheck = validateCreateClassification(
+        constrained,
+        secretariatId,
+        careerId,
+        convenioTypeId
+      );
+      if (!scopeCheck.ok) {
+        return NextResponse.json({ error: scopeCheck.error }, { status: 400 });
+      }
     }
 
     // Para tipos de práctica, carrera obligatoria y sin carga histórica

@@ -117,6 +117,10 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   const [scopeError, setScopeError] = useState<string | null>(null);
   const [profileRole, setProfileRole] = useState<string>("user");
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [canChooseSecretariat, setCanChooseSecretariat] = useState(true);
+  const [careerMode, setCareerMode] = useState<"all" | "fixed" | "subset" | null>(null);
+  const [allowedCareerIds, setAllowedCareerIds] = useState<string[] | null>(null);
+  const [scopeWarning, setScopeWarning] = useState<string | null>(null);
   const [secretariats, setSecretariats] = useState<ScopeOption[]>([]);
   const [careers, setCareers] = useState<ScopeOption[]>([]);
   const [orgUnits, setOrgUnits] = useState<ScopeOption[]>([]);
@@ -165,17 +169,33 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         const orgUnitsData = data.org_units || [];
         const membershipsData = data.memberships || [];
         const role = data.profile?.role || "user";
+        const chooseSec = data.canChooseSecretariat === true;
+        const lockedSec = data.lockedSecretariatId as string | undefined;
+        const mode = data.careerMode as "all" | "fixed" | "subset" | null | undefined;
+        const lockedCareer = data.lockedCareerId as string | undefined;
+        const allowed = data.allowedCareerIds as string[] | null | undefined;
+        const warning = data.scopeWarning as string | undefined;
 
         setSecretariats(secretariatsData);
         setCareers(careersData);
         setOrgUnits(orgUnitsData);
         setMemberships(membershipsData);
         setProfileRole(role);
+        setCanChooseSecretariat(chooseSec);
+        setCareerMode(mode ?? null);
+        setAllowedCareerIds(allowed ?? null);
+        setScopeWarning(warning ?? null);
 
-        if (secretariatsData.length > 0 && !scopeSecretariatId) {
-          const firstMembershipSecretariat = membershipsData.find((m: Membership) => m.secretariat_id)?.secretariat_id;
-          const fallbackSecretariat = firstMembershipSecretariat || secretariatsData[0].id;
-          setScopeSecretariatId(fallbackSecretariat);
+        if (chooseSec && secretariatsData.length > 0) {
+          setScopeSecretariatId(secretariatsData[0].id);
+        } else if (lockedSec) {
+          setScopeSecretariatId(lockedSec);
+        } else if (secretariatsData.length > 0) {
+          setScopeSecretariatId(secretariatsData[0].id);
+        }
+
+        if (lockedCareer) {
+          setScopeCareerId(lockedCareer);
         }
       } catch (e: any) {
         if (!ignore) setScopeError(e.message || "Error inesperado");
@@ -218,7 +238,17 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   const selectedSecretariat = secretariats.find((s) => s.id === scopeSecretariatId);
   const selectedSecretariatCode = selectedSecretariat?.code || "";
   const availableOrgUnits = orgUnits.filter((ou) => !scopeSecretariatId || ou.secretariat_id === scopeSecretariatId);
-  const availableCareers = selectedSecretariatCode === "SA" ? careers : [];
+  const availableCareers =
+    selectedSecretariatCode === "SA"
+      ? careers.filter((c) => {
+          if (careerMode === "subset" && allowedCareerIds?.length) {
+            return allowedCareerIds.includes(c.id);
+          }
+          return true;
+        })
+      : [];
+  const careerSelectDisabled =
+    selectedSecretariatCode === "SA" && careerMode === "fixed";
   const canToggleHidden =
     profileRole === "admin" ||
     profileRole === "decano" ||
@@ -419,10 +449,20 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
           ) : scopeError ? (
             <p className="text-sm text-red-600">{scopeError}</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="space-y-2">
+              {scopeWarning ? (
+                <p className="text-sm text-amber-700 dark:text-amber-500">{scopeWarning}</p>
+              ) : null}
+              {!canChooseSecretariat ? (
+                <p className="text-xs text-muted-foreground">
+                  La secretaría está fijada según tu rol (solo administración y decanato pueden cambiarla).
+                </p>
+              ) : null}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               <select
-                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-70"
                 value={scopeSecretariatId}
+                disabled={!canChooseSecretariat}
                 onChange={(e) => {
                   setScopeSecretariatId(e.target.value);
                   setScopeCareerId("");
@@ -438,10 +478,10 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
               </select>
 
               <select
-                className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+                className="rounded-md border border-border bg-background px-3 py-2 text-sm disabled:opacity-70"
                 value={scopeCareerId}
                 onChange={(e) => setScopeCareerId(e.target.value)}
-                disabled={selectedSecretariatCode !== "SA"}
+                disabled={selectedSecretariatCode !== "SA" || careerSelectDisabled}
               >
                 <option value="">Carrera ({isPracticeType ? "obligatoria" : "opcional"})</option>
                 {availableCareers.map((career) => (
@@ -484,6 +524,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                 />
                 Ocultar al área
               </label>
+            </div>
             </div>
           )}
         </div>
