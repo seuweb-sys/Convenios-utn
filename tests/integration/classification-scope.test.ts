@@ -83,6 +83,25 @@ describe("classification scope", () => {
     expect(validateCreateClassification(r, SA, "c3", 1).ok).toBe(false);
   });
 
+  it("secretario may omit career on practice (validate)", () => {
+    const r = computeConstrainedClassification(
+      "user",
+      [
+        {
+          membership_role: "secretario",
+          secretariat_id: SA,
+          career_id: null,
+          org_unit_id: null,
+          is_active: true,
+        },
+      ],
+      SA
+    );
+    expect(r.kind).toBe("constrained");
+    if (r.kind !== "constrained") return;
+    expect(validateCreateClassification(r, SA, null, 1).ok).toBe(true);
+  });
+
   it("secretario wins over director membership", () => {
     const r = computeConstrainedClassification(
       "user",

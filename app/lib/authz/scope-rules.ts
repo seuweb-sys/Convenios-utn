@@ -88,7 +88,10 @@ export function canCreateByMembershipMatrix(input: CreateScopeInput) {
   if (role === "admin" || role === "decano") return true;
 
   if (isPracticeType(convenioTypeId)) {
-    if (secretariatCode !== "SA" || !careerId) return false;
+    if (secretariatCode !== "SA") return false;
+    if (!careerId) {
+      return hasMembership(memberships, "secretario", secretariatId);
+    }
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
       hasMembership(memberships, "director", secretariatId, careerId) ||

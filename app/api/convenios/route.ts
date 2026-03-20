@@ -544,44 +544,38 @@ export async function POST(request: Request) {
       );
     }
 
-    if (userProfile.role !== "admin" && userProfile.role !== "decano") {
-      const { data: saRow } = await supabase
-        .from("secretariats")
-        .select("id")
-        .eq("code", "SA")
-        .eq("active", true)
-        .maybeSingle();
-      const { data: memRows, error: memErr } = await supabase
-        .from("profile_memberships")
-        .select("membership_role, secretariat_id, career_id, org_unit_id, is_active")
-        .eq("profile_id", user.id)
-        .eq("is_active", true);
-      if (memErr) {
-        console.error("memberships for classification", memErr);
-        return NextResponse.json({ error: "No se pudo validar el ámbito" }, { status: 500 });
-      }
-      const constrained = computeConstrainedClassification(
-        userProfile.role,
-        (memRows || []) as MembershipRow[],
-        saRow?.id ?? null
-      );
-      const scopeCheck = validateCreateClassification(
-        constrained,
-        secretariatId,
-        careerId,
-        convenioTypeId
-      );
-      if (!scopeCheck.ok) {
-        return NextResponse.json({ error: scopeCheck.error }, { status: 400 });
-      }
+    const { data: saRow, error: saErr } = await supabase
+      .from("secretariats")
+      .select("id")
+      .eq("code", "SA")
+      .eq("active", true)
+      .maybeSingle();
+    if (saErr) {
+      console.error("secretariat SA lookup", saErr);
+      return NextResponse.json({ error: "No se pudo validar el ámbito" }, { status: 500 });
     }
-
-    // Para tipos de práctica, carrera obligatoria y sin carga histórica
-    if ((convenioTypeId === 1 || convenioTypeId === 5) && !careerId) {
-      return NextResponse.json(
-        { error: "Para convenios de práctica, la carrera es obligatoria" },
-        { status: 400 }
-      );
+    const { data: memRows, error: memErr } = await supabase
+      .from("profile_memberships")
+      .select("membership_role, secretariat_id, career_id, org_unit_id, is_active")
+      .eq("profile_id", user.id)
+      .eq("is_active", true);
+    if (memErr) {
+      console.error("memberships for classification", memErr);
+      return NextResponse.json({ error: "No se pudo validar el ámbito" }, { status: 500 });
+    }
+    const constrained = computeConstrainedClassification(
+      userProfile.role,
+      (memRows || []) as MembershipRow[],
+      saRow?.id ?? null
+    );
+    const scopeCheck = validateCreateClassification(
+      constrained,
+      secretariatId,
+      careerId,
+      convenioTypeId
+    );
+    if (!scopeCheck.ok) {
+      return NextResponse.json({ error: scopeCheck.error }, { status: 400 });
     }
 
     const normalizedYear = normalizeAgreementYear(body.agreement_year, currentYear);

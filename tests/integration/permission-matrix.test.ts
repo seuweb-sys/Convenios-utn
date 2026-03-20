@@ -48,6 +48,29 @@ describe("permission matrix (integration)", () => {
     expect(result).toBe(false);
   });
 
+  it("allows SA secretary to create practice without career", () => {
+    const memberships: MembershipScope[] = [
+      {
+        membership_role: "secretario",
+        secretariat_id: "sa-id",
+        career_id: null,
+        org_unit_id: null,
+      },
+    ];
+
+    const result = canCreateByMembershipMatrix({
+      role: "user",
+      secretariatCode: "SA",
+      secretariatId: "sa-id",
+      careerId: null,
+      orgUnitId: null,
+      convenioTypeId: 1,
+      memberships,
+    });
+
+    expect(result).toBe(true);
+  });
+
   it("allows SA director to create practice in own career", () => {
     const memberships: MembershipScope[] = [
       {

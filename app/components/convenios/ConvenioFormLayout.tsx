@@ -121,6 +121,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   const [careerMode, setCareerMode] = useState<"all" | "fixed" | "subset" | null>(null);
   const [allowedCareerIds, setAllowedCareerIds] = useState<string[] | null>(null);
   const [scopeWarning, setScopeWarning] = useState<string | null>(null);
+  const [practiceCareerOptional, setPracticeCareerOptional] = useState(false);
   const [secretariats, setSecretariats] = useState<ScopeOption[]>([]);
   const [careers, setCareers] = useState<ScopeOption[]>([]);
   const [orgUnits, setOrgUnits] = useState<ScopeOption[]>([]);
@@ -175,6 +176,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         const lockedCareer = data.lockedCareerId as string | undefined;
         const allowed = data.allowedCareerIds as string[] | null | undefined;
         const warning = data.scopeWarning as string | undefined;
+        const practiceOpt = data.practiceCareerOptional === true;
 
         setSecretariats(secretariatsData);
         setCareers(careersData);
@@ -185,6 +187,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         setCareerMode(mode ?? null);
         setAllowedCareerIds(allowed ?? null);
         setScopeWarning(warning ?? null);
+        setPracticeCareerOptional(practiceOpt);
 
         if (chooseSec && secretariatsData.length > 0) {
           setScopeSecretariatId(secretariatsData[0].id);
@@ -298,7 +301,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
       if (!scopeSecretariatId) {
         throw new Error("Debes seleccionar una secretaría");
       }
-      if (isPracticeType && !scopeCareerId) {
+      if (isPracticeType && !scopeCareerId && !practiceCareerOptional) {
         throw new Error("Para convenios de práctica, debes seleccionar una carrera");
       }
       if (isPracticeType && agreementYear !== new Date().getFullYear()) {
@@ -379,7 +382,21 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [convenioData, config.title, convenioIdFromUrl, currentStep, steps.length, urlType]);
+  }, [
+    convenioData,
+    config.title,
+    convenioIdFromUrl,
+    currentStep,
+    steps.length,
+    urlType,
+    scopeSecretariatId,
+    scopeCareerId,
+    scopeOrgUnitId,
+    agreementYear,
+    hiddenFromArea,
+    practiceCareerOptional,
+    isPracticeType,
+  ]);
 
   const handleFinalSubmit = async () => {
     await handleSaveAndContinue('enviado');
@@ -483,7 +500,15 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                 onChange={(e) => setScopeCareerId(e.target.value)}
                 disabled={selectedSecretariatCode !== "SA" || careerSelectDisabled}
               >
-                <option value="">Carrera ({isPracticeType ? "obligatoria" : "opcional"})</option>
+                <option value="">
+                  Carrera (
+                  {isPracticeType
+                    ? practiceCareerOptional
+                      ? "opcional (secretario)"
+                      : "obligatoria"
+                    : "opcional"}
+                  )
+                </option>
                 {availableCareers.map((career) => (
                   <option key={career.id} value={career.id}>
                     {career.code ? `${career.code} - ` : ""}{career.name}

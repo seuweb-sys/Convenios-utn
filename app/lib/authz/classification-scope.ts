@@ -159,7 +159,16 @@ export function validateCreateClassification(
   careerId: string | null,
   convenioTypeId: number
 ): { ok: true } | { ok: false; error: string } {
-  if (constrained.kind === "full") return { ok: true };
+  const practice = convenioTypeId === 1 || convenioTypeId === 5;
+  if (constrained.kind === "full") {
+    if (practice && !careerId) {
+      return {
+        ok: false,
+        error: "Para convenios de práctica, la carrera es obligatoria",
+      };
+    }
+    return { ok: true };
+  }
 
   if (constrained.lockedSecretariatId == null) {
     return { ok: false, error: "No se pudo determinar la secretaría del usuario" };
@@ -171,17 +180,20 @@ export function validateCreateClassification(
     };
   }
 
-  const practice = convenioTypeId === 1 || convenioTypeId === 5;
   if (practice) {
     if (constrained.careerScope === "all_sa") {
-      if (!careerId) {
-        return { ok: false, error: "Debes seleccionar una carrera" };
-      }
+      /* Secretario académico: carrera opcional en práctica */
       return { ok: true };
     }
     if (constrained.careerScope === "fixed") {
       if (!constrained.lockedCareerId) {
         return { ok: false, error: "Carrera no definida para tu rol" };
+      }
+      if (!careerId) {
+        return {
+          ok: false,
+          error: "Para convenios de práctica, debes seleccionar una carrera",
+        };
       }
       if (careerId !== constrained.lockedCareerId) {
         return { ok: false, error: "No puedes asignar otra carrera" };
