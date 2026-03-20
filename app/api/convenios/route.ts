@@ -14,6 +14,16 @@ import {
 } from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 import { normalizeAgreementYear, validatePracticeHistoricalRule } from '@/app/lib/authz/scope-rules';
+import {
+  getPracticeConvenioTypeIds,
+  shouldApplyProfesorPracticeOnlyConvenioFilter,
+} from '@/app/lib/authz/profesor-membership-scope';
+import {
+  getCareerIdsForMembershipRole,
+  getProfileIdsWithMembershipInSecretariats,
+  getSecretariatIdsForSecretario,
+  hasActiveMembershipRole,
+} from '@/app/lib/authz/membership-scope';
 import path from 'path';
 import fs from 'fs';
 
@@ -82,8 +92,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Usuario no aprobado' }, { status: 403 });
     }
 
+    const applyProfesorPracticeOnly = await shouldApplyProfesorPracticeOnlyConvenioFilter(
+      supabase,
+      user.id,
+      profile.role
+    );
+
     // 3. Filtros de query
     const searchParams = request.nextUrl.searchParams;
+    const scopeParam = searchParams.get('scope'); // director | secretario | profesor
+    const authorMembershipParam = searchParams.get('author_membership'); // director | profesor (vista secretario)
     const limitParam = searchParams.get('limit');
     const offsetParam = searchParams.get('offset');
     const statusParam = searchParams.get('status');
@@ -140,6 +158,67 @@ export async function GET(request: NextRequest) {
       `)
       .order('updated_at', { ascending: false });
 
+    let emptyResult = false;
+
+    // Paneles por membresía (scope) — validación + filtros acotados
+    if (scopeParam === 'director') {
+      if (!(await hasActiveMembershipRole(supabase, user.id, 'director'))) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      const careerIds = await getCareerIdsForMembershipRole(supabase, user.id, 'director');
+      if (careerIds.length === 0) {
+        emptyResult = true;
+      } else {
+        query = query.in('career_id', careerIds);
+      }
+    } else if (scopeParam === 'secretario') {
+      if (!(await hasActiveMembershipRole(supabase, user.id, 'secretario'))) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      const secIds = await getSecretariatIdsForSecretario(supabase, user.id);
+      if (secIds.length === 0) {
+        emptyResult = true;
+      } else {
+        query = query.in('secretariat_id', secIds);
+      }
+    } else if (scopeParam === 'profesor') {
+      if (!(await hasActiveMembershipRole(supabase, user.id, 'profesor'))) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      query = query.in('convenio_type_id', getPracticeConvenioTypeIds());
+      const careerIds = await getCareerIdsForMembershipRole(supabase, user.id, 'profesor');
+      if (careerIds.length === 0) {
+        emptyResult = true;
+      } else {
+        query = query.in('career_id', careerIds);
+      }
+    } else if (applyProfesorPracticeOnly) {
+      // Profesores por membresía (sin scope de panel): solo práctica supervisada (tipos 1 y 5)
+      query = query.in('convenio_type_id', getPracticeConvenioTypeIds());
+    }
+
+    // Secretario: filtrar por autor con membresía director/profesor en mis secretarías
+    if (
+      !emptyResult &&
+      (authorMembershipParam === 'director' || authorMembershipParam === 'profesor') &&
+      (!scopeParam || scopeParam === 'secretario')
+    ) {
+      if (!(await hasActiveMembershipRole(supabase, user.id, 'secretario'))) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+      }
+      const secIds = await getSecretariatIdsForSecretario(supabase, user.id);
+      const authorIds = await getProfileIdsWithMembershipInSecretariats(
+        supabase,
+        authorMembershipParam,
+        secIds
+      );
+      if (authorIds.length === 0) {
+        emptyResult = true;
+      } else {
+        query = query.in('user_id', authorIds);
+      }
+    }
+
     // Filtro por status
     if (statusParam && statusParam !== 'all') {
       query = query.eq('status', statusParam);
@@ -177,9 +256,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Paginación
-    query = query.range(offset, offset + limit - 1);
+    if (!emptyResult) {
+      query = query.range(offset, offset + limit - 1);
+    }
 
-    const { data, error: dbError } = await query;
+    const { data, error: dbError } = emptyResult
+      ? { data: [] as any[], error: null }
+      : await query;
     if (dbError) {
       console.error("API Error fetching convenios:", dbError);
       return NextResponse.json({ error: 'Error al obtener convenios', details: dbError.message }, { status: 500 });
@@ -314,6 +397,13 @@ export async function POST(request: Request) {
     // Verificar que el usuario esté aprobado (o sea admin)
     if (!userProfile.is_approved && userProfile.role !== 'admin') {
       return NextResponse.json({ error: 'Usuario no aprobado' }, { status: 403 });
+    }
+
+    if (userProfile.role === "decano") {
+      return NextResponse.json(
+        { error: "El decano tiene permisos de solo lectura" },
+        { status: 403 }
+      );
     }
 
     // Obtener y validar el body

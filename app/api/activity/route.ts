@@ -2,6 +2,8 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
 import { type NextRequest } from 'next/server';
 import { formatTimeAgo } from "@/app/lib/dashboard/utils"; // Reutilizamos la función de formato de tiempo
+import { isPracticeType } from "@/app/lib/authz/scope-rules";
+import { shouldApplyProfesorPracticeOnlyConvenioFilter } from "@/app/lib/authz/profesor-membership-scope";
 
 // Tipos para la respuesta de la API
 export type ApiActivityType = "info" | "success" | "warning" | "error";
@@ -51,6 +53,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+
+    const applyProfesorPracticeOnly =
+      profile &&
+      (await shouldApplyProfesorPracticeOnlyConvenioFilter(
+        supabase,
+        user.id,
+        profile.role
+      ));
+
     // 2. Obtener parámetro 'limit'
     const searchParams = request.nextUrl.searchParams;
     const limitParam = searchParams.get('limit');
@@ -86,7 +102,7 @@ export async function GET(request: NextRequest) {
         convenioIds.length > 0 ? 
           supabase
             .from('convenios')
-            .select('id, title, serial_number')
+            .select('id, title, serial_number, convenio_type_id')
             .in('id', convenioIds) : 
           { data: [], error: null },
         userIds.length > 0 ? 
@@ -100,8 +116,24 @@ export async function GET(request: NextRequest) {
       const conveniosData = conveniosResult.data || [];
       const profilesData = profilesResult.data || [];
 
+      let activityRows = activityData as ActivityLogFromDB[];
+      if (applyProfesorPracticeOnly) {
+        const convenioById = new Map(
+          conveniosData.map((c: { id: string; convenio_type_id?: number | null }) => [c.id, c])
+        );
+        activityRows = activityRows.filter((activity) => {
+          if (!activity.convenio_id) return true;
+          const c = convenioById.get(activity.convenio_id);
+          if (!c) return false;
+          return isPracticeType(Number((c as { convenio_type_id?: number }).convenio_type_id));
+        });
+      }
+
+      if (activityRows.length === 0) {
+        responseData = defaultActivity;
+      } else {
       // 6. Formatear los datos con lookup manual
-      responseData = (activityData as ActivityLogFromDB[]).map(activity => {
+      responseData = activityRows.map(activity => {
         const convenio = conveniosData.find(c => c.id === activity.convenio_id);
         const profile = profilesData.find(p => p.id === activity.user_id);
 
@@ -173,6 +205,7 @@ export async function GET(request: NextRequest) {
           iconName
         };
       });
+      }
     }
 
     // 7. Devolver datos formateados

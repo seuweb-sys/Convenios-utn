@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { isPracticeType } from '@/app/lib/authz/scope-rules';
+import { shouldApplyProfesorPracticeOnlyConvenioFilter } from '@/app/lib/authz/profesor-membership-scope';
 import { UpdateConvenioDTO } from "@/lib/types/convenio";
 import { moveFileToFolder, moveFileToFolderOAuth, moveFolderToFolder, moveFolderToFolderOAuth, DRIVE_FOLDERS, uploadFileToDrive, uploadConvenioEspecificoSimple, deleteFileFromDrive } from '@/app/lib/google-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
@@ -83,7 +85,14 @@ export async function GET(
           unit_type
         ),
         user:user_id(id, full_name),
-        reviewer:reviewer_id(id, full_name)
+        profiles:user_id(full_name, role),
+        reviewer:reviewer_id(id, full_name),
+        observaciones (
+          id,
+          content,
+          created_at,
+          resolved
+        )
       `)
       .eq('id', params.id)
       .single();
@@ -100,6 +109,23 @@ export async function GET(
       return NextResponse.json(
         { error: 'Convenio no encontrado' },
         { status: 404 }
+      );
+    }
+
+    const applyProfesorPracticeOnly = await shouldApplyProfesorPracticeOnlyConvenioFilter(
+      supabase,
+      user.id,
+      userRole
+    );
+    const typeId = (convenio as { convenio_type_id?: number | null }).convenio_type_id;
+    if (
+      applyProfesorPracticeOnly &&
+      typeId != null &&
+      !isPracticeType(Number(typeId))
+    ) {
+      return NextResponse.json(
+        { error: 'No autorizado para ver este convenio' },
+        { status: 403 }
       );
     }
 
@@ -148,6 +174,13 @@ export async function PATCH(
     const userRole = profile.role;
     if (!profile.is_approved && userRole !== "admin") {
       return NextResponse.json({ error: "Usuario no aprobado" }, { status: 403 });
+    }
+
+    if (userRole === "decano") {
+      return NextResponse.json(
+        { error: "El decano tiene permisos de solo lectura" },
+        { status: 403 }
+      );
     }
 
     // Obtener y validar el body de la request

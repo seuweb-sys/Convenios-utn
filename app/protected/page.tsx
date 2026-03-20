@@ -28,6 +28,9 @@ import {
   getUserConvenios,
   getRecentActivity
 } from "@/app/lib/dashboard";
+import { isPracticeType } from "@/app/lib/authz/scope-rules";
+import { shouldApplyProfesorPracticeOnlyConvenioFilter } from "@/app/lib/authz/profesor-membership-scope";
+import { shouldUseMineOnlyConveniosForDashboard } from "@/app/lib/authz/membership-scope";
 
 // Componente principal del dashboard
 export default async function Dashboard() {
@@ -37,12 +40,31 @@ export default async function Dashboard() {
   const { data: { user } } = await supabase.auth.getUser();
   const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "Usuario";
 
+  const { data: profile } = user
+    ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+    : { data: null as { role: string } | null };
+
+  const mineOnlyDashboard =
+    !!user &&
+    !!profile &&
+    (await shouldUseMineOnlyConveniosForDashboard(supabase, user.id, profile.role));
+
   // Cargar datos de manera paralela
-  const [convenioTypes, convenios, activityItems] = await Promise.all([
+  const [convenioTypesRaw, convenios, activityItems] = await Promise.all([
     getConvenioTypes(),
-    getUserConvenios(4), // Limitar a 4 convenios
+    getUserConvenios(4, { mine: mineOnlyDashboard }),
     getRecentActivity(3) // Limitar a 3 actividades recientes
   ]);
+
+  /** Membresía profesor (profile_memberships): solo cards de práctica supervisada (tipos 1 y 5). */
+  let convenioTypes = convenioTypesRaw;
+  if (
+    user &&
+    profile &&
+    (await shouldApplyProfesorPracticeOnlyConvenioFilter(supabase, user.id, profile.role))
+  ) {
+    convenioTypes = convenioTypesRaw.filter((t) => isPracticeType(t.id));
+  }
 
   return (
     <>
@@ -61,7 +83,7 @@ export default async function Dashboard() {
           <div className="lg:col-span-2 space-y-6">
             {/* Actividad Reciente */}
             <SectionContainer 
-              title="Actividad Reciente" 
+              title="Actividad reciente" 
               viewAllLink="/protected/actividad"
             >
               <div className="space-y-4">
@@ -86,7 +108,7 @@ export default async function Dashboard() {
             
             {/* Listado de Convenios */}
             <SectionContainer 
-              title="Mis Convenios" 
+              title="Mis convenios" 
               viewAllLink="/protected/convenios-lista"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -115,10 +137,7 @@ export default async function Dashboard() {
           
           {/* Crear Nuevo Convenio */}
           <div className="space-y-6">
-            <SectionContainer title="Crear Nuevo Convenio">
-              <p className="text-sm text-muted-foreground mb-5">
-                Selecciona un modelo para comenzar. <span className="font-semibold text-primary">Disponibles: Convenio Marco, Convenio Marco Práctica Supervisada, Convenio Específico, Convenio Particular de Práctica Supervisada y Acuerdo de Colaboración.</span>
-              </p>
+            <SectionContainer title="Crear nuevo convenio">
               <div className="space-y-4">
                 {convenioTypes.map((tipo) => (
                   <ConvenioTypeCard

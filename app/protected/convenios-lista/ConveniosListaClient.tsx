@@ -23,7 +23,10 @@ export function ConveniosListaClient({
   const filteredConvenios = (convenios || []).filter((convenio) => {
     const statusMatch = !statusFilter || convenio.status === statusFilter;
     const typeMatch = !typeFilter || convenio.convenio_types?.name === typeFilter;
-    const careerMatch = !careerFilter || convenio.profiles?.career_id === careerFilter;
+    const careerMatch =
+      !careerFilter ||
+      convenio.career_id === careerFilter ||
+      convenio.profiles?.career_id === careerFilter;
     const secretariatMatch = !secretariatFilter || convenio.secretariat_id === secretariatFilter;
     return statusMatch && typeMatch && careerMatch && secretariatMatch;
   });

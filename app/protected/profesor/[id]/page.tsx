@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
 import { 
   ChevronLeftIcon, 
   BuildingIcon, 
@@ -32,39 +31,22 @@ export default function ConvenioDetallePage() {
       try {
         setLoading(true);
         
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
+        const res = await fetch(`/api/convenios/${params.id}`, {
+          credentials: "include",
+        });
+
+        if (res.status === 401) {
           router.push("/sign-in");
           return;
         }
-
-        const { data: convenioData, error: convenioError } = await supabase
-          .from("convenios")
-          .select(`
-            *,
-            profiles:user_id (
-              full_name,
-              role
-            ),
-            convenio_types (
-              name
-            ),
-            observaciones (
-              id,
-              content,
-              created_at,
-              resolved
-            )
-          `)
-          .eq("id", params.id)
-          .single();
-
-        if (convenioError) {
+        if (res.status === 403) {
+          throw new Error("forbidden");
+        }
+        if (!res.ok) {
           throw new Error("Error al cargar convenio");
         }
 
+        const convenioData = await res.json();
         setConvenio(convenioData);
       } catch (e) {
         console.error("Error:", e);
@@ -303,6 +285,8 @@ export default function ConvenioDetallePage() {
   }
 
   if (error || !convenio) {
+    const isForbidden =
+      error instanceof Error && error.message === "forbidden";
     return (
       <>
         <BackgroundPattern />
@@ -312,7 +296,11 @@ export default function ConvenioDetallePage() {
             <SectionContainer title="Error">
               <div className="text-center py-12 text-red-500">
                 <p className="text-lg font-semibold">Error al cargar el convenio</p>
-                <p className="text-sm mt-2">El convenio no existe o no tienes permisos para verlo</p>
+                <p className="text-sm mt-2">
+                  {isForbidden
+                    ? "No tenés permiso para ver este convenio (solo práctica supervisada)."
+                    : "El convenio no existe o no tienes permisos para verlo"}
+                </p>
                 <Link href="/protected/profesor" className="mt-4 inline-block">
                   <Button>
                     <ChevronLeftIcon className="h-4 w-4 mr-2" />

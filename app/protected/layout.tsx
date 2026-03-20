@@ -7,6 +7,7 @@ import { signOutAction } from "@/app/actions";
 import { BellIcon, SearchIcon, MenuIcon } from "lucide-react";
 import { Navigation } from "@/app/components/layout/navigation";
 import { NotificationsDropdown } from "@/app/components/layout/notifications";
+import { getNavMembershipFlags } from "@/app/lib/authz/membership-scope";
 
 export default async function ProtectedLayout({
   children,
@@ -34,15 +35,7 @@ export default async function ProtectedLayout({
     console.error('Error al obtener perfil:', profileError);
   }
 
-  const { data: professorLikeMemberships } = await supabase
-    .from("profile_memberships")
-    .select("id")
-    .eq("profile_id", user.id)
-    .eq("is_active", true)
-    .in("membership_role", ["profesor", "director"])
-    .limit(1);
-
-  const hasProfessorAccess = !!professorLikeMemberships && professorLikeMemberships.length > 0;
+  const navMembershipFlags = await getNavMembershipFlags(supabase, user.id);
 
   return (
     <div className="flex h-screen flex-col">
@@ -122,7 +115,7 @@ export default async function ProtectedLayout({
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Fijo a la izquierda */}
         <aside className="hidden md:flex flex-col w-64 border-r bg-card/50">
-          <Navigation userRole={profile?.role} hasProfessorAccess={hasProfessorAccess} />
+          <Navigation userRole={profile?.role} navMembershipFlags={navMembershipFlags} />
         </aside>
 
         {/* Content Area - Scrollable */}

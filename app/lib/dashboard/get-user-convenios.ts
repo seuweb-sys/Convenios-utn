@@ -23,10 +23,14 @@ interface ConvenioWithType {
   };
 }
 
-export async function getUserConvenios(limit: number = 4): Promise<UserConvenioData[]> {
+export async function getUserConvenios(
+  limit: number = 4,
+  opts?: { mine?: boolean }
+): Promise<UserConvenioData[]> {
   try {
     const headersList = await headers();
-    const response = await fetch(getApiUrl(`/api/convenios?limit=${limit}`), {
+    const mineQs = opts?.mine ? "&mine=true" : "";
+    const response = await fetch(getApiUrl(`/api/convenios?limit=${limit}${mineQs}`), {
       headers: {
         'Cookie': headersList.get('cookie') || '',
       },

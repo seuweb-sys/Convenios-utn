@@ -29,7 +29,10 @@ export function AdminPanelClient({
   const filteredConvenios = (convenios || []).filter((c) => {
     const statusOk = !statusFilter || c.status === statusFilter;
     const typeOk = !typeFilter || c.convenio_types?.name === typeFilter;
-    const careerOk = !careerFilter || c.profiles?.career_id === careerFilter;
+    const careerOk =
+      !careerFilter ||
+      c.career_id === careerFilter ||
+      c.profiles?.career_id === careerFilter;
     const secretariatOk = !secretariatFilter || c.secretariat_id === secretariatFilter;
     return statusOk && typeOk && careerOk && secretariatOk;
   });

@@ -122,26 +122,40 @@ export const ConvenioTypeCard = ({
           </div>
         </div>
       </div>
-      <div className="mt-6 grid grid-cols-2 gap-2">
-        <Link href={getConvenioUrl()} legacyBehavior>
-          <Button 
+      {/* Franja de acción: el botón sigue compacto y centrado, pero los costados
+          forman parte de una zona visual (menos “vacío” que un botón suelto). */}
+      <div
+        className={cn(
+          "mt-6 flex justify-center border-t border-border/50 -mx-6 -mb-6 rounded-b-lg px-4 py-4",
+          "bg-muted/25 dark:bg-muted/15"
+        )}
+      >
+        {isEnabled ? (
+          <Button
+            asChild
+            size="sm"
             className={cn(
-              "w-full border-0",
+              "min-w-[9.5rem] border-0 px-5 shadow-sm",
               buttonBgClasses[color],
               "text-primary-foreground"
             )}
-            disabled={!isEnabled}
-            title={isEnabled ? undefined : "Próximamente disponible"}
+          >
+            <Link href={getConvenioUrl()}>Usar plantilla</Link>
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            className={cn(
+              "min-w-[9.5rem] border-0 px-5 shadow-sm",
+              buttonBgClasses[color],
+              "text-primary-foreground"
+            )}
+            disabled
+            title="Próximamente disponible"
           >
             Usar plantilla
           </Button>
-        </Link>
-        <Link href={previewUrl} legacyBehavior>
-          <Button variant="outline" className="w-full border-border/60 flex items-center justify-center gap-1">
-            <EyeIcon className="h-4 w-4" />
-            <span>Vista previa</span>
-          </Button>
-        </Link>
+        )}
       </div>
     </div>
   );

@@ -1,17 +1,13 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import {
-  getPracticeConvenioTypeIds,
-  shouldApplyProfesorPracticeOnlyConvenioFilter,
-} from "@/app/lib/authz/profesor-membership-scope";
-import { shouldUseMineOnlyConveniosForDashboard } from "@/app/lib/authz/membership-scope";
-import {
   BackgroundPattern,
-  DashboardHeader
+  DashboardHeader,
 } from "@/app/components/dashboard";
-import { ConveniosListaClient } from "./ConveniosListaClient";
+import { ConveniosListaClient } from "@/app/protected/convenios-lista/ConveniosListaClient";
 
-export default async function ConveniosListaPage() {
+/** Misma visibilidad que admin vía RLS; solo lectura en API (PATCH/POST bloqueados para decano). */
+export default async function DecanoConveniosPage() {
   const supabase = await createClient();
 
   const {
@@ -28,19 +24,11 @@ export default async function ConveniosListaPage() {
     .eq("id", user.id)
     .single();
 
-  const applyProfesorPracticeOnly =
-    profile &&
-    (await shouldApplyProfesorPracticeOnlyConvenioFilter(
-      supabase,
-      user.id,
-      profile.role
-    ));
+  if (profile?.role !== "decano") {
+    return redirect("/protected");
+  }
 
-  const mineOnlyList =
-    profile &&
-    (await shouldUseMineOnlyConveniosForDashboard(supabase, user.id, profile.role));
-
-  let conveniosQuery = supabase
+  const { data: convenios, error: conveniosError } = await supabase
     .from("convenios")
     .select(`
       *,
@@ -69,16 +57,6 @@ export default async function ConveniosListaPage() {
     `)
     .order("created_at", { ascending: false });
 
-  if (applyProfesorPracticeOnly) {
-    conveniosQuery = conveniosQuery.in("convenio_type_id", getPracticeConvenioTypeIds());
-  }
-
-  if (mineOnlyList) {
-    conveniosQuery = conveniosQuery.eq("user_id", user.id);
-  }
-
-  const { data: convenios, error: conveniosError } = await conveniosQuery;
-
   const { data: careers } = await supabase
     .from("careers")
     .select("*")
@@ -91,7 +69,7 @@ export default async function ConveniosListaPage() {
     .order("name");
 
   if (conveniosError) {
-    console.error("Error fetching convenios:", conveniosError);
+    console.error("Error fetching convenios decano:", conveniosError);
   }
 
   return (
@@ -99,12 +77,8 @@ export default async function ConveniosListaPage() {
       <BackgroundPattern />
       <div className="p-6">
         <DashboardHeader
-          name="Convenios"
-          subtitle={
-            mineOnlyList
-              ? "Solo convenios creados por vos"
-              : "Aquí puedes ver todos los convenios visibles para tu perfil"
-          }
+          name="Vista Decano"
+          subtitle="Consulta de convenios (solo lectura). Las acciones de administración no están disponibles."
         />
         <ConveniosListaClient
           convenios={convenios || []}

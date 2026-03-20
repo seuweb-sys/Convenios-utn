@@ -1,6 +1,10 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import {
+  getPracticeConvenioTypeIds,
+  shouldApplyProfesorPracticeOnlyConvenioFilter,
+} from "@/app/lib/authz/profesor-membership-scope";
+import {
   BackgroundPattern,
   DashboardHeader
 } from "@/app/components/dashboard";
@@ -17,10 +21,24 @@ export default async function AprobacionesPage() {
     return redirect("/sign-in");
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const applyProfesorPracticeOnly =
+    profile &&
+    (await shouldApplyProfesorPracticeOnlyConvenioFilter(
+      supabase,
+      user.id,
+      profile.role
+    ));
+
   // Por ahora, traemos todos los convenios. El cliente se encarga de filtrar
   // los que son relevantes para aprobación ('enviado', 'revision').
   // Esto es más simple que hacer una consulta compleja con 'or'.
-  const { data: convenios, error: conveniosError } = await supabase
+  let conveniosQuery = supabase
     .from("convenios")
     .select(`
       *,
@@ -48,6 +66,12 @@ export default async function AprobacionesPage() {
       )
     `)
     .order("created_at", { ascending: false });
+
+  if (applyProfesorPracticeOnly) {
+    conveniosQuery = conveniosQuery.in("convenio_type_id", getPracticeConvenioTypeIds());
+  }
+
+  const { data: convenios, error: conveniosError } = await conveniosQuery;
 
   const { data: careers } = await supabase
     .from("careers")
