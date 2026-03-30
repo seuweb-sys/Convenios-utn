@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { ScopedConveniosPanel } from "@/app/protected/components/ScopedConveniosPanel";
 
 export default function ProfesorPage() {

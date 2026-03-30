@@ -1,5 +1,8 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
+
 import { useEffect, useState } from "react";
 import { DataTable } from "@/app/protected/admin/data-table";
 import { columns } from "./columns";

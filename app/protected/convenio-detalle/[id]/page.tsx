@@ -1,5 +1,8 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
+
 import { useSearchParams, useParams } from 'next/navigation';
 import { ChevronLeftIcon, FileTextIcon } from "lucide-react";
 import Link from "next/link";

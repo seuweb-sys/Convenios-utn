@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
 // Asumimos que estas utilidades no dependen del contexto de React y pueden importarse aquí
