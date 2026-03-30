@@ -6,14 +6,15 @@ import { SignUpForm } from "./SignUpForm";
 export default async function SignUp({
   searchParams,
 }: {
-  searchParams: { message?: string } | Promise<{ message?: string }>
+  searchParams: { message?: string; success?: string; error?: string } | Promise<{ message?: string; success?: string; error?: string }>
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Obtener el mensaje de los parámetros de búsqueda
+  // encodedRedirect escribe en ?success= o ?error=, no en ?message=
   const params = await searchParams;
-  const message = params?.message;
+  const message = params?.success ?? params?.error ?? params?.message;
+  const messageType: "success" | "error" = params?.success ? "success" : "error";
 
   if (user) {
     return redirect("/protected/");
@@ -71,7 +72,7 @@ export default async function SignUp({
             </Link>
           </div>
 
-          <SignUpForm message={message} />
+          <SignUpForm message={message} type={messageType} />
 
           {/* Footer */}
           <div className="mt-8 text-center text-muted-foreground text-xs">

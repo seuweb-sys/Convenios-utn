@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/button";
+import { formatOrgUnitLabel } from "@/lib/org-unit-label";
 
 type MembershipRole = "secretario" | "director" | "profesor" | "miembro";
 
@@ -302,7 +303,7 @@ export function MembershipsManager() {
             <option value="">Subárea (opcional)</option>
             {filteredOrgUnits.map((ou) => (
               <option key={ou.id} value={ou.id}>
-                {ou.name}
+                {formatOrgUnitLabel(ou)}
               </option>
             ))}
           </select>
@@ -339,7 +340,9 @@ export function MembershipsManager() {
                   <td className="py-2 pr-2">
                     {m.careers ? `${m.careers.code ? `${m.careers.code} - ` : ""}${m.careers.name}` : "-"}
                   </td>
-                  <td className="py-2 pr-2">{m.org_units?.name || "-"}</td>
+                  <td className="py-2 pr-2">
+                    {m.org_units ? formatOrgUnitLabel(m.org_units) : "-"}
+                  </td>
                   <td className="py-2 pr-2">{m.is_active ? "Activa" : "Inactiva"}</td>
                   <td className="py-2">
                     <Button
@@ -419,7 +422,7 @@ export function MembershipsManager() {
             <option value="">Subárea (opcional)</option>
             {legacyOrgUnits.map((ou) => (
               <option key={ou.id} value={ou.id}>
-                {ou.name}
+                {formatOrgUnitLabel(ou)}
               </option>
             ))}
           </select>

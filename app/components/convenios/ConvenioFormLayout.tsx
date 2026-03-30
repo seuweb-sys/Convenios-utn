@@ -22,6 +22,7 @@ import { Button } from "@/app/components/ui/button";
 import { Progress } from "@/app/components/ui/progress";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { cn } from "@/lib/utils";
+import { formatOrgUnitLabel } from "@/lib/org-unit-label";
 import { FullScreenPreview } from "@/app/components/convenios/full-screen-preview";
 import { useConvenioStore, getFieldsFromStore } from "@/stores/convenioStore";
 import { SuccessModal } from '@/app/components/ui/success-modal';
@@ -46,7 +47,13 @@ type ConvenioFormLayoutProps = {
   config: ConvenioConfig;
 };
 
-type ScopeOption = { id: string; code?: string; name: string; unit_type?: string; secretariat_id?: string };
+type ScopeOption = {
+  id: string;
+  code?: string;
+  name: string;
+  unit_type?: string;
+  secretariat_id?: string;
+};
 type Membership = {
   membership_role: "secretario" | "director" | "profesor" | "miembro";
   secretariat_id: string | null;
@@ -524,7 +531,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                 <option value="">Subárea (opcional)</option>
                 {availableOrgUnits.map((orgUnit) => (
                   <option key={orgUnit.id} value={orgUnit.id}>
-                    {orgUnit.name}
+                    {formatOrgUnitLabel(orgUnit)}
                   </option>
                 ))}
               </select>

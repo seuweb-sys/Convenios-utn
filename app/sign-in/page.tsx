@@ -8,14 +8,14 @@ import { signInAction } from "@/app/actions";
 export default async function SignIn({
   searchParams,
 }: {
-  searchParams: { message?: string } | Promise<{ message?: string }>
+  searchParams: { message?: string; error?: string; success?: string } | Promise<{ message?: string; error?: string; success?: string }>
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  
-  // Obtener el mensaje de los parámetros de búsqueda
+
+  // encodedRedirect escribe en ?error= o ?success=, no en ?message=
   const params = await searchParams;
-  const message = params?.message;
+  const errorMessage = params?.error ?? params?.message;
 
   if (user) {
     return redirect("/protected/");
@@ -112,9 +112,19 @@ export default async function SignIn({
                   </div>
                 </div>
 
-                {message && (
+                {/* Link de recuperación — visible siempre, entre la contraseña y el error */}
+                <div className="text-center">
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
+
+                {errorMessage && (
                   <div className="bg-destructive/15 text-destructive text-center p-3 rounded-md">
-                    <p className="text-sm">{message}</p>
+                    <p className="text-sm">{errorMessage}</p>
                   </div>
                 )}
 

@@ -1,0 +1,154 @@
+import Link from "next/link";
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
+import { forgotPasswordAction } from "@/app/actions";
+
+export default async function ForgotPassword({
+  searchParams,
+}: {
+  searchParams: { success?: string; error?: string } | Promise<{ success?: string; error?: string }>
+}) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (user) {
+    return redirect("/protected/");
+  }
+
+  const params = await searchParams;
+  const successMessage = params?.success;
+  const errorMessage = params?.error;
+
+  return (
+    <>
+      {/* Fondo con patrón */}
+      <div className="fixed inset-0 bg-background -z-10 opacity-50">
+        <svg xmlns='http://www.w3.org/2000/svg' width='100%' height='100%'>
+          <defs>
+            <pattern id='pattern' width='40' height='40' patternUnits='userSpaceOnUse'>
+              <circle cx='20' cy='20' r='0.5' fill='currentColor' className="text-foreground/10" />
+            </pattern>
+            <pattern id='pattern2' width='80' height='80' patternUnits='userSpaceOnUse'>
+              <circle cx='40' cy='40' r='1' fill='currentColor' className="text-foreground/5" />
+            </pattern>
+          </defs>
+          <rect width='100%' height='100%' fill='url(#pattern)' />
+          <rect width='100%' height='100%' fill='url(#pattern2)' />
+        </svg>
+      </div>
+
+      {/* Efectos de fondo */}
+      <div className="fixed inset-0 -z-10 overflow-hidden">
+        <div className="absolute -top-[30%] -left-[10%] w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl animate-blob"></div>
+        <div className="absolute -bottom-[20%] -right-[10%] w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-3xl animate-blob animation-delay-2000"></div>
+        <div className="absolute top-[40%] left-[60%] w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-3xl animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="flex flex-col items-center justify-center min-h-screen w-full">
+        <div className="w-full max-w-md px-4 py-8 mx-auto">
+          {/* Logo UTN */}
+          <div className="flex justify-center mb-8">
+            <Link href="/" className="block cursor-pointer" aria-label="Ir a la página de inicio">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-teal-600/10 rounded-xl blur-lg"></div>
+                <div className="bg-white/95 backdrop-filter backdrop-blur-sm p-4 rounded-xl shadow-lg relative overflow-hidden w-[100px] h-[100px] flex items-center justify-center border border-gray-200">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-50 to-teal-50 opacity-90"></div>
+                  <div className="absolute inset-0 bg-white/60 mix-blend-overlay"></div>
+                  <img
+                    src="/utn-logo.png"
+                    alt="Logo UTN"
+                    className="w-[80px] h-[64px] object-contain relative z-10 contrast-125 brightness-105"
+                    style={{ width: '80px', height: '64px', objectFit: 'contain' }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-transparent to-teal-500/10"></div>
+                </div>
+                <div className="absolute -inset-3 bg-gradient-to-r from-blue-500/20 via-transparent to-teal-500/20 blur-md -z-10"></div>
+              </div>
+            </Link>
+          </div>
+
+          {/* Formulario */}
+          <div className="relative animate-fade-up">
+            <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 to-teal-600/20 rounded-xl blur-md opacity-70"></div>
+            <div className="relative bg-card/80 backdrop-blur-sm rounded-xl p-8 border border-border/40 shadow-lg">
+              <div className="text-center mb-6">
+                <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-500 to-teal-400">
+                  Recuperar Contraseña
+                </h1>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Ingresá tu email y te enviaremos un link para restablecer tu contraseña
+                </p>
+              </div>
+
+              {successMessage ? (
+                <div className="space-y-5">
+                  <div className="p-4 rounded-md bg-green-500/15 text-green-500 text-center">
+                    <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm font-medium">{successMessage}</p>
+                  </div>
+                  <div className="text-center">
+                    <Link
+                      href="/sign-in"
+                      className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                    >
+                      Volver al inicio de sesión
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <form className="space-y-5" action={forgotPasswordAction}>
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium">
+                      Correo electrónico
+                    </label>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      placeholder="tu@email.com"
+                      className="mt-1 block w-full px-3 py-2.5 border border-border/60 rounded-md shadow-sm bg-black/20 backdrop-blur-sm focus:outline-none focus:ring-blue-500/40 focus:border-blue-500/40 text-white placeholder:text-muted-foreground/50"
+                    />
+                  </div>
+
+                  {errorMessage && (
+                    <div className="bg-destructive/15 text-destructive text-center p-3 rounded-md">
+                      <p className="text-sm">{errorMessage}</p>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full flex justify-center items-center gap-2 py-2.5 px-4 border border-transparent rounded-md shadow-md text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-teal-500 hover:from-blue-700 hover:to-teal-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+                  >
+                    Enviar link de recuperación
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+
+                  <div className="text-center">
+                    <Link
+                      href="/sign-in"
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      ← Volver al inicio de sesión
+                    </Link>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="mt-8 text-center text-muted-foreground text-xs">
+            <p>Universidad Tecnológica Nacional - Sistema de Gestión de Convenios</p>
+            <p className="mt-1">© {new Date().getFullYear()} - Todos los derechos reservados</p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { signUpAction } from "@/app/actions";
 import Link from "next/link";
@@ -8,6 +7,7 @@ import LoginWithGoogle from "@/app/components/auth/login-with-google";
 
 interface SignUpFormProps {
     message?: string;
+    type?: "success" | "error";
 }
 
 function SubmitButton() {
@@ -29,8 +29,30 @@ function SubmitButton() {
     );
 }
 
-export function SignUpForm({ message }: SignUpFormProps) {
-    const [selectedRole, setSelectedRole] = useState<string>("user");
+export function SignUpForm({ message, type }: SignUpFormProps) {
+
+    // Estado de éxito: mostrar pantalla de confirmación sin formulario
+    if (type === "success" && message) {
+        return (
+            <div className="relative animate-fade-up">
+                <div className="absolute -inset-1 bg-gradient-to-r from-teal-600/20 to-blue-600/20 rounded-xl blur-md opacity-70"></div>
+                <div className="relative bg-card/80 backdrop-blur-sm rounded-xl p-8 border border-border/40 shadow-lg text-center">
+                    <div className="flex justify-center mb-4">
+                        <div className="w-16 h-16 rounded-full bg-green-500/15 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <h2 className="text-xl font-bold text-green-500 mb-2">¡Registro exitoso!</h2>
+                    <p className="text-sm text-muted-foreground mb-4">{message}</p>
+                    <p className="text-xs text-muted-foreground/70">
+                        Revisá tu bandeja de entrada y spam. Una vez confirmado el correo, un administrador aprobará tu cuenta.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="relative animate-fade-up">
@@ -82,33 +104,15 @@ export function SignUpForm({ message }: SignUpFormProps) {
                             />
                         </div>
 
-                        {/* Role Selection (global) */}
-                        <div>
-                            <label htmlFor="role" className="block text-sm font-medium">
-                                Rol
-                            </label>
-                            <select
-                                id="role"
-                                name="role"
-                                required
-                                value={selectedRole}
-                                onChange={(e) => setSelectedRole(e.target.value)}
-                                className="mt-1 block w-full px-3 py-2.5 border border-border/60 rounded-md shadow-sm bg-black/20 backdrop-blur-sm focus:outline-none focus:ring-blue-500/40 focus:border-blue-500/40 text-white [&>option]:text-black"
-                            >
-                                <option value="decano">Decano</option>
-                                <option value="user">Usuario</option>
-                            </select>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Los roles de area (profesor/director/secretario/miembro) se asignan por membresias.
-                            </p>
-                        </div>
+
                     </div>
 
                     {message && (
-                        <div className={`p-3 rounded-md text-center ${message.includes("Revisa tu correo") || message.includes("Thanks")
-                            ? "bg-green-500/15 text-green-500"
-                            : "bg-destructive/15 text-destructive"
-                            }`}>
+                        <div className={`p-3 rounded-md text-center ${
+                            type === "success"
+                                ? "bg-green-500/15 text-green-500"
+                                : "bg-destructive/15 text-destructive"
+                        }`}>
                             <p className="text-sm">{message}</p>
                         </div>
                     )}

@@ -1,7 +1,6 @@
 import { createClient } from "@/utils/supabase/server";
 import { signOutAction } from "@/app/actions";
 import { redirect } from "next/navigation";
-import { PendingApprovalForm } from "./PendingApprovalForm";
 
 export default async function PendingApprovalPage() {
     const supabase = await createClient();
@@ -24,9 +23,6 @@ export default async function PendingApprovalPage() {
     if (profile?.is_approved === true || profile?.role === "admin") {
         return redirect("/protected");
     }
-
-    // Verificar si el usuario necesita completar perfil (Google auth sin datos)
-    const needsProfileCompletion = !profile?.role;
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 p-4">
@@ -67,20 +63,11 @@ export default async function PendingApprovalPage() {
                         administrador antes de que puedas acceder al sistema.
                     </p>
 
-                    {/* Profile completion form for Google users */}
-                    {needsProfileCompletion && (
-                        <PendingApprovalForm
-                            currentRole={profile?.role}
-                        />
-                    )}
-
                     {/* Info box */}
                     <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
                         <p className="text-sm text-blue-700 dark:text-blue-300">
                             <strong>¿Qué hacer?</strong><br />
-                            {needsProfileCompletion
-                                ? "Completá tu información arriba y un administrador revisará tu solicitud."
-                                : "Un administrador revisará tu solicitud y recibirás acceso cuando sea aprobada."}
+                            Un administrador revisará tu solicitud y recibirás acceso cuando sea aprobada.
                         </p>
                     </div>
 

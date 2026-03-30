@@ -5,11 +5,38 @@ import { createClient } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+// Traduce los mensajes de error de Supabase (que vienen en inglés) al español.
+const ERROR_TRANSLATIONS: Record<string, string> = {
+  "Invalid login credentials": "Credenciales incorrectas. Verificá tu email y contraseña.",
+  "Email not confirmed": "Debés confirmar tu correo electrónico antes de iniciar sesión.",
+  "User already registered": "Ya existe una cuenta con ese email.",
+  "Password should be at least 6 characters": "La contraseña debe tener al menos 6 caracteres.",
+  "Email format is invalid": "El formato del email es inválido.",
+  "For security purposes, you can only request this after 60 seconds":
+    "Por seguridad, esperá 60 segundos antes de intentar nuevamente.",
+  "For security purposes, you can only request this after 30 seconds":
+    "Por seguridad, esperá 30 segundos antes de intentar nuevamente.",
+  "email rate limit exceeded":
+    "Demasiados intentos. Esperá unos minutos antes de volver a solicitar el email.",
+};
+
+function translateSupabaseError(message: string): string {
+  // Buscar coincidencia exacta
+  if (ERROR_TRANSLATIONS[message]) return ERROR_TRANSLATIONS[message];
+  // Buscar coincidencia parcial (para variantes con segundos dinámicos)
+  const rateLimit = message.match(/you can only request this after (\d+) seconds?/i);
+  if (rateLimit) {
+    return `Por seguridad, esperá ${rateLimit[1]} segundos antes de intentar nuevamente.`;
+  }
+  // Devolver el original si no hay traducción
+  return message;
+}
+
+
 export const signUpAction = async (formData: FormData) => {
   const email = formData.get("email")?.toString();
   const password = formData.get("password")?.toString();
   const fullName = formData.get("full_name")?.toString();
-  const role = formData.get("role")?.toString();
 
   const supabase = await createClient();
   const origin = (await headers()).get("origin");
@@ -18,7 +45,7 @@ export const signUpAction = async (formData: FormData) => {
     return encodedRedirect(
       "error",
       "/sign-up",
-      "Email and password are required",
+      "El email y la contraseña son requeridos",
     );
   }
 
@@ -35,24 +62,17 @@ export const signUpAction = async (formData: FormData) => {
 
   if (error) {
     console.error(error.code + " " + error.message);
-    return encodedRedirect("error", "/sign-up", error.message);
+    const msg = translateSupabaseError(error.message);
+    return encodedRedirect("error", "/sign-up", msg);
   } else {
     // Si el registro fue exitoso, actualizamos el perfil con el rol y carrera
     if (data.user) {
-      // Intentamos actualizar el perfil. 
-      // Nota: Dependiendo de si hay un trigger que crea el perfil, esto podría ser un update o un insert.
-      // Asumimos que el trigger existe y crea el perfil básico.
-
-      // Esperamos un momento breve para asegurar que el trigger haya corrido (si es asíncrono)
-      // O usamos upsert para asegurar.
-      // role en profiles queda solo para alcance global (admin/decano/user).
-      // Los permisos por area/carrera se manejan en profile_memberships.
-      const normalizedRole = role === "decano" ? "decano" : "user";
-
+      // Todos los usuarios nuevos son 'user' por defecto.
+      // Roles elevados (decano, admin) se asignan manualmente en la BD.
       const updates: any = {
         full_name: fullName,
-        role: normalizedRole,
-        is_approved: false, // Por defecto no aprobado
+        role: "user",
+        is_approved: false,
       };
 
       const { error: profileError } = await supabase
@@ -85,7 +105,7 @@ export const signInAction = async (formData: FormData) => {
   });
 
   if (error) {
-    return encodedRedirect("error", "/sign-in", error.message);
+    return encodedRedirect("error", "/sign-in", translateSupabaseError(error.message));
   }
 
   return redirect("/protected");
@@ -106,11 +126,11 @@ export const forgotPasswordAction = async (formData: FormData) => {
   });
 
   if (error) {
-    console.error(error.message);
+    console.error("forgotPassword error:", error.code, error.message);
     return encodedRedirect(
       "error",
       "/forgot-password",
-      "Could not reset password",
+      translateSupabaseError(error.message),
     );
   }
 
@@ -121,7 +141,7 @@ export const forgotPasswordAction = async (formData: FormData) => {
   return encodedRedirect(
     "success",
     "/forgot-password",
-    "Check your email for a link to reset your password.",
+    "Revisá tu correo. Te enviamos un link para restablecer tu contraseña.",
   );
 };
 
