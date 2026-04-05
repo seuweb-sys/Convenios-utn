@@ -30,7 +30,7 @@ export async function getUserConvenios(
   try {
     const headersList = await headers();
     const mineQs = opts?.mine ? "&mine=true" : "";
-    const response = await fetch(getApiUrl(`/api/convenios?limit=${limit}${mineQs}`), {
+    const response = await fetch(getApiUrl(`/api/convenios?limit=${limit}${mineQs}`, headersList), {
       headers: {
         'Cookie': headersList.get('cookie') || '',
       },

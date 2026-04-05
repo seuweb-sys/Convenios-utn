@@ -76,6 +76,10 @@ interface ConvenioPracticaMarcoFormProps {
   setIsSubmitting: (isSubmitting: boolean) => void;
   convenioIdFromUrl?: string | null;
   mode?: string | null;
+  scopeSecretariatId?: string;
+  scopeCareerId?: string;
+  scopeOrgUnitId?: string;
+  agreementYear?: number;
 }
 
 export function ConvenioPracticaMarcoForm({
@@ -87,7 +91,11 @@ export function ConvenioPracticaMarcoForm({
   isSubmitting,
   setIsSubmitting,
   convenioIdFromUrl,
-  mode
+  mode,
+  scopeSecretariatId = "",
+  scopeCareerId = "",
+  scopeOrgUnitId = "",
+  agreementYear = new Date().getFullYear(),
 }: ConvenioPracticaMarcoFormProps) {
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
@@ -632,7 +640,13 @@ export function ConvenioPracticaMarcoForm({
                               const requestData = {
                                 title: `${dbData.entidad_nombre} - ${dbData.entidad_representante}`,
                                 convenio_type_id: 3, // ID del convenio particular según base de datos
+                                convenio_type: "practica-marco",
+                                template_slug: "nuevo-convenio-marco-practica-supervisada",
                                 content_data: dbData,
+                                secretariat_id: scopeSecretariatId,
+                                career_id: scopeCareerId || null,
+                                org_unit_id: scopeOrgUnitId || null,
+                                agreement_year: agreementYear,
                                 status: 'enviado'
                               };
                               let response, responseData;

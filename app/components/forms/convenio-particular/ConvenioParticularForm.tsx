@@ -70,6 +70,11 @@ interface ConvenioParticularFormProps {
   setIsSubmitting: (isSubmitting: boolean) => void;
   convenioIdFromUrl?: string | null;
   mode?: string | null;
+  scopeSecretariatId?: string;
+  scopeCareerId?: string;
+  scopeOrgUnitId?: string;
+  agreementYear?: number;
+  scopeLoading?: boolean;
 }
 
 export default function ConvenioParticularForm({
@@ -81,7 +86,12 @@ export default function ConvenioParticularForm({
   isSubmitting,
   setIsSubmitting,
   convenioIdFromUrl,
-  mode
+  mode,
+  scopeSecretariatId = "",
+  scopeCareerId = "",
+  scopeOrgUnitId = "",
+  agreementYear = new Date().getFullYear(),
+  scopeLoading = false,
 }: ConvenioParticularFormProps) {
   const { convenioData, updateConvenioData } = useConvenioMarcoStore();
   const router = useRouter();
@@ -205,6 +215,16 @@ export default function ConvenioParticularForm({
 
   const handleSubmit = async () => {
     try {
+      if (scopeLoading) {
+        onError("Todavía se está cargando la clasificación del convenio. Intenta nuevamente en unos segundos.");
+        return;
+      }
+
+      if (!scopeSecretariatId) {
+        onError("Debe seleccionar la secretaría a la que pertenece el convenio");
+        return;
+      }
+
       setIsSubmitting(true);
       
       const cd = convenioData as Record<string, any>;
@@ -260,7 +280,13 @@ export default function ConvenioParticularForm({
       const requestData = {
         title: `${dbData.empresa_nombre} - ${dbData.alumno_nombre}`,
         convenio_type_id: 2, // ID específico para práctica supervisada
+        convenio_type: "particular",
+        template_slug: "nuevo-convenio-particular-de-practica-supervisada",
         content_data: dbData,
+        secretariat_id: scopeSecretariatId,
+        career_id: scopeCareerId || null,
+        org_unit_id: scopeOrgUnitId || null,
+        agreement_year: agreementYear,
         status: 'enviado'
       };
 

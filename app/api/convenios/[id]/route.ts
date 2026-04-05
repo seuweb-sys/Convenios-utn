@@ -2,9 +2,18 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { isPracticeType } from '@/app/lib/authz/scope-rules';
+import {
+  isPracticeType,
+  normalizeAgreementYear,
+  validatePracticeHistoricalRule,
+} from '@/app/lib/authz/scope-rules';
 import { shouldApplyProfesorPracticeOnlyConvenioFilter } from '@/app/lib/authz/profesor-membership-scope';
 import { UpdateConvenioDTO } from "@/lib/types/convenio";
+import {
+  computeConstrainedClassification,
+  validateCreateClassification,
+  type MembershipRow,
+} from '@/app/lib/authz/classification-scope';
 import {
   moveFileToFolderOAuth,
   moveFolderToFolderOAuth,
@@ -201,7 +210,7 @@ export async function PATCH(
     // Verificar que el convenio exista y el usuario tenga permiso
     const { data: convenio, error: checkError } = await supabase
       .from('convenios')
-      .select('user_id, status, title, convenio_type_id, secretariat_id')
+      .select('user_id, status, title, convenio_type_id, secretariat_id, career_id, org_unit_id, agreement_year')
       .eq('id', params.id)
       .single();
 
@@ -232,6 +241,75 @@ export async function PATCH(
       return NextResponse.json(
         { error: "No tienes permiso para actualizar este convenio" },
         { status: 403 }
+      );
+    }
+
+    const currentYear = new Date().getFullYear();
+    const requestedSecretariatId =
+      body.secretariat_id !== undefined ? body.secretariat_id || null : convenio.secretariat_id || null;
+    const requestedCareerId =
+      body.career_id !== undefined ? body.career_id || null : convenio.career_id || null;
+    const normalizedYear = normalizeAgreementYear(
+      body.agreement_year ?? convenio.agreement_year,
+      currentYear
+    );
+
+    if (!normalizedYear.valid) {
+      return NextResponse.json(
+        { error: normalizedYear.error },
+        { status: 400 }
+      );
+    }
+
+    const requestedYear = normalizedYear.year;
+
+    if (!hiddenOnlyUpdate && requestedSecretariatId) {
+      const { data: saRow, error: saErr } = await supabase
+        .from("secretariats")
+        .select("id")
+        .eq("code", "SA")
+        .eq("active", true)
+        .maybeSingle();
+      if (saErr) {
+        console.error("secretariat SA lookup", saErr);
+        return NextResponse.json({ error: "No se pudo validar el ámbito" }, { status: 500 });
+      }
+
+      const { data: memRows, error: memErr } = await supabase
+        .from("profile_memberships")
+        .select("membership_role, secretariat_id, career_id, org_unit_id, is_active")
+        .eq("profile_id", user.id)
+        .eq("is_active", true);
+      if (memErr) {
+        console.error("memberships for classification", memErr);
+        return NextResponse.json({ error: "No se pudo validar el ámbito" }, { status: 500 });
+      }
+
+      const constrained = computeConstrainedClassification(
+        userRole,
+        (memRows || []) as MembershipRow[],
+        saRow?.id ?? null
+      );
+      const scopeCheck = validateCreateClassification(
+        constrained,
+        requestedSecretariatId,
+        requestedCareerId,
+        convenio.convenio_type_id
+      );
+      if (!scopeCheck.ok) {
+        return NextResponse.json({ error: scopeCheck.error }, { status: 400 });
+      }
+    }
+
+    const practiceYearValidation = validatePracticeHistoricalRule(
+      convenio.convenio_type_id,
+      requestedYear,
+      currentYear
+    );
+    if (!practiceYearValidation.valid) {
+      return NextResponse.json(
+        { error: practiceYearValidation.error },
+        { status: 400 }
       );
     }
 
@@ -272,6 +350,22 @@ export async function PATCH(
 
     if (body.document_path) {
       updateData.document_path = body.document_path;
+    }
+
+    if (body.secretariat_id !== undefined) {
+      updateData.secretariat_id = body.secretariat_id || null;
+    }
+
+    if (body.career_id !== undefined) {
+      updateData.career_id = body.career_id || null;
+    }
+
+    if (body.org_unit_id !== undefined) {
+      updateData.org_unit_id = body.org_unit_id || null;
+    }
+
+    if (body.agreement_year !== undefined) {
+      updateData.agreement_year = requestedYear;
     }
 
     if (body.status) {

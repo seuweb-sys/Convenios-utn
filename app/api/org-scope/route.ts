@@ -61,7 +61,7 @@ export async function GET() {
       careerMode: null,
       lockedCareerId: null,
       allowedCareerIds: null,
-      practiceCareerOptional: false,
+    practiceCareerOptional: false,
       secretariats: secretariats || [],
       careers: careers || [],
       org_units: orgUnits || [],
@@ -97,7 +97,7 @@ export async function GET() {
       careerMode: constrained.careerScope,
       lockedCareerId: constrained.lockedCareerId,
       allowedCareerIds: constrained.allowedCareerIds,
-      practiceCareerOptional: false,
+    practiceCareerOptional: false,
       secretariats: [],
       careers: [],
       org_units: [],
@@ -193,7 +193,9 @@ export async function GET() {
     careerMode,
     lockedCareerId: constrained.lockedCareerId,
     allowedCareerIds: constrained.allowedCareerIds,
-    practiceCareerOptional: constrained.careerScope === "all_sa",
+    practiceCareerOptional:
+      constrained.careerScope === "all_sa" &&
+      constrained.effectiveRole === "secretario",
     secretariats,
     careers,
     org_units: orgUnits,

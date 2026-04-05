@@ -219,6 +219,10 @@ interface ConvenioEspecificoFormProps {
   setIsSubmitting: (isSubmitting: boolean) => void;
   convenioIdFromUrl?: string | null;
   mode?: string | null;
+  scopeSecretariatId?: string;
+  scopeCareerId?: string;
+  scopeOrgUnitId?: string;
+  agreementYear?: number;
 }
 
 export function ConvenioEspecificoForm({
@@ -230,7 +234,11 @@ export function ConvenioEspecificoForm({
   isSubmitting,
   setIsSubmitting,
   convenioIdFromUrl,
-  mode
+  mode,
+  scopeSecretariatId = "",
+  scopeCareerId = "",
+  scopeOrgUnitId = "",
+  agreementYear = new Date().getFullYear(),
 }: ConvenioEspecificoFormProps) {
   const router = useRouter();
   const { updateConvenioData, convenioData } = useConvenioMarcoStore();
@@ -1236,7 +1244,13 @@ export function ConvenioEspecificoForm({
                               const requestData = {
                                 title: dbData.entidad_nombre,
                                 convenio_type_id: 4, // ID del convenio específico según base de datos
+                                convenio_type: "especifico",
+                                template_slug: "nuevo-convenio-especifico",
                                 content_data: dbData,
+                                secretariat_id: scopeSecretariatId,
+                                career_id: scopeCareerId || null,
+                                org_unit_id: scopeOrgUnitId || null,
+                                agreement_year: agreementYear,
                                 // NUEVO: Anexos múltiples (con soporte para .docx y .pdf)
                                 anexos: anexoFiles.map(anexo => ({
                                   name: anexo.name,

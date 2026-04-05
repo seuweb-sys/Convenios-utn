@@ -1,6 +1,7 @@
 /**
  * Alcance de clasificación al crear convenios: solo admin/decano eligen secretaría;
- * secretario SA ve todas las carreras; director SA carrera fija; profesor SA solo sus carreras.
+ * secretario y director operan a nivel secretaría; profesor limita por carrera en SA;
+ * miembro limita por subárea.
  */
 
 export type MembershipRow = {
@@ -17,7 +18,7 @@ export type ConstrainedClassification =
       kind: "constrained";
       canChooseSecretariat: false;
       lockedSecretariatId: string | null;
-      /** secretario SA: todas las carreras; director/profesor: subconjunto o una fija */
+      /** SA usa carreras; fuera de SA el selector queda deshabilitado */
       careerScope: "all_sa" | "fixed" | "subset";
       lockedCareerId: string | null;
       allowedCareerIds: string[] | null;
@@ -68,17 +69,18 @@ export function computeConstrainedClassification(
     const d = saSecretariatId
       ? directors.find((x) => x.secretariat_id === saSecretariatId) ?? directors[0]
       : directors[0];
-    if (!d.secretariat_id || !d.career_id) {
+    if (!d.secretariat_id) {
       return fallbackMiembro(m, saSecretariatId);
     }
+    const isSa = saSecretariatId && d.secretariat_id === saSecretariatId;
     return {
       kind: "constrained",
       canChooseSecretariat: false,
       lockedSecretariatId: d.secretariat_id,
-      careerScope: "fixed",
-      lockedCareerId: d.career_id,
-      allowedCareerIds: [d.career_id],
-      orgUnitsForSecretariat: "membership_only",
+      careerScope: isSa ? "all_sa" : "fixed",
+      lockedCareerId: null,
+      allowedCareerIds: null,
+      orgUnitsForSecretariat: "all_active",
       effectiveRole: "director",
     };
   }
@@ -182,7 +184,15 @@ export function validateCreateClassification(
 
   if (practice) {
     if (constrained.careerScope === "all_sa") {
-      /* Secretario académico: carrera opcional en práctica */
+      if (constrained.effectiveRole === "secretario" && !careerId) {
+        return { ok: true };
+      }
+      if (!careerId) {
+        return {
+          ok: false,
+          error: "Para convenios de práctica, debes seleccionar una carrera",
+        };
+      }
       return { ok: true };
     }
     if (constrained.careerScope === "fixed") {

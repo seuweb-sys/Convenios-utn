@@ -196,16 +196,18 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         setScopeWarning(warning ?? null);
         setPracticeCareerOptional(practiceOpt);
 
-        if (chooseSec && secretariatsData.length > 0) {
-          setScopeSecretariatId(secretariatsData[0].id);
-        } else if (lockedSec) {
-          setScopeSecretariatId(lockedSec);
-        } else if (secretariatsData.length > 0) {
-          setScopeSecretariatId(secretariatsData[0].id);
-        }
+        if (!convenioIdFromUrl) {
+          if (chooseSec && secretariatsData.length > 0) {
+            setScopeSecretariatId(secretariatsData[0].id);
+          } else if (lockedSec) {
+            setScopeSecretariatId(lockedSec);
+          } else if (secretariatsData.length > 0) {
+            setScopeSecretariatId(secretariatsData[0].id);
+          }
 
-        if (lockedCareer) {
-          setScopeCareerId(lockedCareer);
+          if (lockedCareer) {
+            setScopeCareerId(lockedCareer);
+          }
         }
       } catch (e: any) {
         if (!ignore) setScopeError(e.message || "Error inesperado");
@@ -217,7 +219,39 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [convenioIdFromUrl]);
+
+  // Si estamos editando, reflejar la clasificación ya guardada.
+  useEffect(() => {
+    if (!convenioIdFromUrl) return;
+
+    let ignore = false;
+    const loadExistingClassification = async () => {
+      try {
+        const response = await fetch(`/api/convenios/${convenioIdFromUrl}`, {
+          cache: "no-store",
+        });
+        const data = await response.json();
+
+        if (!response.ok || ignore) return;
+
+        if (data.secretariat_id) {
+          setScopeSecretariatId(data.secretariat_id);
+        }
+        setScopeCareerId(data.career_id || "");
+        setScopeOrgUnitId(data.org_unit_id || "");
+        setAgreementYear(data.agreement_year || new Date().getFullYear());
+        setHiddenFromArea(data.is_hidden_from_area === true);
+      } catch (error) {
+        console.error("No se pudo cargar la clasificación del convenio", error);
+      }
+    };
+
+    void loadExistingClassification();
+    return () => {
+      ignore = true;
+    };
+  }, [convenioIdFromUrl]);
 
   // Mapear los pasos con status
   const steps: Step[] = config.steps.map(step => ({
@@ -624,6 +658,11 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                     setIsSubmitting={setIsSubmitting}
                     convenioIdFromUrl={convenioIdFromUrl}
                     mode={mode}
+                    scopeSecretariatId={scopeSecretariatId}
+                    scopeCareerId={scopeCareerId}
+                    scopeOrgUnitId={scopeOrgUnitId}
+                    agreementYear={agreementYear}
+                    scopeLoading={scopeLoading}
                     onFinalSubmit={handleFinalSubmit} // Pasamos la función de guardado final
                   />
                 </Suspense>

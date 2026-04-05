@@ -94,18 +94,22 @@ export function canCreateByMembershipMatrix(input: CreateScopeInput) {
     }
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
-      hasMembership(memberships, "director", secretariatId, careerId) ||
+      hasMembership(memberships, "director", secretariatId) ||
       hasMembership(memberships, "profesor", secretariatId, careerId)
     );
   }
 
   if (secretariatCode === "SA") {
-    return hasMembership(memberships, "secretario", secretariatId);
+    return (
+      hasMembership(memberships, "secretario", secretariatId) ||
+      hasMembership(memberships, "director", secretariatId)
+    );
   }
 
   if (secretariatCode === "CYT") {
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
+      hasMembership(memberships, "director", secretariatId) ||
       (!!orgUnitId && hasMembership(memberships, "miembro", secretariatId, null, orgUnitId))
     );
   }
@@ -113,6 +117,7 @@ export function canCreateByMembershipMatrix(input: CreateScopeInput) {
   if (secretariatCode === "SEU") {
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
+      hasMembership(memberships, "director", secretariatId) ||
       (orgUnitId
         ? hasMembership(memberships, "miembro", secretariatId, null, orgUnitId)
         : hasMembership(memberships, "miembro", secretariatId))
@@ -122,6 +127,7 @@ export function canCreateByMembershipMatrix(input: CreateScopeInput) {
   if (secretariatCode === "SAU") {
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
+      hasMembership(memberships, "director", secretariatId) ||
       hasMembership(memberships, "miembro", secretariatId)
     );
   }

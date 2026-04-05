@@ -12,8 +12,6 @@ export interface ActivityData {
   icon: React.ReactNode;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
-
 export type ActivityType = "info" | "success" | "warning" | "error";
 
 function mapActionToType(action: string): ActivityType {
@@ -37,7 +35,7 @@ function mapActionToType(action: string): ActivityType {
 export async function getRecentActivity(limit: number = 3): Promise<ActivityData[]> {
   try {
     const headersList = await headers();
-    const response = await fetch(getApiUrl(`/api/activity?limit=${limit}`), {
+    const response = await fetch(getApiUrl(`/api/activity?limit=${limit}`, headersList), {
       headers: {
         'Cookie': headersList.get('cookie') || '',
       },

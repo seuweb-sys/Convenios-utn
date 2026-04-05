@@ -63,6 +63,10 @@ interface AcuerdoColaboracionFormProps {
   setIsSubmitting: (submitting: boolean) => void;
   convenioIdFromUrl?: string | null;
   mode?: string | null;
+  scopeSecretariatId?: string;
+  scopeCareerId?: string;
+  scopeOrgUnitId?: string;
+  agreementYear?: number;
 }
 
 export default function AcuerdoColaboracionForm({
@@ -74,7 +78,11 @@ export default function AcuerdoColaboracionForm({
   isSubmitting,
   setIsSubmitting,
   convenioIdFromUrl,
-  mode
+  mode,
+  scopeSecretariatId = "",
+  scopeCareerId = "",
+  scopeOrgUnitId = "",
+  agreementYear = new Date().getFullYear(),
 }: AcuerdoColaboracionFormProps) {
   const { convenioData, updateConvenioData } = useConvenioMarcoStore();
   const router = useRouter();
@@ -244,7 +252,13 @@ export default function AcuerdoColaboracionForm({
       const requestData = {
         title: convenioData.entidad_nombre,
         convenio_type_id: 5, // ID del acuerdo de colaboración según base de datos
+        convenio_type: "acuerdo",
+        template_slug: "nuevo-acuerdo-de-colaboracion",
         content_data: convenioData,
+        secretariat_id: scopeSecretariatId,
+        career_id: scopeCareerId || null,
+        org_unit_id: scopeOrgUnitId || null,
+        agreement_year: agreementYear,
         status: 'enviado'
       };
 

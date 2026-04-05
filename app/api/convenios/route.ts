@@ -31,6 +31,7 @@ import {
   getSecretariatIdsForSecretario,
   hasActiveMembershipRole,
 } from '@/app/lib/authz/membership-scope';
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import path from 'path';
 import fs from 'fs';
 
@@ -378,6 +379,18 @@ async function canSetHiddenFromArea(
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
+    // Usamos service role solo para persistir el convenio después de validar
+    // autenticación, aprobación y alcance con la sesión real del usuario.
+    const supabaseAdmin = createSupabaseAdmin(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
 
     // Verificar autenticación
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -743,7 +756,7 @@ export async function POST(request: Request) {
     const serialNumber = await generateSerialNumber(supabase, requestedYear);
 
     // Primero crear el convenio en la base de datos
-    const { data: convenio, error: createError } = await supabase
+    const { data: convenio, error: createError } = await supabaseAdmin
       .from('convenios')
       .insert({
         title: title, // Usar el título con fallbacks
@@ -856,7 +869,7 @@ export async function POST(request: Request) {
       }
 
       // Actualizar el convenio con el path del documento
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin
         .from('convenios')
         .update({ document_path: documentPath })
         .eq('id', convenio.id);
@@ -868,7 +881,7 @@ export async function POST(request: Request) {
     } catch (driveError) {
       console.error('Error al subir a Drive:', driveError);
       // Si falla la subida a Drive, actualizamos el estado del convenio
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseAdmin
         .from('convenios')
         .update({
           status: 'borrador',

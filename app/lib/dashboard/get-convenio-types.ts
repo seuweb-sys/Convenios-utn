@@ -60,7 +60,7 @@ const defaultTypes = [
 export async function getConvenioTypes(): Promise<ConvenioTypeData[]> {
   try {
     const headersList = await headers();
-    const response = await fetch(getApiUrl('/api/convenio-types'), {
+    const response = await fetch(getApiUrl('/api/convenio-types', headersList), {
       headers: {
         'Cookie': headersList.get('cookie') || '',
       },
