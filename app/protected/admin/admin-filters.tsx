@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   FilterIcon,
   ClockIcon,
@@ -17,7 +17,12 @@ import {
   BuildingIcon,
   ChevronDown,
   ChevronRight,
+  CalendarIcon,
 } from "lucide-react";
+import {
+  getUploadYearLocal,
+  type AgreementYearFilterValue,
+} from "@/app/lib/admin/convenio-year-filters";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -45,6 +50,11 @@ interface AdminFiltersProps {
   secretariats?: Secretariat[];
   secretariatFilter?: string | null;
   setSecretariatFilter?: (s: string | null) => void;
+  /** Si se pasan las cuatro, se muestra el bloque "Fechas" (panel admin convenios / reclasificar). */
+  uploadYearFilter?: number | null;
+  setUploadYearFilter?: (y: number | null) => void;
+  agreementYearFilter?: AgreementYearFilterValue;
+  setAgreementYearFilter?: (y: AgreementYearFilterValue) => void;
 }
 
 const tipoConvenioUI: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -95,8 +105,39 @@ export function AdminFilters({
   secretariats = [],
   secretariatFilter = null,
   setSecretariatFilter,
+  uploadYearFilter,
+  setUploadYearFilter,
+  agreementYearFilter,
+  setAgreementYearFilter,
 }: AdminFiltersProps) {
   const [careersOpen, setCareersOpen] = useState(false);
+
+  const showYearFilters =
+    uploadYearFilter !== undefined &&
+    setUploadYearFilter &&
+    agreementYearFilter !== undefined &&
+    setAgreementYearFilter;
+
+  const { uploadYears, agreementYears, hasAgreementNull } = useMemo(() => {
+    const uploadSet = new Set<number>();
+    const agrSet = new Set<number>();
+    let hasNull = false;
+    for (const item of data) {
+      const row = item as any;
+      const uy = getUploadYearLocal(row);
+      if (uy !== null) uploadSet.add(uy);
+      if (row.agreement_year == null) hasNull = true;
+      else if (typeof row.agreement_year === "number" && !Number.isNaN(row.agreement_year)) {
+        agrSet.add(row.agreement_year);
+      }
+    }
+    const sortDesc = (a: number, b: number) => b - a;
+    return {
+      uploadYears: Array.from(uploadSet).sort(sortDesc),
+      agreementYears: Array.from(agrSet).sort(sortDesc),
+      hasAgreementNull: hasNull,
+    };
+  }, [data]);
 
   const availableStatuses = Array.from(
     new Set(data.map((item: any) => (item as any).status).filter(Boolean))
@@ -165,6 +206,63 @@ export function AdminFilters({
               </div>
             ))}
           </div>
+
+          {showYearFilters && (
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                Fechas
+              </div>
+              <p className="text-xs text-muted-foreground leading-snug">
+                Alta = cuándo se cargó el registro. Año del convenio = año administrativo del acuerdo.
+              </p>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground block">Año de alta en el sistema</label>
+                <select
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  value={uploadYearFilter === null ? "" : String(uploadYearFilter)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setUploadYearFilter!(v === "" ? null : parseInt(v, 10));
+                  }}
+                >
+                  <option value="">Todos</option>
+                  {uploadYears.map((y) => (
+                    <option key={y} value={String(y)}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground block">Año del convenio</label>
+                <select
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  value={
+                    agreementYearFilter === null
+                      ? ""
+                      : agreementYearFilter === "none"
+                        ? "none"
+                        : String(agreementYearFilter)
+                  }
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "") setAgreementYearFilter!(null);
+                    else if (v === "none") setAgreementYearFilter!("none");
+                    else setAgreementYearFilter!(parseInt(v, 10));
+                  }}
+                >
+                  <option value="">Todos</option>
+                  {hasAgreementNull && <option value="none">Sin año</option>}
+                  {agreementYears.map((y) => (
+                    <option key={y} value={String(y)}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* Secretarías primero */}
           {secretariats &&

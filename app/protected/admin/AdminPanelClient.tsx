@@ -10,6 +10,10 @@ import { SectionContainer } from "@/app/components/dashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { MembershipsManager } from "@/app/protected/admin/memberships/MembershipsManager";
 import { ReclassifyConveniosPanel } from "@/app/protected/admin/ReclassifyConveniosPanel";
+import {
+  passesConvenioYearFilters,
+  type AgreementYearFilterValue,
+} from "@/app/lib/admin/convenio-year-filters";
 
 export function AdminPanelClient({
   convenios,
@@ -28,6 +32,8 @@ export function AdminPanelClient({
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [careerFilter, setCareerFilter] = useState<string | null>(null);
   const [secretariatFilter, setSecretariatFilter] = useState<string | null>(null);
+  const [uploadYearFilter, setUploadYearFilter] = useState<number | null>(null);
+  const [agreementYearFilter, setAgreementYearFilter] = useState<AgreementYearFilterValue>(null);
 
   const filteredConvenios = (convenios || []).filter((c) => {
     const statusOk = !statusFilter || c.status === statusFilter;
@@ -37,7 +43,8 @@ export function AdminPanelClient({
       c.career_id === careerFilter ||
       c.profiles?.career_id === careerFilter;
     const secretariatOk = !secretariatFilter || c.secretariat_id === secretariatFilter;
-    return statusOk && typeOk && careerOk && secretariatOk;
+    const yearOk = passesConvenioYearFilters(c, uploadYearFilter, agreementYearFilter);
+    return statusOk && typeOk && careerOk && secretariatOk && yearOk;
   });
 
   return (
@@ -73,6 +80,10 @@ export function AdminPanelClient({
                 secretariats={secretariats}
                 secretariatFilter={secretariatFilter}
                 setSecretariatFilter={setSecretariatFilter}
+                uploadYearFilter={uploadYearFilter}
+                setUploadYearFilter={setUploadYearFilter}
+                agreementYearFilter={agreementYearFilter}
+                setAgreementYearFilter={setAgreementYearFilter}
               />
             </div>
           </div>

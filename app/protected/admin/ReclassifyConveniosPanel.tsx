@@ -8,6 +8,10 @@ import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { formatOrgUnitLabel } from "@/lib/org-unit-label";
 import { useToast } from "@/app/components/ui/toast";
 import type { Career } from "@/app/protected/admin/careers/columns";
+import {
+  passesConvenioYearFilters,
+  type AgreementYearFilterValue,
+} from "@/app/lib/admin/convenio-year-filters";
 
 type OrgUnitRow = {
   id: string;
@@ -34,6 +38,8 @@ export function ReclassifyConveniosPanel({
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [careerFilter, setCareerFilter] = useState<string | null>(null);
   const [secretariatFilter, setSecretariatFilter] = useState<string | null>(null);
+  const [uploadYearFilter, setUploadYearFilter] = useState<number | null>(null);
+  const [agreementYearFilter, setAgreementYearFilter] = useState<AgreementYearFilterValue>(null);
 
   const [selectedConvenioId, setSelectedConvenioId] = useState("");
   const [secretariatId, setSecretariatId] = useState("");
@@ -48,7 +54,8 @@ export function ReclassifyConveniosPanel({
     const careerOk =
       !careerFilter || c.career_id === careerFilter || c.profiles?.career_id === careerFilter;
     const secretariatOk = !secretariatFilter || c.secretariat_id === secretariatFilter;
-    return statusOk && typeOk && careerOk && secretariatOk;
+    const yearOk = passesConvenioYearFilters(c, uploadYearFilter, agreementYearFilter);
+    return statusOk && typeOk && careerOk && secretariatOk && yearOk;
   });
 
   const selectedSecretariatCode = useMemo(() => {
@@ -232,6 +239,10 @@ export function ReclassifyConveniosPanel({
           secretariats={secretariats}
           secretariatFilter={secretariatFilter}
           setSecretariatFilter={setSecretariatFilter}
+          uploadYearFilter={uploadYearFilter}
+          setUploadYearFilter={setUploadYearFilter}
+          agreementYearFilter={agreementYearFilter}
+          setAgreementYearFilter={setAgreementYearFilter}
         />
       </div>
     </div>
