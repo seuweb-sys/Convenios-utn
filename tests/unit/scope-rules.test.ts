@@ -22,8 +22,9 @@ describe("scope-rules (unit)", () => {
     expect(invalid.valid).toBe(false);
   });
 
-  it("enforces non-historical rule only for practice", () => {
+  it("enforces non-historical rule only for practice (admin exception is applied in convenios API routes)", () => {
     expect(validatePracticeHistoricalRule(1, 2025, 2026).valid).toBe(false);
+    expect(validatePracticeHistoricalRule(5, 2025, 2026).valid).toBe(false);
     expect(validatePracticeHistoricalRule(2, 2025, 2026).valid).toBe(true);
   });
 

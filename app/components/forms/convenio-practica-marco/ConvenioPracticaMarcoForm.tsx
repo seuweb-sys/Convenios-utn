@@ -18,6 +18,7 @@ import {
 } from "@/app/components/ui/form";
 import { ChevronLeftIcon, ChevronRightIcon, BuildingIcon, UserIcon, CalendarIcon, CheckIcon } from "lucide-react";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
+import { isDiaValidForMes } from "@/lib/date-select-helpers";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
 import { SuccessModal } from '@/app/components/ui/success-modal';
@@ -453,8 +454,14 @@ export function ConvenioPracticaMarcoForm({
                     className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
                     {...form.register("mes", { required: true })}
                     onChange={e => {
-                      form.setValue("mes", e.target.value);
-                      form.setValue("dia", "");
+                      const newMes = e.target.value;
+                      const currentDia = form.getValues("dia");
+                      form.setValue("mes", newMes);
+                      if (!newMes) {
+                        form.setValue("dia", "");
+                      } else if (currentDia && !isDiaValidForMes(currentDia, newMes, meses, diasPorMes)) {
+                        form.setValue("dia", "");
+                      }
                     }}
                     value={form.watch("mes") || ""}
                   >

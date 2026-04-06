@@ -345,7 +345,11 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
       if (isPracticeType && !scopeCareerId && !practiceCareerOptional) {
         throw new Error("Para convenios de práctica, debes seleccionar una carrera");
       }
-      if (isPracticeType && agreementYear !== new Date().getFullYear()) {
+      if (
+        isPracticeType &&
+        profileRole !== "admin" &&
+        agreementYear !== new Date().getFullYear()
+      ) {
         throw new Error("Los convenios de práctica no permiten carga histórica");
       }
       // Generar título robusto
@@ -437,6 +441,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     hiddenFromArea,
     practiceCareerOptional,
     isPracticeType,
+    profileRole,
   ]);
 
   const handleFinalSubmit = async () => {
@@ -576,9 +581,15 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
                 max={2100}
                 value={agreementYear}
                 onChange={(e) => setAgreementYear(parseInt(e.target.value || String(new Date().getFullYear()), 10))}
-                disabled={isPracticeType}
+                disabled={isPracticeType && profileRole !== "admin"}
                 className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-                title={isPracticeType ? "Para práctica, el año es el actual" : "Año del convenio"}
+                title={
+                  isPracticeType
+                    ? profileRole === "admin"
+                      ? "Año del convenio (como administrador podés indicar año histórico)"
+                      : "Para práctica, el año es el actual"
+                    : "Año del convenio"
+                }
               />
 
               <label className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm">

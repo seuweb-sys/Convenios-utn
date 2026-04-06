@@ -301,11 +301,14 @@ export async function PATCH(
       }
     }
 
-    const practiceYearValidation = validatePracticeHistoricalRule(
-      convenio.convenio_type_id,
-      requestedYear,
-      currentYear
-    );
+    const practiceYearValidation =
+      userRole === "admin"
+        ? ({ valid: true as const, error: null as string | null })
+        : validatePracticeHistoricalRule(
+            convenio.convenio_type_id,
+            requestedYear,
+            currentYear
+          );
     if (!practiceYearValidation.valid) {
       return NextResponse.json(
         { error: practiceYearValidation.error },

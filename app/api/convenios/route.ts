@@ -601,7 +601,10 @@ export async function POST(request: Request) {
       );
     }
     const requestedYear = normalizedYear.year;
-    const practiceYearValidation = validatePracticeHistoricalRule(convenioTypeId, requestedYear, currentYear);
+    const practiceYearValidation =
+      userProfile.role === "admin"
+        ? ({ valid: true as const, error: null as string | null })
+        : validatePracticeHistoricalRule(convenioTypeId, requestedYear, currentYear);
     if (!practiceYearValidation.valid) {
       return NextResponse.json(
         { error: practiceYearValidation.error },

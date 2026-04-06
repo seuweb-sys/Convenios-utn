@@ -13,6 +13,7 @@ import { Textarea } from "@/app/components/ui/textarea";
 import { Label } from "@/app/components/ui/label";
 import { SuccessModal } from "@/app/components/ui/success-modal";
 import { cn } from "@/lib/utils";
+import { isDiaValidForMes } from "@/lib/date-select-helpers";
 
 // Esquemas de validación para cada paso
 const entidadSchema = z.object({
@@ -549,8 +550,14 @@ export default function AcuerdoColaboracionForm({
               className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
               {...firmaForm.register("mes", { required: true })}
               onChange={e => {
-                firmaForm.setValue("mes", e.target.value);
-                firmaForm.setValue("dia", "");
+                const newMes = e.target.value;
+                const currentDia = firmaForm.getValues("dia");
+                firmaForm.setValue("mes", newMes);
+                if (!newMes) {
+                  firmaForm.setValue("dia", "");
+                } else if (currentDia && !isDiaValidForMes(currentDia, newMes, meses, diasPorMes)) {
+                  firmaForm.setValue("dia", "");
+                }
               }}
               value={firmaForm.watch("mes") || ""}
             >
