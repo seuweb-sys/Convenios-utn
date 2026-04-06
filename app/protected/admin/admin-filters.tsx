@@ -208,14 +208,21 @@ export function AdminFilters({
           </div>
 
           {showYearFilters && (
-            <div className="border-t pt-4 space-y-3">
+            <div className="border-t pt-4 space-y-3 min-w-0 max-w-full">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 Fechas
               </div>
-              <p className="text-xs text-muted-foreground leading-snug">
-                Alta = cuándo se cargó el registro. Año del convenio = año administrativo del acuerdo.
-              </p>
+              <div className="text-xs text-muted-foreground leading-relaxed space-y-1.5 min-w-0">
+                <p className="break-words">
+                  <span className="font-medium text-foreground/85">Alta:</span> cuándo se cargó el
+                  registro en el sistema.
+                </p>
+                <p className="break-words">
+                  <span className="font-medium text-foreground/85">Año del convenio:</span> año
+                  administrativo del acuerdo.
+                </p>
+              </div>
               <div className="space-y-2">
                 <label className="text-xs text-muted-foreground block">Año de alta en el sistema</label>
                 <select

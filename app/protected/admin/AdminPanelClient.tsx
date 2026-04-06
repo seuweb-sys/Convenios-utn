@@ -67,7 +67,7 @@ export function AdminPanelClient({
                 </div>
               </SectionContainer>
             </div>
-            <div className="lg:col-span-1">
+            <div className="lg:col-span-1 min-w-0">
               <AdminFilters
                 data={convenios}
                 statusFilter={statusFilter}
