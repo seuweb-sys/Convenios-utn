@@ -74,6 +74,12 @@ export default async function AdminPage() {
     .eq("active", true)
     .order("name");
 
+  const { data: org_units } = await supabase
+    .from("org_units")
+    .select("id, code, name, unit_type, secretariat_id")
+    .eq("active", true)
+    .order("name");
+
   if (error || usersError) {
     console.error("Error al obtener datos:", error || usersError);
     return (
@@ -111,6 +117,7 @@ export default async function AdminPage() {
           users={users || []}
           careers={careers || []}
           secretariats={secretariats || []}
+          org_units={org_units || []}
         />
       </div>
     </>

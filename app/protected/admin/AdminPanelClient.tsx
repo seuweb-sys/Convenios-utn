@@ -9,17 +9,20 @@ import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { SectionContainer } from "@/app/components/dashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/components/ui/tabs";
 import { MembershipsManager } from "@/app/protected/admin/memberships/MembershipsManager";
+import { ReclassifyConveniosPanel } from "@/app/protected/admin/ReclassifyConveniosPanel";
 
 export function AdminPanelClient({
   convenios,
   users,
   careers,
   secretariats,
+  org_units,
 }: {
   convenios: any[];
   users: any[];
   careers: Career[];
   secretariats: { id: string; code: string; name: string }[];
+  org_units: { id: string; code: string; name: string; unit_type: string; secretariat_id: string | null }[];
 }) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export function AdminPanelClient({
       <Tabs defaultValue="convenios" className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="convenios">Convenios</TabsTrigger>
+          <TabsTrigger value="reclasificar">Reclasificar</TabsTrigger>
           <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
           <TabsTrigger value="carreras">Carreras</TabsTrigger>
           <TabsTrigger value="membresias">Membresías</TabsTrigger>
@@ -72,6 +76,15 @@ export function AdminPanelClient({
               />
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="reclasificar">
+          <ReclassifyConveniosPanel
+            convenios={convenios}
+            careers={careers}
+            secretariats={secretariats}
+            org_units={org_units}
+          />
         </TabsContent>
 
         <TabsContent value="usuarios">
