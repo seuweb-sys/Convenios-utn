@@ -358,13 +358,28 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         config.title ||
         "Nuevo Convenio";
 
-      // Preparar anexos si existen (para Convenio Marco con anexos)
+      // Preparar anexos si existen (para Convenio Marco con anexos).
+      // Nuevo flujo: los archivos se suben directo a Drive y ac? solo viajan referencias livianas.
+      // Compatibilidad: si alg?n flujo legacy todav?a trae buffer, se serializa como antes.
       const anexos = (convenioData as any).anexosMarco || [];
-      const anexosPayload = anexos.map((anexo: any) => ({
-        name: anexo.name,
-        buffer: Array.from(new Uint8Array(anexo.buffer)),
-        mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-      }));
+      const anexosPayload = anexos.map((anexo: any) => {
+        if (anexo.driveFileId) {
+          return {
+            name: anexo.name,
+            driveFileId: anexo.driveFileId,
+            webViewLink: anexo.webViewLink,
+            webContentLink: anexo.webContentLink,
+            size: anexo.file?.size || anexo.size,
+            mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          };
+        }
+
+        return {
+          name: anexo.name,
+          buffer: Array.from(new Uint8Array(anexo.buffer)),
+          mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        };
+      });
 
       const convenioPayload = {
         title,

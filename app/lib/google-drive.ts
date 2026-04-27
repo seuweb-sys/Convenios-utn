@@ -454,7 +454,7 @@ function createLocalFallbackResponse(fileName: string, isGoogleDoc: boolean = fa
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 // Función para obtener cliente OAuth autenticado
-async function getOAuthClient() {
+async function getOAuth2Client() {
   // Para esta operación específica, necesitamos un cliente con privilegios de administrador
   // para poder leer los tokens de CUALQUIER usuario, sin importar quién esté logueado.
   // Esto saltea las políticas de RLS (Row Level Security).
@@ -558,8 +558,69 @@ async function getOAuthClient() {
     }
   }
 
+  return oauth2Client;
+}
+
+async function getOAuthClient() {
+  const oauth2Client = await getOAuth2Client();
   return google.drive({ version: 'v3', auth: oauth2Client });
 }
+
+export async function createOAuthDriveResumableUploadSession({
+  fileName,
+  mimeType,
+  fileSize,
+  folderId = DRIVE_FOLDERS.PENDING,
+}: {
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  folderId?: string;
+}) {
+  const oauth2Client = await getOAuth2Client();
+  const tokenResponse = await oauth2Client.getAccessToken();
+  const accessToken = typeof tokenResponse === 'string' ? tokenResponse : tokenResponse.token;
+
+  if (!accessToken) {
+    throw new Error('No se pudo obtener el token de acceso de Google Drive.');
+  }
+
+  const metadata = {
+    name: fileName,
+    parents: [folderId],
+  };
+
+  const response = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=id,name,mimeType,size,webViewLink,webContentLink',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Upload-Content-Type': mimeType,
+        'X-Upload-Content-Length': String(fileSize),
+      },
+      body: JSON.stringify(metadata),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`No se pudo iniciar la subida a Google Drive: ${response.status} ${errorText}`);
+  }
+
+  const uploadUrl = response.headers.get('location');
+  if (!uploadUrl) {
+    throw new Error('Google Drive no devolvio la URL de sesion resumable.');
+  }
+
+  return {
+    uploadUrl,
+    expiresIn: 'La sesion de Google Drive expira despues de una semana de inactividad',
+  };
+}
+
+
 
 
 // Nueva función para subir archivos usando OAuth (más simple)
@@ -698,7 +759,7 @@ export async function createFolderInOAuthDrive(
 export async function uploadConvenioEspecificoOAuth(
   mainDocumentBuffer: Buffer,
   convenioName: string,
-  anexos: { name: string; buffer: ArrayBuffer; mimeType?: string }[] = [],
+  anexos: { name: string; buffer?: ArrayBuffer; mimeType?: string; driveFileId?: string; webViewLink?: string; webContentLink?: string; size?: number }[] = [],
   parentFolderId: string = DRIVE_FOLDERS.PENDING
 ) {
   try {
@@ -718,17 +779,37 @@ export async function uploadConvenioEspecificoOAuth(
     const anexosUploaded = [];
     for (const anexo of anexos) {
       const isPdf = anexo.mimeType === 'application/pdf' || anexo.name.toLowerCase().endsWith('.pdf');
-      console.log(`📎 [OAuth Drive] Subiendo anexo ${isPdf ? 'PDF' : 'DOCX'}: ${anexo.name}`);
-      
+
+      if (anexo.driveFileId) {
+        console.log(`[OAuth Drive] Moviendo anexo pre-subido ${isPdf ? 'PDF' : 'DOCX'}: ${anexo.name}`);
+        await moveFileToFolderOAuth(anexo.driveFileId, convenioFolderId);
+
+        anexosUploaded.push({
+          name: anexo.name,
+          isPdf,
+          fileId: anexo.driveFileId,
+          webViewLink: anexo.webViewLink,
+          webContentLink: anexo.webContentLink,
+          size: anexo.size,
+          uploadedDirectly: true,
+        });
+        continue;
+      }
+
+      if (!anexo.buffer) {
+        console.warn(`[OAuth Drive] Anexo sin buffer ni driveFileId, se omite: ${anexo.name}`);
+        continue;
+      }
+
+      console.log(`[OAuth Drive] Subiendo anexo ${isPdf ? 'PDF' : 'DOCX'}: ${anexo.name}`);
       const anexoBuffer = Buffer.from(anexo.buffer);
-      
       const anexoResponse = await uploadFileToOAuthDriveWithMimeType(
         anexoBuffer,
         `ANEXO-${anexo.name}`,
         convenioFolderId,
         anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       );
-      
+
       anexosUploaded.push({
         name: anexo.name,
         isPdf,

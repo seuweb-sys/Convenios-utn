@@ -210,6 +210,21 @@ const meses = [
 ];
 const diasPorMes = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
+type AnexoUploadStatus = 'pending' | 'uploading' | 'uploaded' | 'error';
+
+type AnexoFile = {
+  id: string;
+  name: string;
+  file: File;
+  mimeType?: string;
+  progress: number;
+  uploadStatus: AnexoUploadStatus;
+  driveFileId?: string;
+  webViewLink?: string;
+  webContentLink?: string;
+  uploadError?: string;
+};
+
 interface ConvenioEspecificoFormProps {
   currentStep: number;
   onStepChange: (step: number) => void;
@@ -252,7 +267,7 @@ export function ConvenioEspecificoForm({
   const [attachedWordFile, setAttachedWordFile] = useState<{name: string, file: File} | null>(null);
 
   // NUEVO: Sistema de múltiples anexos (soporta .docx y .pdf)
-  const [anexoFiles, setAnexoFiles] = useState<Array<{id: string, name: string, file: File, buffer: ArrayBuffer, mimeType?: string}>>([]);
+  const [anexoFiles, setAnexoFiles] = useState<AnexoFile[]>([]);
   const [anexoMode, setAnexoMode] = useState<'editor' | 'files' | null>(null);
   
   // Estado para error de validación de fechas
@@ -806,8 +821,19 @@ export function ConvenioEspecificoForm({
                                     <div>
                                       <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{anexo.name}</p>
                                       <p className="text-xs text-blue-600 dark:text-blue-300">
-                                        {(anexo.file.size / 1024 / 1024).toFixed(2)} MB • {isPdf ? 'PDF (se sube directo)' : 'Se convertirá a Google Doc'}
+                                        {(anexo.file.size / 1024 / 1024).toFixed(2)} MB ? {isPdf ? 'PDF' : 'DOCX'} ? {anexo.uploadStatus === 'uploaded' ? 'Subido a Drive' : anexo.uploadStatus === 'uploading' ? `Subiendo ${anexo.progress}%` : anexo.uploadStatus === 'error' ? 'Error al subir' : 'Pendiente de subir'}
                                       </p>
+                                      {anexo.uploadStatus !== 'pending' && (
+                                        <div className="mt-2 h-2 w-56 overflow-hidden rounded-full bg-blue-200 dark:bg-blue-950">
+                                          <div
+                                            className={`h-full transition-all ${anexo.uploadStatus === 'error' ? 'bg-red-500' : 'bg-blue-600'}`}
+                                            style={{ width: `${anexo.progress}%` }}
+                                          />
+                                        </div>
+                                      )}
+                                      {anexo.uploadError && (
+                                        <p className="mt-1 text-xs text-red-600 dark:text-red-400">{anexo.uploadError}</p>
+                                      )}
                                     </div>
                                   </div>
                                   <Button
@@ -1078,7 +1104,7 @@ export function ConvenioEspecificoForm({
     setAttachedWordFile(null);
   };
 
-  // NUEVO: Funciones para múltiples anexos (soporta .docx y .pdf)
+  // NUEVO: Funciones para multiples anexos (soporta .docx y .pdf)
   const handleMultipleAnexosUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
@@ -1095,25 +1121,136 @@ export function ConvenioEspecificoForm({
 
     for (let file of Array.from(files)) {
       if (validTypes.includes(file.type)) {
-        try {
-          const buffer = await file.arrayBuffer();
-          const anexo = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            name: file.name,
-            file: file,
-            buffer: buffer,
-            mimeType: file.type
-          };
-          setAnexoFiles(prev => [...prev, anexo]);
-        } catch (error) {
-          console.error('Error procesando archivo:', file.name, error);
-          alert(`Error procesando ${file.name}: ${error}`);
-        }
+        const anexo: AnexoFile = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          file,
+          mimeType: file.type,
+          progress: 0,
+          uploadStatus: 'pending',
+        };
+        setAnexoFiles(prev => [...prev, anexo]);
       } else {
-        alert(`${file.name} no es un archivo válido. Solo se aceptan .docx y .pdf`);
+        alert(`${file.name} no es un archivo valido. Solo se aceptan .docx y .pdf`);
       }
     }
     event.target.value = '';
+  };
+
+  const updateAnexoUploadState = (anexoId: string, patch: Partial<AnexoFile>) => {
+    setAnexoFiles(prev => prev.map(anexo => anexo.id === anexoId ? { ...anexo, ...patch } : anexo));
+  };
+
+  const uploadChunk = (uploadUrl: string, chunk: Blob, start: number, end: number, total: number, mimeType: string) => {
+    return new Promise<any>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', uploadUrl);
+      xhr.setRequestHeader('Content-Type', mimeType);
+      xhr.setRequestHeader('Content-Range', `bytes ${start}-${end - 1}/${total}`);
+
+      xhr.onload = () => {
+        if (xhr.status === 308) {
+          resolve(null);
+          return;
+        }
+
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(xhr.responseText ? JSON.parse(xhr.responseText) : null);
+          } catch {
+            reject(new Error('Google Drive termin? la subida pero devolvi? una respuesta invalida'));
+          }
+          return;
+        }
+
+        reject(new Error(xhr.responseText || `Error subiendo chunk a Google Drive (${xhr.status})`));
+      };
+
+      xhr.onerror = () => reject(new Error('Error de red subiendo el anexo a Google Drive'));
+      xhr.send(chunk);
+    });
+  };
+
+  const uploadAnexoToDriveInChunks = async (anexo: AnexoFile): Promise<AnexoFile> => {
+    if (anexo.uploadStatus === 'uploaded' && anexo.driveFileId) {
+      return anexo;
+    }
+
+    updateAnexoUploadState(anexo.id, { uploadStatus: 'uploading', progress: Math.max(anexo.progress, 1), uploadError: undefined });
+
+    const sessionResponse = await fetch('/api/uploads/drive/resumable-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: anexo.name,
+        mimeType: anexo.mimeType || anexo.file.type,
+        fileSize: anexo.file.size,
+      }),
+    });
+
+    const sessionData = await sessionResponse.json().catch(() => null);
+    if (!sessionResponse.ok) {
+      throw new Error(sessionData?.error || 'No se pudo iniciar la subida directa a Drive');
+    }
+
+    const uploadUrl = sessionData?.uploadUrl;
+    if (!uploadUrl) {
+      throw new Error('No se recibio la URL de subida de Google Drive');
+    }
+
+    const chunkSize = 5 * 1024 * 1024; // multiplo de 256 KiB y razonable para internet inestable
+    let uploadedBytes = 0;
+    let finalGoogleResponse: any = null;
+
+    while (uploadedBytes < anexo.file.size) {
+      const nextByte = Math.min(uploadedBytes + chunkSize, anexo.file.size);
+      const chunk = anexo.file.slice(uploadedBytes, nextByte);
+      finalGoogleResponse = await uploadChunk(
+        uploadUrl,
+        chunk,
+        uploadedBytes,
+        nextByte,
+        anexo.file.size,
+        anexo.mimeType || anexo.file.type
+      );
+
+      uploadedBytes = nextByte;
+      updateAnexoUploadState(anexo.id, {
+        progress: Math.min(99, Math.round((uploadedBytes / anexo.file.size) * 100)),
+      });
+    }
+
+    if (!finalGoogleResponse?.id) {
+      throw new Error('Google Drive no devolvio el ID del archivo subido');
+    }
+
+    const uploaded: AnexoFile = {
+      ...anexo,
+      uploadStatus: 'uploaded',
+      progress: 100,
+      driveFileId: finalGoogleResponse.id,
+      webViewLink: finalGoogleResponse.webViewLink,
+      webContentLink: finalGoogleResponse.webContentLink,
+    };
+
+    updateAnexoUploadState(anexo.id, uploaded);
+    return uploaded;
+  };
+
+  const uploadPendingAnexos = async () => {
+    const uploadedAnexos: AnexoFile[] = [];
+
+    for (const anexo of anexoFiles) {
+      try {
+        uploadedAnexos.push(await uploadAnexoToDriveInChunks(anexo));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Error inesperado subiendo anexo';
+        updateAnexoUploadState(anexo.id, { uploadStatus: 'error', uploadError: message });
+        throw new Error(`No se pudo subir ${anexo.name}: ${message}`);
+      }
+    }
+
+    return uploadedAnexos;
   };
 
   const removeAnexoFile = (anexoId: string) => {
@@ -1250,9 +1387,10 @@ export function ConvenioEspecificoForm({
                                 mes: convenioData?.mes || '',
                                 anexo: convenioData?.anexo || '' // NUEVO CAMPO UNIFICADO
                               };
+                              const uploadedAnexos = await uploadPendingAnexos();
                               const requestData = {
                                 title: dbData.entidad_nombre,
-                                convenio_type_id: 4, // ID del convenio específico según base de datos
+                                convenio_type_id: 4, // ID del convenio especifico segun base de datos
                                 convenio_type: "especifico",
                                 template_slug: "nuevo-convenio-especifico",
                                 content_data: dbData,
@@ -1260,10 +1398,13 @@ export function ConvenioEspecificoForm({
                                 career_id: scopeCareerId || null,
                                 org_unit_id: scopeOrgUnitId || null,
                                 agreement_year: agreementYear,
-                                // NUEVO: Anexos múltiples (con soporte para .docx y .pdf)
-                                anexos: anexoFiles.map(anexo => ({
+                                // Anexos subidos directo a Drive: el convenio solo envia referencias livianas
+                                anexos: uploadedAnexos.map(anexo => ({
                                   name: anexo.name,
-                                  buffer: Array.from(new Uint8Array(anexo.buffer)), // Convertir ArrayBuffer a array para JSON
+                                  driveFileId: anexo.driveFileId,
+                                  webViewLink: anexo.webViewLink,
+                                  webContentLink: anexo.webContentLink,
+                                  size: anexo.file.size,
                                   mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                                 })),
                                 status: 'enviado'

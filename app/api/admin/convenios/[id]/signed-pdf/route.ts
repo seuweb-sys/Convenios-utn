@@ -53,6 +53,67 @@ export async function POST(
       );
     }
 
+    const contentType = request.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const body = await request.json().catch(() => null) as {
+        driveFileId?: string;
+        webViewLink?: string;
+        webContentLink?: string;
+        fileName?: string;
+        fileSize?: number;
+      } | null;
+
+      if (!body?.driveFileId || !body.webViewLink) {
+        return NextResponse.json(
+          { error: "Faltan referencias del PDF firmado subido a Drive" },
+          { status: 400 }
+        );
+      }
+
+      const { error: updateError } = await supabase
+        .from("convenios")
+        .update({
+          signed_pdf_path: body.webViewLink,
+          signed_pdf_uploaded_at: new Date().toISOString(),
+          signed_pdf_uploaded_by: user.id
+        })
+        .eq("id", params.id);
+
+      if (updateError) {
+        console.error("Error al actualizar convenio con PDF firmado:", updateError);
+        return NextResponse.json(
+          { error: "Error al guardar informaci?n del PDF firmado" },
+          { status: 500 }
+        );
+      }
+
+      try {
+        await supabase
+          .from("activity_log")
+          .insert({
+            convenio_id: params.id,
+            user_id: user.id,
+            action: 'upload_signed_pdf',
+            status_from: convenio.status,
+            status_to: convenio.status,
+            metadata: {
+              signed_pdf_path: body.webViewLink,
+              drive_file_id: body.driveFileId,
+              file_name: body.fileName,
+              file_size: body.fileSize
+            },
+            ip_address: request.headers.get("x-forwarded-for") || "unknown"
+          });
+      } catch (logError) {
+        console.error("Error al registrar actividad:", logError);
+      }
+
+      return NextResponse.json({
+        success: true,
+        signed_pdf_path: body.webViewLink
+      });
+    }
+
     // Obtener el archivo del request
     const formData = await request.formData();
     const file = formData.get('file') as File;

@@ -801,14 +801,27 @@ export async function POST(request: Request) {
         const tipoConvenio = isConvenioEspecifico ? 'específico' : 'marco';
         console.log(`📁 [API] Procesando convenio ${tipoConvenio} con carpeta...`);
 
-        // Preparar anexos si existen (con soporte para .docx y .pdf)
+        // Preparar anexos si existen (soporta legado con buffer y nueva subida directa con driveFileId)
         const anexos = [];
         if (body.anexos && Array.isArray(body.anexos)) {
-          console.log('📎 [API] Procesando anexos...', body.anexos.length);
+          console.log('[API] Procesando anexos...', body.anexos.length);
 
           for (const anexo of body.anexos) {
+            if (anexo.name && anexo.driveFileId) {
+              anexos.push({
+                name: anexo.name,
+                driveFileId: anexo.driveFileId,
+                webViewLink: anexo.webViewLink,
+                webContentLink: anexo.webContentLink,
+                size: anexo.size,
+                mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+              });
+              console.log(`[API] Anexo pre-subido registrado: ${anexo.name}`);
+              continue;
+            }
+
             if (anexo.name && anexo.buffer) {
-              console.log(`📎 [API] Procesando anexo: ${anexo.name}`, {
+              console.log(`[API] Procesando anexo legacy: ${anexo.name}`, {
                 hasBuffer: !!anexo.buffer,
                 bufferType: typeof anexo.buffer,
                 bufferLength: anexo.buffer?.length || 0,
@@ -816,34 +829,32 @@ export async function POST(request: Request) {
               });
 
               try {
-                // Convertir array de números a ArrayBuffer si es necesario
                 let buffer;
                 if (Array.isArray(anexo.buffer)) {
                   buffer = new Uint8Array(anexo.buffer).buffer;
                 } else if (anexo.buffer instanceof ArrayBuffer) {
                   buffer = anexo.buffer;
                 } else {
-                  // Intentar convertir desde otro formato
                   buffer = new Uint8Array(anexo.buffer).buffer;
                 }
 
                 anexos.push({
                   name: anexo.name,
-                  buffer: buffer,
+                  buffer,
                   mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 });
 
-                console.log(`✅ [API] Anexo procesado: ${anexo.name} (${anexo.mimeType || 'docx'})`);
+                console.log(`[API] Anexo legacy procesado: ${anexo.name} (${anexo.mimeType || 'docx'})`);
               } catch (bufferError) {
-                console.error(`❌ [API] Error procesando anexo ${anexo.name}:`, bufferError);
+                console.error(`[API] Error procesando anexo ${anexo.name}:`, bufferError);
               }
             } else {
-              console.warn(`⚠️ [API] Anexo inválido (sin name/buffer):`, anexo);
+              console.warn('[API] Anexo invalido (sin name/buffer/driveFileId):', anexo);
             }
           }
         }
 
-        console.log(`📎 [API] Total anexos procesados: ${anexos.length}`);
+        console.log(`[API] Total anexos procesados: ${anexos.length}`);
 
         // Usar función OAuth (nueva) - soporta convenio específico y marco con anexos
         const convenioName = `Convenio_${title}_${new Date().toISOString().split('T')[0]}`;

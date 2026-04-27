@@ -21,6 +21,7 @@ import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
 import { Modal } from '@/app/components/ui/modal';
 import { SuccessModal } from '@/app/components/ui/success-modal';
 import { MultiInstitutionManager } from './MultiInstitutionManager';
+import { uploadFileToDriveInChunks } from '@/app/lib/client-drive-upload';
 
 // 4 pasos incluyendo anexos
 const STEPS = [
@@ -46,6 +47,21 @@ interface Institucion {
   representanteDni: string;
   cargoRepresentante: string;
 }
+
+type AnexoUploadStatus = 'pending' | 'uploading' | 'uploaded' | 'error';
+
+type AnexoFile = {
+  id: string;
+  name: string;
+  file: File;
+  mimeType?: string;
+  progress: number;
+  uploadStatus: AnexoUploadStatus;
+  driveFileId?: string;
+  webViewLink?: string;
+  webContentLink?: string;
+  uploadError?: string;
+};
 
 interface ConvenioMarcoFormProps {
   currentStep: number;
@@ -85,7 +101,7 @@ export function ConvenioMarcoForm({
   });
 
   // Estado para anexos (DNI, resolución, inscripción ARCA, otros)
-  const [anexoFiles, setAnexoFiles] = useState<Array<{id: string, name: string, file: File, buffer: ArrayBuffer, mimeType?: string}>>([]);
+  const [anexoFiles, setAnexoFiles] = useState<AnexoFile[]>([]);
 
   const meses = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -139,25 +155,61 @@ export function ConvenioMarcoForm({
 
     for (let file of Array.from(files)) {
       if (validTypes.includes(file.type)) {
-        try {
-          const buffer = await file.arrayBuffer();
-          const anexo = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            name: file.name,
-            file: file,
-            buffer: buffer,
-            mimeType: file.type
-          };
-          setAnexoFiles(prev => [...prev, anexo]);
-        } catch (error) {
-          console.error('Error procesando archivo:', file.name, error);
-          alert(`Error procesando ${file.name}: ${error}`);
-        }
+        const anexo: AnexoFile = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+          name: file.name,
+          file,
+          mimeType: file.type,
+          progress: 0,
+          uploadStatus: 'pending',
+        };
+        setAnexoFiles(prev => [...prev, anexo]);
       } else {
-        alert(`${file.name} no es un archivo válido. Solo se aceptan .docx y .pdf`);
+        alert(`${file.name} no es un archivo v?lido. Solo se aceptan .docx y .pdf`);
       }
     }
     event.target.value = '';
+  };
+
+  const updateAnexoUploadState = (anexoId: string, patch: Partial<AnexoFile>) => {
+    setAnexoFiles(prev => prev.map(anexo => anexo.id === anexoId ? { ...anexo, ...patch } : anexo));
+  };
+
+  const uploadPendingAnexos = async () => {
+    const uploadedAnexos: AnexoFile[] = [];
+
+    for (const anexo of anexoFiles) {
+      if (anexo.uploadStatus === 'uploaded' && anexo.driveFileId) {
+        uploadedAnexos.push(anexo);
+        continue;
+      }
+
+      try {
+        updateAnexoUploadState(anexo.id, { uploadStatus: 'uploading', progress: Math.max(anexo.progress, 1), uploadError: undefined });
+        const uploaded = await uploadFileToDriveInChunks({
+          file: anexo.file,
+          sessionEndpoint: '/api/uploads/drive/resumable-session',
+          onProgress: ({ progress }) => updateAnexoUploadState(anexo.id, { progress }),
+        });
+
+        const uploadedAnexo: AnexoFile = {
+          ...anexo,
+          uploadStatus: 'uploaded',
+          progress: 100,
+          driveFileId: uploaded.id,
+          webViewLink: uploaded.webViewLink,
+          webContentLink: uploaded.webContentLink,
+        };
+        updateAnexoUploadState(anexo.id, uploadedAnexo);
+        uploadedAnexos.push(uploadedAnexo);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Error inesperado subiendo anexo';
+        updateAnexoUploadState(anexo.id, { uploadStatus: 'error', uploadError: message });
+        throw new Error(`No se pudo subir ${anexo.name}: ${message}`);
+      }
+    }
+
+    return uploadedAnexos;
   };
 
   const removeAnexoFile = (anexoId: string) => {
@@ -331,8 +383,19 @@ export function ConvenioMarcoForm({
                             <div>
                               <p className="text-sm font-medium text-blue-800 dark:text-blue-200">{anexo.name}</p>
                               <p className="text-xs text-blue-600 dark:text-blue-300">
-                                {(anexo.file.size / 1024 / 1024).toFixed(2)} MB • {isPdf ? 'PDF' : 'Word (.docx)'}
+                                {(anexo.file.size / 1024 / 1024).toFixed(2)} MB ? {isPdf ? 'PDF' : 'Word (.docx)'} ? {anexo.uploadStatus === 'uploaded' ? 'Subido a Drive' : anexo.uploadStatus === 'uploading' ? `Subiendo ${anexo.progress}%` : anexo.uploadStatus === 'error' ? 'Error al subir' : 'Pendiente de subir'}
                               </p>
+                              {anexo.uploadStatus !== 'pending' && (
+                                <div className="mt-2 h-2 w-56 overflow-hidden rounded-full bg-blue-200 dark:bg-blue-950">
+                                  <div
+                                    className={`h-full transition-all ${anexo.uploadStatus === 'error' ? 'bg-red-500' : 'bg-blue-600'}`}
+                                    style={{ width: `${anexo.progress}%` }}
+                                  />
+                                </div>
+                              )}
+                              {anexo.uploadError && (
+                                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{anexo.uploadError}</p>
+                              )}
                             </div>
                           </div>
                           <Button
@@ -496,17 +559,24 @@ export function ConvenioMarcoForm({
                     <Button
                       variant="default"
                       disabled={isSubmitting}
-                      onClick={() => {
-                        // Sincronizar explícitamente instituciones y anexos antes de enviar
-                        console.log('Forzando sincronización de partes antes de enviar:', instituciones);
-                        console.log('Forzando sincronización de anexos antes de enviar:', anexoFiles.length);
-                        updateConvenioData('partes', instituciones);
-                        updateConvenioData('all', {
-                          ...convenioData,
-                          partes: instituciones,
-                          anexosMarco: anexoFiles
-                        });
-                        onFinalSubmit();
+                      onClick={async () => {
+                        setIsSubmitting(true);
+                        try {
+                          const uploadedAnexos = await uploadPendingAnexos();
+                          console.log('Forzando sincronizaci?n de partes antes de enviar:', instituciones);
+                          console.log('Forzando sincronizaci?n de anexos antes de enviar:', uploadedAnexos.length);
+                          updateConvenioData('partes', instituciones);
+                          updateConvenioData('all', {
+                            ...convenioData,
+                            partes: instituciones,
+                            anexosMarco: uploadedAnexos
+                          });
+                          await onFinalSubmit();
+                        } catch (error) {
+                          onError(error instanceof Error ? error.message : 'Error inesperado subiendo anexos');
+                        } finally {
+                          setIsSubmitting(false);
+                        }
                       }}
                     >
                       Sí, enviar

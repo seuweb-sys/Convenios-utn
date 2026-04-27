@@ -546,39 +546,51 @@ export async function PATCH(
           if (isConvenioEspecifico) {
             console.log('📁 [Update] Regenerando convenio específico con carpeta...');
 
-            // Preparar anexos si existen en body
+            // Preparar anexos si existen en body (soporta legado con buffer y nueva subida directa con driveFileId)
             const anexos = [];
             if (body.anexos && Array.isArray(body.anexos)) {
-              console.log('📎 [Update] Procesando anexos...', body.anexos.length);
+              console.log('[Update] Procesando anexos...', body.anexos.length);
 
               for (const anexo of body.anexos) {
+                if (anexo.name && anexo.driveFileId) {
+                  anexos.push({
+                    name: anexo.name,
+                    driveFileId: anexo.driveFileId,
+                    webViewLink: anexo.webViewLink,
+                    webContentLink: anexo.webContentLink,
+                    size: anexo.size,
+                    mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                  });
+                  console.log(`[Update] Anexo pre-subido registrado: ${anexo.name}`);
+                  continue;
+                }
+
                 if (anexo.name && anexo.buffer) {
                   try {
-                    // Convertir a ArrayBuffer según el tipo de entrada
-                    let buffer;
+                    let anexoBuffer;
                     if (Array.isArray(anexo.buffer)) {
-                      buffer = new Uint8Array(anexo.buffer).buffer;
+                      anexoBuffer = new Uint8Array(anexo.buffer).buffer;
                     } else if (anexo.buffer instanceof ArrayBuffer) {
-                      buffer = anexo.buffer;
+                      anexoBuffer = anexo.buffer;
                     } else {
-                      // Intentar convertir desde Buffer u otro formato
-                      buffer = new Uint8Array(anexo.buffer).buffer;
+                      anexoBuffer = new Uint8Array(anexo.buffer).buffer;
                     }
 
                     anexos.push({
                       name: anexo.name,
-                      buffer: buffer
+                      buffer: anexoBuffer,
+                      mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                     });
 
-                    console.log(`✅ [Update] Anexo procesado: ${anexo.name}`);
+                    console.log(`[Update] Anexo legacy procesado: ${anexo.name}`);
                   } catch (bufferError) {
-                    console.error(`❌ [Update] Error procesando anexo ${anexo.name}:`, bufferError);
+                    console.error(`[Update] Error procesando anexo ${anexo.name}:`, bufferError);
                   }
                 }
               }
             }
 
-            console.log(`📎 [Update] Anexos procesados: ${anexos.length}`);
+            console.log(`[Update] Anexos procesados: ${anexos.length}`);
 
             // Regenerar en Drive con OAuth (misma estrategia que POST)
             const convenioName = `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}`;

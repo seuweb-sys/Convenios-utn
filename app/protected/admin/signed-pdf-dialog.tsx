@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { UploadIcon, FileIcon, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { uploadFileToDriveInChunks } from "@/app/lib/client-drive-upload";
 
 interface SignedPdfDialogProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ export function SignedPdfDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,25 +53,37 @@ export function SignedPdfDialog({
 
     setIsUploading(true);
     setError(null);
+    setUploadProgress(0);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      const uploaded = await uploadFileToDriveInChunks({
+        file,
+        sessionEndpoint: `/api/admin/convenios/${convenioId}/signed-pdf/resumable-session`,
+        onProgress: ({ progress }) => setUploadProgress(progress),
+      });
 
       const response = await fetch(`/api/admin/convenios/${convenioId}/signed-pdf`, {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driveFileId: uploaded.id,
+          webViewLink: uploaded.webViewLink,
+          webContentLink: uploaded.webContentLink,
+          fileName: file.name,
+          fileSize: file.size,
+        }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(data.error || 'Error al subir el PDF');
+        throw new Error(data?.error || 'Error al registrar el PDF firmado');
       }
 
+      setUploadProgress(100);
       setUploadSuccess(true);
       
-      // Recargar la página después de 2 segundos
+      // Recargar la p?gina despu?s de 2 segundos
       setTimeout(() => {
         window.location.reload();
       }, 2000);
@@ -85,6 +99,7 @@ export function SignedPdfDialog({
     setFile(null);
     setError(null);
     setUploadSuccess(false);
+    setUploadProgress(0);
     onClose();
   };
 
@@ -152,6 +167,17 @@ export function SignedPdfDialog({
                     <p className="text-xs text-muted-foreground">
                       {(file.size / 1024 / 1024).toFixed(2)} MB
                     </p>
+                    {isUploading && (
+                      <div className="mt-2 h-2 w-56 overflow-hidden rounded-full bg-green-100 dark:bg-green-950">
+                        <div
+                          className="h-full bg-green-600 transition-all"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
+                    )}
+                    {isUploading && (
+                      <p className="text-xs text-green-600 dark:text-green-400">Subiendo {uploadProgress}%</p>
+                    )}
                     <Button
                       type="button"
                       variant="ghost"
