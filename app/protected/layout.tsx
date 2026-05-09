@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
 import { signOutAction } from "@/app/actions";
-import { BellIcon, SearchIcon, MenuIcon } from "lucide-react";
+import { MenuIcon } from "lucide-react";
 import { Navigation } from "@/app/components/layout/navigation";
 import { NotificationsDropdown } from "@/app/components/layout/notifications";
 import { getNavMembershipFlags } from "@/app/lib/authz/membership-scope";
@@ -63,17 +63,6 @@ export default async function ProtectedLayout({
             </Link>
           </div>
           
-          <div className="hidden md:flex flex-1 max-w-md mx-4 lg:mx-16">
-            <div className="relative w-full">
-              <input
-                type="text"
-                placeholder="Buscar convenios..."
-                className="w-full pl-10 pr-4 py-1.5 text-sm bg-muted/50 rounded-md border border-border/50 focus:outline-none focus:ring-1 focus:ring-primary/30 focus:border-primary/50"
-              />
-              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            </div>
-          </div>
-          
           <div className="flex items-center gap-2">
             <NotificationsDropdown userId={user.id} />
             
@@ -127,4 +116,4 @@ export default async function ProtectedLayout({
       </div>
     </div>
   );
-} 
+}

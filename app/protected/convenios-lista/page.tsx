@@ -12,9 +12,18 @@ import {
   DashboardHeader
 } from "@/app/components/dashboard";
 import { ConveniosListaClient } from "./ConveniosListaClient";
+import {
+  buildConveniosListaQueryParams,
+  buildConveniosSearchFilter,
+} from "./query-params";
 
-export default async function ConveniosListaPage() {
+export default async function ConveniosListaPage({
+  searchParams = {},
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const supabase = await createClient();
+  const queryParams = buildConveniosListaQueryParams(searchParams);
 
   const {
     data: { user },
@@ -68,7 +77,7 @@ export default async function ConveniosListaPage() {
         name,
         unit_type
       )
-    `)
+    `, { count: "exact" })
     .order("created_at", { ascending: false });
 
   if (applyProfesorPracticeOnly) {
@@ -79,7 +88,34 @@ export default async function ConveniosListaPage() {
     conveniosQuery = conveniosQuery.eq("user_id", user.id);
   }
 
-  const { data: convenios, error: conveniosError } = await conveniosQuery;
+  if (queryParams.status) {
+    conveniosQuery = conveniosQuery.eq("status", queryParams.status);
+  }
+
+  if (queryParams.type) {
+    const typeId = Number.parseInt(queryParams.type, 10);
+    conveniosQuery = Number.isFinite(typeId)
+      ? conveniosQuery.eq("convenio_type_id", typeId)
+      : conveniosQuery.eq("convenio_types.name", queryParams.type);
+  }
+
+  if (queryParams.career) {
+    conveniosQuery = conveniosQuery.eq("career_id", queryParams.career);
+  }
+
+  if (queryParams.secretariat) {
+    conveniosQuery = conveniosQuery.eq("secretariat_id", queryParams.secretariat);
+  }
+
+  const searchFilter = buildConveniosSearchFilter(queryParams.q);
+  if (searchFilter) {
+    conveniosQuery = conveniosQuery.or(searchFilter);
+  }
+
+  const { data: convenios, error: conveniosError, count } = await conveniosQuery.range(
+    queryParams.from,
+    queryParams.to
+  );
 
   const { data: careers } = await supabase
     .from("careers")
@@ -112,6 +148,18 @@ export default async function ConveniosListaPage() {
           convenios={convenios || []}
           careers={careers || []}
           secretariats={secretariats || []}
+          pagination={{
+            page: queryParams.page,
+            pageSize: queryParams.pageSize,
+            total: count || 0,
+          }}
+          filters={{
+            q: queryParams.q,
+            status: queryParams.status,
+            type: queryParams.type,
+            career: queryParams.career,
+            secretariat: queryParams.secretariat,
+          }}
         />
       </div>
     </div>

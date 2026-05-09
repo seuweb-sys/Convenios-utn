@@ -31,6 +31,11 @@ import {
   getSecretariatIdsForSecretario,
   hasActiveMembershipRole,
 } from '@/app/lib/authz/membership-scope';
+import {
+  buildConveniosApiPagination,
+  buildConveniosApiSearchFilter,
+  shouldUseLegacyFullResponse,
+} from './query-params';
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import path from 'path';
 import fs from 'fs';
@@ -110,8 +115,6 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const scopeParam = searchParams.get('scope'); // director | secretario | profesor
     const authorMembershipParam = searchParams.get('author_membership'); // director | profesor (vista secretario)
-    const limitParam = searchParams.get('limit');
-    const offsetParam = searchParams.get('offset');
     const statusParam = searchParams.get('status');
     const typeParam = searchParams.get('type');
     const secretariatParam = searchParams.get('secretariat');
@@ -120,8 +123,11 @@ export async function GET(request: NextRequest) {
     const yearParam = searchParams.get('year');
     const mineOnly = searchParams.get('mine') === 'true';
 
-    const limit = limitParam ? parseInt(limitParam, 10) : 20;
-    const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
+    const pagination = buildConveniosApiPagination(searchParams);
+    const limitParam = searchParams.get('limit');
+    const offsetParam = searchParams.get('offset');
+    const limit = pagination.limit;
+    const offset = pagination.offset;
 
     if (isNaN(limit) || limit <= 0) {
       return NextResponse.json({ error: 'Parámetro limit inválido' }, { status: 400 });
@@ -163,7 +169,7 @@ export async function GET(request: NextRequest) {
           created_at,
           resolved
         )
-      `)
+      `, { count: "exact" })
       .order('updated_at', { ascending: false });
 
     let emptyResult = false;
@@ -263,13 +269,18 @@ export async function GET(request: NextRequest) {
       query = query.eq('user_id', user.id);
     }
 
-    // Paginación
-    if (!emptyResult) {
-      query = query.range(offset, offset + limit - 1);
+    const searchFilter = buildConveniosApiSearchFilter(pagination.q);
+    if (searchFilter) {
+      query = query.or(searchFilter);
     }
 
-    const { data, error: dbError } = emptyResult
-      ? { data: [] as any[], error: null }
+    // Paginación
+    if (!emptyResult) {
+      query = query.range(pagination.from, pagination.to);
+    }
+
+    const { data, error: dbError, count } = emptyResult
+      ? { data: [] as any[], error: null, count: 0 }
       : await query;
     if (dbError) {
       console.error("API Error fetching convenios:", dbError);
@@ -279,7 +290,7 @@ export async function GET(request: NextRequest) {
     const filteredData = data || [];
 
     // 5. Datos completos
-    const full = searchParams.get('full') === 'true';
+    const full = shouldUseLegacyFullResponse(searchParams);
     if (full) return NextResponse.json(filteredData);
 
     // 6. Formato resumido (default)
@@ -313,7 +324,11 @@ export async function GET(request: NextRequest) {
     });
 
     // 7. Devolver los datos
-    return NextResponse.json(responseData);
+    const response = NextResponse.json(responseData);
+    response.headers.set('X-Total-Count', String(count || 0));
+    response.headers.set('X-Limit', String(limit));
+    response.headers.set('X-Offset', String(offset));
+    return response;
 
   } catch (e: any) {
     console.error("API Route Exception:", e);
