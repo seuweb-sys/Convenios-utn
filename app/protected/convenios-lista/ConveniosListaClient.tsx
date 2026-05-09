@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AdminFilters } from "@/app/protected/admin/admin-filters";
 import { ConvenioItem } from "@/app/components/dashboard";
@@ -38,6 +38,11 @@ export function ConveniosListaClient({
   const [secretariatFilter, setSecretariatFilterState] = useState<string | null>(filters.secretariat);
   const [isLoading, setIsLoading] = useState(false);
   const pageCount = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
+
+  useEffect(() => {
+    setIsLoading(false);
+    setSearch(filters.q);
+  }, [filters.q, pagination.page, pagination.total]);
 
   const updateUrl = (updates: Record<string, string | null>, resetPage = true) => {
     setIsLoading(true);

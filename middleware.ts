@@ -68,6 +68,7 @@ export async function middleware(request: NextRequest) {
     // Permitir home, sign-in, sign-up, auth/callback, pending-approval y APIs públicas
     if (request.nextUrl.pathname === homeRoute ||
       publicRoutes.includes(request.nextUrl.pathname) ||
+      request.nextUrl.pathname.startsWith('/playwright') ||
       request.nextUrl.pathname.startsWith('/api/auth')) {
       return response
     }
