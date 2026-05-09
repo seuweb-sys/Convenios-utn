@@ -1,6 +1,50 @@
 import Docxtemplater from 'docxtemplater';
 import PizZip from 'pizzip';
 
+export function prepareDocxTemplateData(data: Record<string, any>) {
+  const processedData: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    if (Array.isArray(value)) {
+      // Soportar arrays para loops en el template
+      processedData[key] = value.map(item => {
+        if (typeof item === 'object' && item !== null) {
+          // Procesar cada objeto del array
+          const processedItem: Record<string, any> = {};
+          for (const [k, v] of Object.entries(item)) {
+            if (v != null) {
+              processedItem[k] = typeof v === 'string' ? v : String(v);
+            } else {
+              processedItem[k] = '';
+            }
+          }
+          return processedItem;
+        }
+        return item != null ? String(item) : '';
+      });
+    } else if (typeof value === 'object' && value !== null) {
+      // Soportar objetos anidados
+      const processedObj: Record<string, any> = {};
+      for (const [k, v] of Object.entries(value)) {
+        if (v != null) {
+          processedObj[k] = typeof v === 'string' ? v : String(v);
+        } else {
+          processedObj[k] = '';
+        }
+      }
+      processedData[key] = processedObj;
+    } else if (typeof value === 'string') {
+      processedData[key] = value;
+    } else if (value != null) {
+      processedData[key] = String(value);
+    } else {
+      processedData[key] = '';
+    }
+  }
+
+  return processedData;
+}
+
 export async function renderDocx(templateBuffer: Buffer, data: Record<string, any>): Promise<Buffer> {
   try {
     console.log('📋 [DOCX Templater] Procesando template con datos...');
@@ -10,45 +54,7 @@ export async function renderDocx(templateBuffer: Buffer, data: Record<string, an
     // - Objetos se pasan directamente (para acceso anidado)
     // - Strings y números se pasan tal cual
     // - null/undefined se convierten a string vacío
-    const processedData: Record<string, any> = {};
-
-    for (const [key, value] of Object.entries(data)) {
-      if (Array.isArray(value)) {
-        // Soportar arrays para loops en el template
-        processedData[key] = value.map(item => {
-          if (typeof item === 'object' && item !== null) {
-            // Procesar cada objeto del array
-            const processedItem: Record<string, any> = {};
-            for (const [k, v] of Object.entries(item)) {
-              if (v != null) {
-                processedItem[k] = typeof v === 'string' ? v : String(v);
-              } else {
-                processedItem[k] = '';
-              }
-            }
-            return processedItem;
-          }
-          return item != null ? String(item) : '';
-        });
-      } else if (typeof value === 'object' && value !== null) {
-        // Soportar objetos anidados
-        const processedObj: Record<string, any> = {};
-        for (const [k, v] of Object.entries(value)) {
-          if (v != null) {
-            processedObj[k] = typeof v === 'string' ? v : String(v);
-          } else {
-            processedObj[k] = '';
-          }
-        }
-        processedData[key] = processedObj;
-      } else if (typeof value === 'string') {
-        processedData[key] = value;
-      } else if (value != null) {
-        processedData[key] = String(value);
-      } else {
-        processedData[key] = '';
-      }
-    }
+    const processedData = prepareDocxTemplateData(data);
 
     console.log('📝 [DOCX Templater] Datos procesados:', Object.keys(processedData));
 

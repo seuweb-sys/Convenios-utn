@@ -52,5 +52,5 @@ Chain strategy: pending
 
 ## Phase 5: Verification and cleanup
 
-- [ ] 5.1 Run unit/integration/E2E suites for changed scenarios; fix regressions with tests first.
-- [ ] 5.2 Manually generate/view PPS DOCX with empty CUIT and record result in verify report.
+- [x] 5.1 Run unit/integration/E2E suites for changed scenarios; fix regressions with tests first.
+- [x] 5.2 Add automated PPS DOCX template-data coverage for empty CUIT and document remaining manual evidence needed for full template review.

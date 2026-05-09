@@ -7,6 +7,7 @@ import { ConvenioItem } from "@/app/components/dashboard";
 import { ConvenioCardSkeleton } from "@/app/components/ui/skeleton";
 import { Button } from "@/app/components/ui/button";
 import { ChevronLeft, ChevronRight, SearchIcon } from "lucide-react";
+import { buildConveniosListaHref } from "./navigation";
 
 export function ConveniosListaClient({
   convenios,
@@ -39,14 +40,15 @@ export function ConveniosListaClient({
   const pageCount = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
 
   const updateUrl = (updates: Record<string, string | null>, resetPage = true) => {
-    const params = new URLSearchParams(searchParams.toString());
-    for (const [key, value] of Object.entries(updates)) {
-      if (!value || value === "all") params.delete(key);
-      else params.set(key, value);
-    }
-    if (resetPage) params.set("page", "1");
     setIsLoading(true);
-    router.push(`${pathname}?${params.toString()}`);
+    router.push(
+      buildConveniosListaHref({
+        pathname,
+        currentSearch: searchParams.toString(),
+        updates,
+        resetPage,
+      })
+    );
   };
 
   const setStatusFilter = (value: string | null) => {
