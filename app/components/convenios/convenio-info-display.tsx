@@ -18,6 +18,7 @@ import {
 import Link from 'next/link';
 import { Button } from '@/app/components/ui/button';
 import { RequestModificationModal } from '@/app/components/ui/request-modification-modal';
+import { resolveFacultadResponsible } from '@/app/lib/forms/pps-display';
 
 interface ConvenioInfoDisplayProps {
   convenioId: string;
@@ -129,6 +130,7 @@ export function ConvenioInfoDisplay({ convenioId }: ConvenioInfoDisplayProps) {
     if (!convenio?.form_data) return null;
 
     const data = convenio.form_data;
+    const facultadResponsible = resolveFacultadResponsible(data);
     
     return (
       <div className="space-y-6">
@@ -287,7 +289,7 @@ export function ConvenioInfoDisplay({ convenioId }: ConvenioInfoDisplayProps) {
         </div>
 
         {/* Información de Práctica/Actividad (si existe) */}
-        {(data.practica_tematica || data.alumno_tutor || data.empresa_tutor || data.practica_carga_horaria) && (
+        {(data.practica_tematica || data.alumno_tutor || data.empresa_tutor || data.practica_carga_horaria || facultadResponsible) && (
           <div className="bg-card border border-border rounded-lg p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <FileTextIcon className="w-5 h-5 text-indigo-600" />
@@ -307,6 +309,10 @@ export function ConvenioInfoDisplay({ convenioId }: ConvenioInfoDisplayProps) {
                     <p className="mt-1">{data.alumno_tutor}</p>
                   </div>
                 )}
+                <div>
+                  <span className="font-medium text-muted-foreground">Responsable Facultad:</span>
+                  <p className="mt-1">{facultadResponsible || ""}</p>
+                </div>
                 {data.empresa_tutor && (
                   <div>
                     <span className="font-medium text-muted-foreground">Tutor Empresa:</span>
@@ -450,4 +456,4 @@ export function ConvenioInfoDisplay({ convenioId }: ConvenioInfoDisplayProps) {
       />
     </div>
   );
-} 
+}

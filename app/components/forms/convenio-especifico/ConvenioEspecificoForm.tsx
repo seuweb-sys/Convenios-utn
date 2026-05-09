@@ -24,6 +24,7 @@ import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
 import { SuccessModal } from '@/app/components/ui/success-modal';
 import dynamic from 'next/dynamic';
+import { dniSchema, normalizeOptionalCuit, optionalCuitSchema } from '@/app/lib/forms/identity-validation';
 
 // Importar React Quill dinámicamente para evitar problemas de SSR
 const ReactQuill = dynamic(() => import('react-quill'), { 
@@ -154,13 +155,13 @@ const STEPS = [
 const entidadSchema = z.object({
   nombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
   domicilio: z.string().min(5, "La dirección debe tener al menos 5 caracteres"),
-  cuit: z.string().min(11, "El CUIT es obligatorio y debe tener al menos 11 dígitos"),
+  cuit: optionalCuitSchema,
 });
 
 const representanteSchema = z.object({
   representanteNombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
   cargoRepresentante: z.string().min(2, "El cargo debe tener al menos 2 caracteres"),
-  representanteDni: z.string().min(7, "El DNI debe tener al menos 7 dígitos").max(8, "El DNI no puede tener más de 8 dígitos"),
+  representanteDni: dniSchema,
 });
 
 // ESQUEMA ACTUALIZADO - Con soporte para editor de texto Y archivo adjunto
@@ -387,7 +388,7 @@ export function ConvenioEspecificoForm({
             ...convenioData,
             entidad_nombre: data.nombre,
             entidad_domicilio: data.domicilio,
-            entidad_cuit: data.cuit
+            entidad_cuit: normalizeOptionalCuit(data.cuit)
           });
           break;
         case 2:
@@ -470,13 +471,13 @@ export function ConvenioEspecificoForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="cuit">CUIT *</Label>
+                  <Label htmlFor="cuit">CUIT (opcional)</Label>
                   <Input
                     id="cuit"
                     className="border-border focus-visible:ring-primary"
-                    placeholder="Solo números"
+                    placeholder="CUIT si corresponde"
                     {...form.register("cuit", {
-                      pattern: { value: /^\d+$/, message: "Solo números" }
+                      pattern: { value: /^\d*$/, message: "Solo números" }
                     })}
                   />
                   {form.formState.errors.cuit?.message && (
@@ -536,8 +537,10 @@ export function ConvenioEspecificoForm({
                     id="representanteDni"
                     className="border-border focus-visible:ring-primary"
                     placeholder="sin puntos"
+                    maxLength={20}
                     {...form.register("representanteDni", {
-                      pattern: { value: /^\d+$/, message: "Solo números" }
+                      pattern: { value: /^\d+$/, message: "Solo números" },
+                      maxLength: { value: 20, message: "El DNI no puede tener más de 20 dígitos" }
                     })}
                   />
                   {form.formState.errors.representanteDni?.message && (
@@ -1486,4 +1489,4 @@ export function ConvenioEspecificoForm({
   );
 }
 
-export default ConvenioEspecificoForm; 
+export default ConvenioEspecificoForm;

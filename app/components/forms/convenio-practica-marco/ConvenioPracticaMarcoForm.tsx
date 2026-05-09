@@ -22,6 +22,7 @@ import { isDiaValidForMes } from "@/lib/date-select-helpers";
 import { ConvenioData, ParteData, DatosBasicosData } from '@/types/convenio';
 import { Modal } from '@/app/components/ui/modal';
 import { SuccessModal } from '@/app/components/ui/success-modal';
+import { dniSchema, normalizeOptionalCuit, optionalCuitSchema } from '@/app/lib/forms/identity-validation';
 
 const STEPS = [
   {
@@ -48,14 +49,14 @@ const entidadSchema = z.object({
   tipo: z.string().min(2, "El tipo es requerido"),
   domicilio: z.string().min(5, "La dirección debe tener al menos 5 caracteres"),
   ciudad: z.string().min(2, "La ciudad es requerida"),
-  cuit: z.string().min(11, "El CUIT es obligatorio y debe tener al menos 11 dígitos"),
+  cuit: optionalCuitSchema,
   rubro: z.string().min(2, "El rubro/actividad es requerido"),
 });
 
 const representanteSchema = z.object({
   representanteNombre: z.string().min(3, "El nombre debe tener al menos 3 caracteres"),
   cargoRepresentante: z.string().min(2, "El cargo debe tener al menos 2 caracteres"),
-  representanteDni: z.string().min(7, "El DNI debe tener al menos 7 dígitos").max(8, "El DNI no puede tener más de 8 dígitos"),
+  representanteDni: dniSchema,
 });
 
 const fechasSchema = z.object({
@@ -203,7 +204,7 @@ export function ConvenioPracticaMarcoForm({
             entidad_tipo: data.tipo,
             entidad_domicilio: data.domicilio,
             entidad_ciudad: data.ciudad,
-            entidad_cuit: data.cuit,
+            entidad_cuit: normalizeOptionalCuit(data.cuit),
             entidad_rubro: data.rubro
           });
           break;
@@ -316,12 +317,12 @@ export function ConvenioPracticaMarcoForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="cuit">CUIT (sin guiones) *</Label>
+                  <Label htmlFor="cuit">CUIT (sin guiones, opcional)</Label>
                   <Input
                     id="cuit"
-                    placeholder="xx-xxxxxxxx-x (sin puntos ni guiones)"
+                    placeholder="CUIT si corresponde"
                     {...form.register("cuit", {
-                      pattern: { value: /^\d+$/, message: "Solo números" }
+                      pattern: { value: /^\d*$/, message: "Solo números" }
                     })}
                   />
                   {form.formState.errors.cuit?.message && (
@@ -393,8 +394,10 @@ export function ConvenioPracticaMarcoForm({
                   <Input
                     id="representanteDni"
                     placeholder="sin puntos"
+                    maxLength={20}
                     {...form.register("representanteDni", {
-                      pattern: { value: /^\d+$/, message: "Solo números" }
+                      pattern: { value: /^\d+$/, message: "Solo números" },
+                      maxLength: { value: 20, message: "El DNI no puede tener más de 20 dígitos" }
                     })}
                   />
                   {form.formState.errors.representanteDni?.message && (

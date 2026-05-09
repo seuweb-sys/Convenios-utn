@@ -14,18 +14,19 @@ import { Label } from "@/app/components/ui/label";
 import { SuccessModal } from "@/app/components/ui/success-modal";
 import { cn } from "@/lib/utils";
 import { isDiaValidForMes } from "@/lib/date-select-helpers";
+import { dniSchema, normalizeOptionalCuit, optionalCuitSchema } from "@/app/lib/forms/identity-validation";
 
 // Esquemas de validación para cada paso
 const entidadSchema = z.object({
   entidad_nombre: z.string().min(2, "El nombre de la entidad es requerido"),
-  entidad_cuit: z.string().min(11, "CUIT debe tener 11 dígitos").regex(/^\d+$/, "Solo números"),
+  entidad_cuit: optionalCuitSchema,
   entidad_domicilio: z.string().min(5, "Domicilio requerido"),
   entidad_ciudad: z.string().min(2, "Ciudad requerida"),
 });
 
 const representanteSchema = z.object({
   entidad_representante: z.string().min(2, "Nombre del representante requerido"),
-  entidad_dni: z.string().min(7, "DNI debe tener al menos 7 dígitos").regex(/^\d+$/, "Solo números"),
+  entidad_dni: dniSchema,
   entidad_cargo: z.string().min(2, "Cargo del representante requerido"),
 });
 
@@ -188,7 +189,10 @@ export default function AcuerdoColaboracionForm({
       case 1:
         isValid = await entidadForm.trigger();
         if (isValid) {
-          const data = entidadForm.getValues();
+          const data = {
+            ...entidadForm.getValues(),
+            entidad_cuit: normalizeOptionalCuit(entidadForm.getValues().entidad_cuit),
+          };
           Object.entries(data).forEach(([key, value]) => {
             updateConvenioData(key as keyof typeof convenioData, value);
           });
@@ -329,12 +333,12 @@ export default function AcuerdoColaboracionForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="entidad_cuit">CUIT (sin guiones) *</Label>
+            <Label htmlFor="entidad_cuit">CUIT (sin guiones, opcional)</Label>
             <Input
               id="entidad_cuit"
-              placeholder="xx-xxxxxxxx-x (sin puntos ni guiones)"
+              placeholder="CUIT si corresponde"
               {...entidadForm.register("entidad_cuit", {
-                pattern: { value: /^\d+$/, message: "Solo números" }
+                pattern: { value: /^\d*$/, message: "Solo números" }
               })}
             />
             {entidadForm.formState.errors.entidad_cuit && (
@@ -407,8 +411,10 @@ export default function AcuerdoColaboracionForm({
             <Input
               id="entidad_dni"
               placeholder="sin puntos"
+              maxLength={20}
               {...representanteForm.register("entidad_dni", {
-                pattern: { value: /^\d+$/, message: "Solo números" }
+                pattern: { value: /^\d+$/, message: "Solo números" },
+                maxLength: { value: 20, message: "El DNI no puede tener más de 20 dígitos" }
               })}
             />
             {representanteForm.formState.errors.entidad_dni && (
@@ -765,4 +771,4 @@ export default function AcuerdoColaboracionForm({
       />
     </>
   );
-} 
+}

@@ -39,16 +39,16 @@ Chain strategy: pending
 
 ## Phase 3: RED tests for PPS/forms
 
-- [ ] 3.1 Add failing unit tests for `app/lib/forms/identity-validation.ts`: DNI numeric 1-20, CUIT optional numeric, empty string normalization.
-- [ ] 3.2 Add failing unit tests for `app/lib/forms/pps-careers.ts`: stable options, no DB dependency, usable labels/values.
-- [ ] 3.3 Add failing component/integration tests for PPS career select and Facultad responsible display fallback in `convenio-info-display.tsx`.
+- [x] 3.1 Add failing unit tests for `app/lib/forms/identity-validation.ts`: DNI numeric 1-20, CUIT optional numeric, empty string normalization.
+- [x] 3.2 Add failing unit tests for `app/lib/forms/pps-careers.ts`: stable options, no DB dependency, usable labels/values.
+- [x] 3.3 Add failing component/integration tests for PPS career select and Facultad responsible display fallback in `convenio-info-display.tsx`.
 
 ## Phase 4: GREEN PPS/forms implementation
 
-- [ ] 4.1 Create `app/lib/forms/identity-validation.ts` and replace duplicated DNI/CUIT rules in the four convenio form files.
-- [ ] 4.2 Create `app/lib/forms/pps-careers.ts` and wire selector in `ConvenioParticularForm.tsx`.
-- [ ] 4.3 Update `ConvenioParticularForm.tsx` to persist CUIT as `""` and keep PPS responsible keys.
-- [ ] 4.4 Update `app/components/convenios/convenio-info-display.tsx` to show `facultad_docente_tutor_nombre` or `practica_tutor_docente` safely.
+- [x] 4.1 Create `app/lib/forms/identity-validation.ts` and replace duplicated DNI/CUIT rules in the four convenio form files.
+- [x] 4.2 Create `app/lib/forms/pps-careers.ts` and wire selector in `ConvenioParticularForm.tsx`.
+- [x] 4.3 Update `ConvenioParticularForm.tsx` to persist CUIT as `""` and keep PPS responsible keys.
+- [x] 4.4 Update `app/components/convenios/convenio-info-display.tsx` to show `facultad_docente_tutor_nombre` or `practica_tutor_docente` safely.
 
 ## Phase 5: Verification and cleanup
 

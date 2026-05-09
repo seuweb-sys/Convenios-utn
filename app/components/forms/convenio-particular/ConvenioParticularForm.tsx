@@ -14,11 +14,13 @@ import { Label } from "@/app/components/ui/label";
 import { SuccessModal } from "@/app/components/ui/success-modal";
 import { cn } from "@/lib/utils";
 import { isDiaValidForMes } from "@/lib/date-select-helpers";
+import { dniSchema, normalizeOptionalCuit, optionalCuitSchema } from "@/app/lib/forms/identity-validation";
+import { PPS_CAREER_OPTIONS } from "@/app/lib/forms/pps-careers";
 
 // Esquemas de validación para cada paso
 const empresaSchema = z.object({
   empresa_nombre: z.string().min(2, "El nombre de la empresa es requerido"),
-  empresa_cuit: z.string().min(11, "CUIT debe tener 11 dígitos").regex(/^\d+$/, "Solo números"),
+  empresa_cuit: optionalCuitSchema,
   empresa_representante_nombre: z.string().min(2, "Nombre del representante requerido"),
   empresa_representante_caracter: z.string().min(2, "Carácter del representante requerido"),
   empresa_direccion_calle: z.string().min(5, "Dirección requerida"),
@@ -29,7 +31,7 @@ const empresaSchema = z.object({
 const alumnoSchema = z.object({
   alumno_nombre: z.string().min(2, "Nombre del alumno requerido"),
   alumno_carrera: z.string().min(2, "Carrera del alumno requerida"),
-  alumno_dni: z.string().min(7, "DNI debe tener al menos 7 dígitos").regex(/^\d+$/, "Solo números"),
+  alumno_dni: dniSchema,
   alumno_legajo: z.string().min(1, "Legajo del alumno requerido").regex(/^\d+$/, "Solo números"),
 });
 
@@ -243,7 +245,7 @@ export default function ConvenioParticularForm({
       const dbData = {
         // Empresa
         empresa_nombre: cd.empresa_nombre || '',
-        empresa_cuit: cd.empresa_cuit || '',
+        empresa_cuit: normalizeOptionalCuit(cd.empresa_cuit),
         empresa_representante_nombre: cd.empresa_representante_nombre || '',
         empresa_representante_caracter: cd.empresa_representante_caracter || '',
         empresa_direccion_calle: cd.empresa_direccion_calle || '',
@@ -356,12 +358,12 @@ export default function ConvenioParticularForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="empresa_cuit">CUIT (sin guiones) *</Label>
+            <Label htmlFor="empresa_cuit">CUIT (sin guiones, opcional)</Label>
             <Input
               id="empresa_cuit"
-              placeholder="xx-xxxxxxxx-x (sin puntos ni guiones)"
+              placeholder="CUIT si corresponde"
               {...empresaForm.register("empresa_cuit", {
-                pattern: { value: /^\d+$/, message: "Solo números" }
+                pattern: { value: /^\d*$/, message: "Solo números" }
               })}
             />
             {empresaForm.formState.errors.empresa_cuit && (
@@ -470,12 +472,16 @@ export default function ConvenioParticularForm({
 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="alumno_carrera">Carrera del Alumno *</Label>
-            <Input
+            <select
               id="alumno_carrera"
-              className="border-border focus-visible:ring-primary"
-              placeholder="Ej: Ingeniería en Sistemas"
+              className="border border-border focus-visible:ring-2 focus-visible:ring-primary rounded-md w-full h-10 px-3 bg-card"
               {...alumnoForm.register("alumno_carrera")}
-            />
+            >
+              <option value="">Seleccionar carrera</option>
+              {PPS_CAREER_OPTIONS.map((career) => (
+                <option key={career.value} value={career.label}>{career.label}</option>
+              ))}
+            </select>
             {alumnoForm.formState.errors.alumno_carrera && (
               <p className="text-sm text-red-500">{String(alumnoForm.formState.errors.alumno_carrera.message)}</p>
             )}
@@ -486,8 +492,10 @@ export default function ConvenioParticularForm({
             <Input
               id="alumno_dni"
               placeholder="sin puntos"
+              maxLength={20}
               {...alumnoForm.register("alumno_dni", {
-                pattern: { value: /^\d+$/, message: "Solo números" }
+                pattern: { value: /^\d+$/, message: "Solo números" },
+                maxLength: { value: 20, message: "El DNI no puede tener más de 20 dígitos" }
               })}
             />
             {alumnoForm.formState.errors.alumno_dni && (
@@ -816,4 +824,4 @@ export default function ConvenioParticularForm({
       />
     </>
   );
-} 
+}
