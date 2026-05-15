@@ -26,6 +26,7 @@ import { formatOrgUnitLabel } from "@/lib/org-unit-label";
 import { FullScreenPreview } from "@/app/components/convenios/full-screen-preview";
 import { useConvenioStore, getFieldsFromStore } from "@/stores/convenioStore";
 import { SuccessModal } from '@/app/components/ui/success-modal';
+import { buildAdminDirectEditContext } from "./admin-edit-payload";
 
 // Tipos
 type Step = {
@@ -142,6 +143,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode');
+  const origin = searchParams.get('origin');
   const urlType = searchParams.get('type'); // Mover aquí para que esté disponible
   const convenioIdFromUrl = params.id !== "nuevo" ? params.id : null;
 
@@ -393,6 +395,9 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         org_unit_id: scopeOrgUnitId || null,
         agreement_year: agreementYear,
         is_hidden_from_area: hiddenFromArea,
+        ...(buildAdminDirectEditContext(origin, convenioData?.status) && {
+          edit_context: buildAdminDirectEditContext(origin, convenioData?.status),
+        }),
         // Incluir anexos si existen (para Marco con anexos)
         ...(anexosPayload.length > 0 && { anexos: anexosPayload })
       };
@@ -454,6 +459,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     scopeOrgUnitId,
     agreementYear,
     hiddenFromArea,
+    origin,
     practiceCareerOptional,
     isPracticeType,
     profileRole,

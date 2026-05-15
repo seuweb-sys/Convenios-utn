@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 import { useSearchParams, useParams } from 'next/navigation';
 import { ChevronLeftIcon, FileTextIcon } from "lucide-react";
 import Link from "next/link";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { 
   BackgroundPattern, 
@@ -17,6 +17,17 @@ import { ConvenioFormLayout } from "@/app/components/convenios/ConvenioFormLayou
 import { ConvenioInfoDisplay } from "@/app/components/convenios/convenio-info-display";
 import { convenioConfigs } from "@/app/components/convenios/convenio-configs";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { requiresAdminEditConfirmation } from "../edit-mode-helpers";
 
 export default function ConvenioPage() {
   const params = useParams<{ id: string }>();
@@ -25,10 +36,13 @@ export default function ConvenioPage() {
   const searchParams = useSearchParams();
   const type = searchParams.get('type') as keyof typeof convenioConfigs;
   const mode = searchParams.get('mode');
+  const origin = searchParams.get('origin');
+  const [approvedEditConfirmed, setApprovedEditConfirmed] = useState(false);
   
   // Store de convenio para inicializar cuando estemos en modo corrección
   const initializeStore = useConvenioMarcoStore((state) => state.initialize);
   const isStoreInitialized = useConvenioMarcoStore((state) => state.isInitialized);
+  const convenioStatus = useConvenioMarcoStore((state) => state.convenioData.status);
 
   // Si estamos corrigiendo un convenio existente, inicializar el store con el ID
   useEffect(() => {
@@ -85,6 +99,30 @@ export default function ConvenioPage() {
 
     if (slug && convenioConfigs[slug]) {
       const config = convenioConfigs[slug];
+
+      if (requiresAdminEditConfirmation(origin, convenioStatus) && !approvedEditConfirmed) {
+        return (
+          <AlertDialog open>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Esta edición va a resetear un convenio aprobado</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Si continuás, se archivará el documento aprobado actual, se regenerará uno nuevo y el convenio volverá a estado enviado.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel asChild>
+                  <Link href={`/protected/convenio-detalle/${paramId}`}>Cancelar</Link>
+                </AlertDialogCancel>
+                <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => setApprovedEditConfirmed(true)}>
+                  Continuar con la edición
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        );
+      }
+
       return <ConvenioFormLayout config={config} />;
     }
   }

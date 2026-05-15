@@ -26,9 +26,11 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useState } from "react";
+import Link from "next/link";
 import { ObservacionesDialog } from "./observaciones-dialog";
 import { SignedPdfDialog } from "./signed-pdf-dialog";
 import { cn } from "@/lib/utils";
+import { buildAdminEditHref } from "./convenio-action-helpers";
 
 // Tipos
 type Convenio = {
@@ -290,6 +292,12 @@ export const columns: ColumnDef<Convenio>[] = [
             <DropdownMenuContent align="end" className="bg-card/80 backdrop-blur-sm border-border/60">
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={buildAdminEditHref(convenio.id)} className="flex w-full items-center">
+                  <AlertCircle className="mr-2 h-4 w-4" />
+                  Editar convenio
+                </Link>
+              </DropdownMenuItem>
               
               {!isApproved && (
                 <>
