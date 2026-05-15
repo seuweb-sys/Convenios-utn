@@ -257,6 +257,66 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
     expect(mocks.mockConvenioResubmitted).not.toHaveBeenCalled();
   });
 
+  it("regenerates non-approved admin direct edits without falling back to applicant resubmission", async () => {
+    const ctx = createSupabaseDouble({
+      convenioStatus: "revision",
+      documentPath: "https://drive.google.com/file/d/revision-admin-doc/view",
+    });
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const response = await PATCH(
+      new Request("http://localhost/api/convenios/conv-3", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-forwarded-for": "127.0.0.1" },
+        body: JSON.stringify({
+          title: "Convenio Test",
+          status: "enviado",
+          form_data: { entidad_nombre: "Empresa SA", dia: "11", mes: "Junio" },
+          edit_context: {
+            source: "admin_direct",
+          },
+        }),
+      }),
+      { params: { id: "conv-3" } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockDeleteFileFromOAuthDrive).toHaveBeenCalledWith("revision-admin-doc");
+    expect(mocks.mockUploadFileToOAuthDrive).toHaveBeenCalled();
+    expect(ctx.calls.convenios.updates[0]).toMatchObject({
+      status: "enviado",
+      document_path: "https://drive.google.com/file/d/new-doc/view",
+    });
+    expect(ctx.calls.observaciones.updates[0]).toMatchObject({ resolved: true });
+    expect(ctx.calls.activity_log.inserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "update_status",
+          status_from: "revision",
+          status_to: "enviado",
+        }),
+        expect.objectContaining({
+          action: "admin_direct_edit_regenerated",
+          metadata: expect.objectContaining({
+            origin: "admin-edit",
+            previous_status: "revision",
+            previous_document_path: "https://drive.google.com/file/d/revision-admin-doc/view",
+            archived_document_path: null,
+            new_document_path: "https://drive.google.com/file/d/new-doc/view",
+            status_reset_to: "enviado",
+            signed_pdf_cleared: false,
+          }),
+        }),
+      ]),
+    );
+    expect(ctx.calls.activity_log.inserts).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: "resubmit_convenio" }),
+      ]),
+    );
+    expect(mocks.mockConvenioResubmitted).not.toHaveBeenCalled();
+  });
+
   it("preserves applicant correction resubmission behavior", async () => {
     const ctx = createSupabaseDouble({
       convenioStatus: "revision",
