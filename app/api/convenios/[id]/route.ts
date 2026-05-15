@@ -29,6 +29,86 @@ import { createDocument } from '@/app/lib/utils/doc-generator';
 import { Packer } from 'docx';
 import path from 'path';
 import fs from 'fs';
+import {
+  isAdminDirectEditRequest,
+  isApprovedConvenioStatus,
+  type AdminDirectEditContext,
+} from '@/app/lib/convenio-editing';
+
+function extractDriveItemId(documentPath: string, isFolder: boolean) {
+  if (isFolder) return documentPath.split('/folders/')[1]?.split('?')[0] ?? null;
+  return documentPath.split('/d/')[1]?.split('/')[0] ?? null;
+}
+
+async function generateConvenioDocumentBuffer(
+  supabase: any,
+  convenioTypeId: number,
+  formData: Record<string, any>,
+) {
+  const { data: template, error: templateError } = await supabase
+    .from('convenio_types')
+    .select('name, template_content')
+    .eq('id', convenioTypeId)
+    .single();
+
+  if (templateError || !template) {
+    console.error('Error al obtener template:', templateError);
+    throw new Error('Template no encontrado');
+  }
+
+  let buffer: Buffer | null = null;
+
+  try {
+    const templateDir = path.join(process.cwd(), 'templates');
+    const safeName = template.name ? template.name.toString() : '';
+    const safeNameLower = safeName.toLowerCase();
+    const safeNameNormalized = safeNameLower.normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+    const slugify = (str: string) => str.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    const removeStop = (str: string) => str.replace(/\b(de|del|la|el|en|con|por|para|y|o|a|un|una)\b/g, '').replace(/-+/g, '-').replace(/(^-|-$)+/g, '');
+    const norm = (str: string) => str.replace(/[^a-z0-9]/g, '');
+
+    const targetSlug = removeStop(safeNameNormalized);
+    const allDocx = fs.readdirSync(templateDir).filter(f => f.endsWith('.docx'));
+    const scored: Array<{ file: string, score: number }> = [];
+
+    allDocx.forEach((f) => {
+      const fileSlug = slugify(path.parse(f).name);
+      const fileSlugClean = removeStop(fileSlug);
+      let score = -1;
+      if (fileSlug === safeNameNormalized) score = 0;
+      else if (fileSlugClean === targetSlug) score = 1;
+      else if (norm(fileSlug) === norm(safeNameNormalized)) score = 2;
+      else if (norm(fileSlugClean) === norm(targetSlug)) score = 3;
+      else if (norm(fileSlug).includes(norm(safeNameNormalized))) score = 4;
+      else if (norm(fileSlugClean).includes(norm(targetSlug))) score = 5;
+
+      if (score >= 0) scored.push({ file: f, score });
+    });
+
+    scored.sort((a, b) => a.score - b.score || a.file.length - b.file.length);
+    const candidateFiles = scored.map((s) => s.file);
+
+    if (candidateFiles.length) {
+      const filePath = path.join(templateDir, candidateFiles[0]);
+      const templateBuffer = fs.readFileSync(filePath);
+      buffer = await renderDocx(templateBuffer, formData);
+    }
+  } catch (tplErr) {
+    console.warn('Fallo al procesar template DOCX:', tplErr);
+  }
+
+  if (!buffer) {
+    const templateFields = Object.entries(formData).map(([key, value]) => ({
+      key,
+      value: String(value)
+    }));
+    const doc = createDocument(template.template_content, templateFields);
+    buffer = await Packer.toBuffer(doc);
+  }
+
+  return buffer;
+}
 
 async function isSecretaryInScope(supabase: any, userId: string, secretariatId: string | null) {
   if (!secretariatId) return false;
@@ -204,13 +284,15 @@ export async function PATCH(
 
     // Obtener y validar el body de la request
     const body = await request.json() as any; // Usar any para flexibilidad con anexos
+    const editContext = body.edit_context as AdminDirectEditContext | undefined;
+    const formDataPayload = body.form_data || body.content_data;
 
     let updateData: any = {};
 
     // Verificar que el convenio exista y el usuario tenga permiso
     const { data: convenio, error: checkError } = await supabase
       .from('convenios')
-      .select('user_id, status, title, convenio_type_id, secretariat_id, career_id, org_unit_id, agreement_year')
+      .select('user_id, status, title, convenio_type_id, secretariat_id, career_id, org_unit_id, agreement_year, document_path, signed_pdf_path, signed_pdf_uploaded_at, signed_pdf_uploaded_by')
       .eq('id', params.id)
       .single();
 
@@ -315,9 +397,176 @@ export async function PATCH(
       );
     }
 
+    const isAdminDirectEdit = isAdminDirectEditRequest(userRole, convenio.status, body.status, editContext);
+
+    if (isAdminDirectEdit) {
+      if (!formDataPayload) {
+        return NextResponse.json(
+          { error: 'La edición administrativa requiere regenerar el documento con form_data' },
+          { status: 400 }
+        );
+      }
+
+      if (isApprovedConvenioStatus(convenio.status) && editContext?.approved_reset_confirmed !== true) {
+        return NextResponse.json(
+          { error: 'Debes confirmar el reseteo del convenio aprobado antes de editarlo' },
+          { status: 400 }
+        );
+      }
+
+      const isConvenioEspecifico = convenio.convenio_type_id === 4;
+      const previousDocumentPath = convenio.document_path ?? null;
+      const signedPdfWasCleared = isApprovedConvenioStatus(convenio.status) && !!convenio.signed_pdf_path;
+
+      const buffer = await generateConvenioDocumentBuffer(supabase, convenio.convenio_type_id, formDataPayload);
+
+      let driveResponse: { webViewLink?: string | null } | null = null;
+
+      if (isConvenioEspecifico) {
+        const anexos = Array.isArray(body.anexos) ? body.anexos : [];
+        driveResponse = await uploadConvenioEspecificoOAuth(
+          buffer,
+          `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}`,
+          anexos,
+          DRIVE_FOLDERS.PENDING,
+        );
+      } else {
+        driveResponse = await uploadFileToOAuthDrive(
+          buffer,
+          `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}.docx`,
+          DRIVE_FOLDERS.PENDING,
+          false,
+        );
+      }
+
+      const newDocumentPath = driveResponse?.webViewLink ?? null;
+
+      if (!newDocumentPath) {
+        return NextResponse.json(
+          { error: 'No se pudo regenerar el documento del convenio' },
+          { status: 500 }
+        );
+      }
+
+      if (previousDocumentPath) {
+        const previousItemId = extractDriveItemId(previousDocumentPath, isConvenioEspecifico);
+        if (previousItemId) {
+          if (isApprovedConvenioStatus(convenio.status)) {
+            if (isConvenioEspecifico) {
+              await moveFolderToFolderOAuth(previousItemId, DRIVE_FOLDERS.ARCHIVED);
+            } else {
+              await moveFileToFolderOAuth(previousItemId, DRIVE_FOLDERS.ARCHIVED);
+            }
+          } else {
+            try {
+              await deleteFileFromOAuthDrive(previousItemId);
+            } catch (oauthDeleteError) {
+              await deleteFileFromDrive(previousItemId);
+            }
+          }
+        }
+      }
+
+      const adminUpdateData: Record<string, any> = {
+        updated_at: new Date().toISOString(),
+        form_data: formDataPayload,
+        status: 'enviado',
+        document_path: newDocumentPath,
+      };
+
+      if (body.secretariat_id !== undefined) adminUpdateData.secretariat_id = body.secretariat_id || null;
+      if (body.career_id !== undefined) adminUpdateData.career_id = body.career_id || null;
+      if (body.org_unit_id !== undefined) adminUpdateData.org_unit_id = body.org_unit_id || null;
+      if (body.agreement_year !== undefined) adminUpdateData.agreement_year = requestedYear;
+      if (hiddenOnlyUpdate) {
+        adminUpdateData.is_hidden_from_area = body.is_hidden_from_area === true;
+        adminUpdateData.hidden_set_by = user.id;
+      }
+
+      if (isApprovedConvenioStatus(convenio.status)) {
+        adminUpdateData.signed_pdf_path = null;
+        adminUpdateData.signed_pdf_uploaded_at = null;
+        adminUpdateData.signed_pdf_uploaded_by = null;
+        adminUpdateData.approved_at = null;
+      }
+
+      if (convenio.status === 'revision') {
+        try {
+          await supabase
+            .from('observaciones')
+            .update({ resolved: true, resolved_at: new Date().toISOString() })
+            .eq('convenio_id', params.id)
+            .eq('resolved', false);
+        } catch (observacionError) {
+          console.error('Error actualizando observaciones:', observacionError);
+        }
+      }
+
+      const { data: updatedConvenio, error: adminUpdateError } = await supabase
+        .from('convenios')
+        .update(adminUpdateData)
+        .eq('id', params.id)
+        .select('document_path, convenio_type_id')
+        .single();
+
+      if (adminUpdateError) {
+        console.error('Error al actualizar el convenio:', adminUpdateError);
+        return NextResponse.json(
+          { error: 'Error al actualizar el convenio' },
+          { status: 500 }
+        );
+      }
+
+      if (convenio.status !== 'enviado') {
+        try {
+          await supabase.from('activity_log').insert({
+            convenio_id: params.id,
+            user_id: user.id,
+            action: 'update_status',
+            status_from: convenio.status,
+            status_to: 'enviado',
+            ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+            metadata: {
+              note: 'Edición administrativa directa con regeneración',
+            },
+          });
+        } catch (logErr) {
+          console.error('Error al registrar actividad:', logErr);
+        }
+      }
+
+      try {
+        await supabase.from('activity_log').insert({
+          convenio_id: params.id,
+          user_id: user.id,
+          action: 'admin_direct_edit_regenerated',
+          status_from: convenio.status,
+          status_to: 'enviado',
+          ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+          metadata: {
+            origin: 'admin-edit',
+            previous_status: convenio.status,
+            previous_document_path: previousDocumentPath,
+            archived_document_path: isApprovedConvenioStatus(convenio.status) ? previousDocumentPath : null,
+            new_document_path: newDocumentPath,
+            status_reset_to: 'enviado',
+            signed_pdf_cleared: signedPdfWasCleared,
+          },
+        });
+      } catch (logErr) {
+        console.error('Error al registrar actividad:', logErr);
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Convenio actualizado exitosamente',
+        convenio: updatedConvenio,
+      });
+    }
+
     // R9: Validación de fechas para Convenio Específico (type_id 4) al actualizar a 'enviado'
-    if (convenio.convenio_type_id === 4 && body.status === 'enviado' && body.content_data) {
-      const formData = body.content_data;
+    if (convenio.convenio_type_id === 4 && body.status === 'enviado' && formDataPayload) {
+      const formData = formDataPayload;
       const marcoFecha = formData.convenio_marco_fecha;
       const dia = formData.dia;
       const mes = formData.mes;
@@ -346,8 +595,8 @@ export async function PATCH(
     // Preparar datos de actualización
     updateData.updated_at = new Date().toISOString();
 
-    if (body.content_data) {
-      updateData.form_data = body.content_data;
+    if (formDataPayload) {
+      updateData.form_data = formDataPayload;
     }
 
     if (body.document_path) {
@@ -445,79 +694,15 @@ export async function PATCH(
     let latestDocumentPath: string | null = updatedConvenio.document_path;
     let uploadedDirectlyToPending = false;
 
-    const extractDriveItemId = (documentPath: string, isFolder: boolean) => {
-      if (isFolder) return documentPath.split('/folders/')[1]?.split('?')[0] ?? null;
-      return documentPath.split('/d/')[1]?.split('/')[0] ?? null;
-    };
-
     // Si se está reenvíando después de corrección, regenerar el documento
-    if (isResubmissionAfterCorrection && body.content_data) {
+    if (isResubmissionAfterCorrection && formDataPayload) {
       try {
-        // Obtener el template del tipo de convenio
-        const { data: template, error: templateError } = await supabase
-          .from('convenio_types')
-          .select('name, template_content')
-          .eq('id', updatedConvenio.convenio_type_id)
-          .single();
-
-        if (templateError || !template) {
-          console.error('Error al obtener template:', templateError);
-          throw new Error('Template no encontrado');
-        }
-
-        // Generar documento usando template DOCX
-        const formData = body.content_data;
-        let buffer: Buffer | null = null;
-
-        try {
-          const templateDir = path.join(process.cwd(), 'templates');
-          const safeName = template.name ? template.name.toString() : '';
-          const safeNameLower = safeName.toLowerCase();
-          const safeNameNormalized = safeNameLower.normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-
-          const slugify = (str: string) => str.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-          const removeStop = (str: string) => str.replace(/\b(de|del|la|el|en|con|por|para|y|o|a|un|una)\b/g, '').replace(/-+/g, '-').replace(/(^-|-$)+/g, '');
-          const norm = (str: string) => str.replace(/[^a-z0-9]/g, '');
-
-          const targetSlug = removeStop(safeNameNormalized);
-          const allDocx = fs.readdirSync(templateDir).filter(f => f.endsWith('.docx'));
-          const scored: Array<{ file: string, score: number }> = [];
-
-          allDocx.forEach((f) => {
-            const fileSlug = slugify(path.parse(f).name);
-            const fileSlugClean = removeStop(fileSlug);
-            let score = -1;
-            if (fileSlug === safeNameNormalized) score = 0;
-            else if (fileSlugClean === targetSlug) score = 1;
-            else if (norm(fileSlug) === norm(safeNameNormalized)) score = 2;
-            else if (norm(fileSlugClean) === norm(targetSlug)) score = 3;
-            else if (norm(fileSlug).includes(norm(safeNameNormalized))) score = 4;
-            else if (norm(fileSlugClean).includes(norm(targetSlug))) score = 5;
-
-            if (score >= 0) scored.push({ file: f, score });
-          });
-
-          scored.sort((a, b) => a.score - b.score || a.file.length - b.file.length);
-          const candidateFiles = scored.map((s) => s.file);
-
-          if (candidateFiles.length) {
-            const filePath = path.join(templateDir, candidateFiles[0]);
-            const templateBuffer = fs.readFileSync(filePath);
-            buffer = await renderDocx(templateBuffer, formData);
-          }
-        } catch (tplErr) {
-          console.warn('Fallo al procesar template DOCX:', tplErr);
-        }
-
-        // Fallback programático si no hay template DOCX
-        if (!buffer) {
-          const templateFields = Object.entries(formData).map(([key, value]) => ({
-            key,
-            value: String(value)
-          }));
-          const doc = createDocument(template.template_content, templateFields);
-          buffer = await Packer.toBuffer(doc);
-        }
+        const formData = formDataPayload;
+        const buffer = await generateConvenioDocumentBuffer(
+          supabase,
+          updatedConvenio.convenio_type_id,
+          formData,
+        );
 
         if (buffer) {
           // Primero, eliminar el documento viejo de Archivados si existe

@@ -3,20 +3,11 @@ export const dynamic = 'force-dynamic';
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
 import { type NextRequest } from 'next/server';
-import { formatTimeAgo } from "@/app/lib/dashboard/utils"; // Reutilizamos la función de formato de tiempo
 import { isPracticeType } from "@/app/lib/authz/scope-rules";
 import { shouldApplyProfesorPracticeOnlyConvenioFilter } from "@/app/lib/authz/profesor-membership-scope";
+import { formatActivityEntry, type ActivityApiData, type ApiActivityType } from "./activity-format";
 
-// Tipos para la respuesta de la API
-export type ApiActivityType = "info" | "success" | "warning" | "error";
-
-export interface ActivityApiData {
-  title: string;
-  description: string;
-  time: string;
-  type: ApiActivityType;
-  iconName: string; // Nombre del icono (ej: 'file', 'check', 'alert')
-}
+export type { ActivityApiData, ApiActivityType } from "./activity-format";
 
 // Estructura de datos de la actividad desde la DB
 interface ActivityLogFromDB {
@@ -139,73 +130,7 @@ export async function GET(request: NextRequest) {
         const convenio = conveniosData.find(c => c.id === activity.convenio_id);
         const profile = profilesData.find(p => p.id === activity.user_id);
 
-        let type: ApiActivityType = "info";
-        let iconName = "file";
-        let title = "Actividad en convenio";
-        let description = "";
-        
-        const convenioTitle = convenio?.title || "Convenio";
-        const convenioSerial = convenio?.serial_number || "Sin número";
-        const userName = profile?.full_name || "Usuario";
-
-        switch(activity.action) {
-          case "create":
-            title = `Nuevo convenio creado`;
-            description = `Se ha creado el convenio "${convenioTitle}" (N° ${convenioSerial})`;
-            iconName = "file-plus";
-            break;
-          case "update":
-            title = `Convenio actualizado`;
-            description = `Se han realizado cambios en "${convenioTitle}" (N° ${convenioSerial})`;
-            iconName = "edit";
-            break;
-          case "status_change":
-            if (activity.status_to === "aprobado") {
-              type = "success";
-              iconName = "check";
-              title = `Convenio aprobado`;
-              description = `El convenio "${convenioTitle}" ha sido aprobado`;
-            } else if (activity.status_to === "rechazado") {
-              type = "error";
-              iconName = "alert-circle";
-              title = `Convenio rechazado`;
-              description = `El convenio "${convenioTitle}" ha sido rechazado`;
-            } else if (activity.status_to === "revision") {
-              title = `Convenio enviado a revisión`;
-              description = `El convenio "${convenioTitle}" está siendo revisado`;
-              iconName = "clock";
-            } else if (activity.status_to === "finalizado") {
-              type = "success";
-              iconName = "check";
-              title = `Convenio finalizado`;
-              description = `El convenio "${convenioTitle}" ha sido finalizado`;
-            }
-            break;
-          case "resubmit_convenio":
-            title = `Convenio reenviado`;
-            description = `Se reenviaron las correcciones de "${convenioTitle}" (N° ${convenioSerial})`;
-            iconName = "refresh-ccw";
-            type = "info";
-            break;
-          case "update_status":
-            title = `Estado actualizado`;
-            description = `El convenio "${convenioTitle}" cambió de ${activity.status_from || "-"} a ${activity.status_to}`;
-            iconName = "arrow-right-left";
-            break;
-          default:
-            title = `Actividad en convenio`;
-            description = `Ha ocurrido una actividad en "${convenioTitle}" (N° ${convenioSerial})`;
-            iconName = "info";
-            break;
-        }
-
-        return {
-          title,
-          description,
-          time: formatTimeAgo(activity.created_at),
-          type,
-          iconName
-        };
+        return formatActivityEntry(activity, convenio, profile);
       });
       }
     }

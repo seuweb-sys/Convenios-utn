@@ -1,4 +1,4 @@
-export type ActivityAction = 'create' | 'update' | 'update_status' | 'delete';
+export type ActivityAction = 'create' | 'update' | 'update_status' | 'delete' | 'admin_direct_edit_regenerated' | 'resubmit_convenio';
 export type ActivityType = 'info' | 'success' | 'error' | 'warning';
 
 export interface ActivityLog {
