@@ -1,0 +1,82 @@
+schema: spec-driven
+
+project: Convenios-UTN
+persistence: hybrid
+strict_tdd: true
+initialized: 2026-05-08
+
+context: |
+  Stack: Next.js 14 App Router, React 18, TypeScript 5.7, Tailwind CSS, shadcn/Radix UI, Supabase SSR/client.
+  Architecture: App Router pages/routes under app/, reusable UI components, app/lib and lib utility/authz/service modules, Supabase SQL migrations.
+  Testing: Vitest for unit/integration/RLS checks, Playwright for E2E, strict TypeScript enabled.
+  Style: Existing code uses TypeScript path alias @/*, double quotes in many TS tests/configs, Tailwind CSS, npm/package-lock.
+
+testing:
+  strict_tdd: true
+  detected: 2026-05-08
+  runner:
+    framework: Vitest + Playwright
+    command: npm test
+  layers:
+    unit:
+      available: true
+      tool: Vitest
+      command: npm run test:unit
+    integration:
+      available: true
+      tool: Vitest
+      command: npm run test:integration
+    rls:
+      available: true
+      tool: Vitest SQL migration assertions
+      command: npm run test:rls
+    e2e:
+      available: true
+      tool: Playwright
+      command: npm run test:e2e
+  coverage:
+    available: false
+    command: ""
+    note: vitest coverage is configured with enabled=false and no coverage script exists.
+  quality:
+    linter:
+      available: false
+      command: ""
+    type_checker:
+      available: true
+      command: npx tsc --noEmit
+    formatter:
+      available: true
+      command: npx prettier --check .
+      note: prettier dependency exists, but no npm formatter script or config file was detected.
+
+rules:
+  proposal:
+    - Include user impact, affected roles, and rollback plan for risky changes.
+  specs:
+    - Use RFC 2119 keywords and Given/When/Then scenarios.
+    - Keep role, scope, Supabase/RLS, and UI behavior explicit when affected.
+  design:
+    - Document data flow across App Router, authz helpers, Supabase policies, and UI state when relevant.
+    - Call out environment variables or external service dependencies before implementation.
+  tasks:
+    - Group by reviewable work unit and keep verification with each unit.
+    - Flag work expected to exceed 400 changed lines for chained PR planning.
+  apply:
+    tdd: true
+    test_command: npm test
+    guidance:
+      - Follow existing App Router, TypeScript alias, Supabase, and Tailwind patterns.
+  verify:
+    test_command: npm test
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Preserve archived changes as audit trail; do not delete or rewrite archived artifacts.
+
+existing_openspec:
+  found: true
+  contents:
+    - openspec/changes/admin-filtros-anio-alta-y-convenio/
+    - openspec/changes/admin-reclasificar-convenios/
+  note: Existing active change artifacts were preserved. This init added missing config/spec/archive bootstrap files only.

@@ -1,0 +1,89 @@
+# Secretary Convenio Management Specification
+
+## Purpose
+
+Define secretary-facing convenio listing, PPS form/display, and identity/tax behavior for protected users.
+
+## Requirements
+
+### Requirement: Protected navigation without global search
+
+The protected layout/navigation MUST NOT render a navbar or top-level convenio search control.
+
+#### Scenario: Protected layout hides top search
+- GIVEN a secretary user is authenticated
+- WHEN any `/protected/*` page is rendered
+- THEN no navbar/top search input is visible
+- AND page-specific search remains allowed where explicitly provided.
+
+### Requirement: Secretary convenio list search
+
+`/protected/convenios-lista` MUST provide a working convenio search comparable to `/admin` search behavior for relevant convenio fields.
+
+#### Scenario: Matching convenios are filtered
+- GIVEN convenios exist with searchable text fields
+- WHEN the secretary enters a matching query on `/protected/convenios-lista`
+- THEN only matching convenios are shown
+- AND the visible results reflect the same matching intent as `/admin` search.
+
+#### Scenario: Empty search restores default list
+- GIVEN a search query is active
+- WHEN the secretary clears the query
+- THEN the list returns to the first page of unfiltered convenios.
+
+### Requirement: Server-bounded convenio pagination
+
+`/protected/convenios-lista` MUST paginate convenios 10 per page and MUST NOT fetch all convenio records to paginate or search client-side.
+
+#### Scenario: Page size is limited
+- GIVEN more than 10 convenios exist
+- WHEN the secretary opens `/protected/convenios-lista`
+- THEN at most 10 convenios are requested and displayed for the current page
+- AND pagination controls indicate additional pages when available.
+
+#### Scenario: Search remains bounded
+- GIVEN a search query matches more than 10 convenios
+- WHEN the secretary searches
+- THEN only the first 10 matching records for the current page are requested and displayed
+- AND moving pages requests the next bounded result set.
+
+### Requirement: PPS career selector source
+
+The PPS student career field MUST be a selector backed by code-defined career options, such as a helper, enum, array, or model, and MUST NOT read repeated career option rows from the database.
+
+#### Scenario: PPS career is selected from stable options
+- GIVEN a secretary fills PPS student data
+- WHEN the career field is displayed
+- THEN the user selects from code-defined options
+- AND no database query is made solely to load those options.
+
+### Requirement: Final PPS Facultad responsible display
+
+Accepted/final PPS convenio views MUST show the Facultad responsible person when it exists; when absent, they MUST render a safe empty or fallback state.
+
+#### Scenario: Responsible person exists
+- GIVEN an accepted PPS convenio has a Facultad responsible person
+- WHEN the final convenio view is rendered
+- THEN that responsible person is visible in the Facultad section.
+
+#### Scenario: Responsible person is absent
+- GIVEN an accepted PPS convenio has no Facultad responsible person
+- WHEN the final convenio view is rendered
+- THEN the view does not crash
+- AND it displays an empty or safe fallback state.
+
+### Requirement: Flexible DNI and CUIT handling
+
+DNI/CUIT validation and fields MUST support foreign identifiers and cases where CUIT is not applicable, without forcing Argentina-only formats when context makes them invalid.
+
+#### Scenario: Foreign identifier accepted
+- GIVEN a person or entity has a foreign identifier
+- WHEN the secretary submits the relevant convenio form
+- THEN the identifier is accepted when required business data is present
+- AND the saved/viewed value remains safe to render.
+
+#### Scenario: CUIT not applicable
+- GIVEN CUIT is not applicable for the person or entity
+- WHEN the secretary submits the relevant convenio form
+- THEN submission can proceed with the supported no-CUIT state
+- AND final views/templates render a safe empty or fallback value.
