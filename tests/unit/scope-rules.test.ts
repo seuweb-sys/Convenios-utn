@@ -3,6 +3,7 @@ import {
   canUserToggleHiddenFromArea,
   isPracticeType,
   normalizeAgreementYear,
+  validatePracticeHistoricalUpdateRule,
   validatePracticeHistoricalRule,
 } from "@/app/lib/authz/scope-rules";
 
@@ -26,6 +27,40 @@ describe("scope-rules (unit)", () => {
     expect(validatePracticeHistoricalRule(1, 2025, 2026).valid).toBe(false);
     expect(validatePracticeHistoricalRule(5, 2025, 2026).valid).toBe(false);
     expect(validatePracticeHistoricalRule(2, 2025, 2026).valid).toBe(true);
+  });
+
+  it("allows non-admin updates on historical practice convenios only when the year stays unchanged", () => {
+    expect(
+      validatePracticeHistoricalUpdateRule({
+        convenioTypeId: 1,
+        requestedYear: 2025,
+        currentYear: 2026,
+        existingYear: 2025,
+        canOverrideHistorical: false,
+      }).valid
+    ).toBe(true);
+
+    expect(
+      validatePracticeHistoricalUpdateRule({
+        convenioTypeId: 1,
+        requestedYear: 2024,
+        currentYear: 2026,
+        existingYear: 2025,
+        canOverrideHistorical: false,
+      }).valid
+    ).toBe(false);
+  });
+
+  it("allows privileged users to intentionally keep or set historical practice years", () => {
+    expect(
+      validatePracticeHistoricalUpdateRule({
+        convenioTypeId: 5,
+        requestedYear: 2024,
+        currentYear: 2026,
+        existingYear: 2025,
+        canOverrideHistorical: true,
+      }).valid
+    ).toBe(true);
   });
 
   it("allows hidden toggle for admin/decano/secretario", () => {

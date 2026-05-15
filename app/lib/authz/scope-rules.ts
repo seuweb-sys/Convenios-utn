@@ -31,6 +31,31 @@ export function validatePracticeHistoricalRule(convenioTypeId: number, agreement
   return { valid: true as const, error: null };
 }
 
+interface PracticeHistoricalUpdateRuleInput {
+  convenioTypeId: number;
+  requestedYear: number;
+  currentYear: number;
+  existingYear: number | null | undefined;
+  canOverrideHistorical: boolean;
+}
+
+export function validatePracticeHistoricalUpdateRule({
+  convenioTypeId,
+  requestedYear,
+  currentYear,
+  existingYear,
+  canOverrideHistorical,
+}: PracticeHistoricalUpdateRuleInput) {
+  if (!isPracticeType(convenioTypeId)) return { valid: true as const, error: null };
+  if (requestedYear === currentYear) return { valid: true as const, error: null };
+  if (canOverrideHistorical) return { valid: true as const, error: null };
+  if (existingYear != null && existingYear === requestedYear) {
+    return { valid: true as const, error: null };
+  }
+
+  return { valid: false as const, error: "Los convenios de práctica no permiten carga histórica" };
+}
+
 export function canUserToggleHiddenFromArea(
   role: string,
   memberships: MembershipScope[],

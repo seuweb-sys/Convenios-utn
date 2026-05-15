@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 import {
   isPracticeType,
   normalizeAgreementYear,
-  validatePracticeHistoricalRule,
+  validatePracticeHistoricalUpdateRule,
 } from '@/app/lib/authz/scope-rules';
 import { shouldApplyProfesorPracticeOnlyConvenioFilter } from '@/app/lib/authz/profesor-membership-scope';
 import { UpdateConvenioDTO } from "@/lib/types/convenio";
@@ -301,14 +301,13 @@ export async function PATCH(
       }
     }
 
-    const practiceYearValidation =
-      userRole === "admin"
-        ? ({ valid: true as const, error: null as string | null })
-        : validatePracticeHistoricalRule(
-            convenio.convenio_type_id,
-            requestedYear,
-            currentYear
-          );
+    const practiceYearValidation = validatePracticeHistoricalUpdateRule({
+      convenioTypeId: convenio.convenio_type_id,
+      requestedYear,
+      currentYear,
+      existingYear: convenio.agreement_year,
+      canOverrideHistorical: userRole === "admin",
+    });
     if (!practiceYearValidation.valid) {
       return NextResponse.json(
         { error: practiceYearValidation.error },
