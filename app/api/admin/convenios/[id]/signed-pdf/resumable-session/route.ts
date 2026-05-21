@@ -1,10 +1,10 @@
 ﻿import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
 import {
-  createFolderInOAuthDrive,
   createOAuthDriveResumableUploadSession,
   DRIVE_FOLDERS,
 } from '@/app/lib/google-drive';
+import { ensureConvenioFolder } from '@/app/lib/convenio-drive';
 
 export const dynamic = 'force-dynamic';
 
@@ -74,22 +74,23 @@ export async function POST(
       );
     }
 
-    let folderId: string | null = null;
-    const isConvenioWithFolder = convenio.convenio_type_id === 4 ||
-      (convenio.document_path && convenio.document_path.includes('/folders/'));
+    const folder = await ensureConvenioFolder({
+      convenioTitle: `Convenio_${convenio.title || convenio.id}_firmado`,
+      parentFolderId: DRIVE_FOLDERS.APPROVED,
+      currentDocumentPath: convenio.document_path,
+    });
 
-    if (isConvenioWithFolder && convenio.document_path) {
-      folderId = convenio.document_path.split('/folders/')[1]?.split('?')[0] || null;
-    }
-
-    if (!folderId) {
-      const folderName = `Convenio_${convenio.title || convenio.id}_firmado`;
-      const folderResponse = await createFolderInOAuthDrive(folderName, DRIVE_FOLDERS.APPROVED);
-      folderId = folderResponse.folderId || null;
-    }
+    const folderId = folder.folderId || null;
 
     if (!folderId) {
       return NextResponse.json({ error: "No se pudo determinar la carpeta de destino" }, { status: 500 });
+    }
+
+    if (folder.migratedFromFile) {
+      await supabase
+        .from("convenios")
+        .update({ document_path: folder.folderWebViewLink })
+        .eq("id", params.id);
     }
 
     const session = await createOAuthDriveResumableUploadSession({

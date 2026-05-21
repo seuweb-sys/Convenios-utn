@@ -38,12 +38,12 @@ Chain strategy: size-exception
 
 ## Phase 3: Integration (Signed PDF & Status Move)
 
-- [ ] 3.1 `tests/integration/api-admin-convenios-actions.test.ts`: Write tests for status moves handling both legacy files and folderized convenios.
-- [ ] 3.2 `app/api/admin/convenios/[id]/actions/route.ts`: Modify status move logic to use `resolveConvenioDriveAsset` and move file vs folder.
-- [ ] 3.3 `tests/integration/api-admin-convenios-signed-pdf.test.ts`: Write tests asserting signed PDF upload to a legacy approved record creates a folder in `APPROVED`.
-- [ ] 3.4 `app/api/admin/convenios/[id]/signed-pdf/route.ts`: Refactor to use `ensureConvenioFolder` before uploading.
-- [ ] 3.5 `app/api/admin/convenios/[id]/signed-pdf/resumable-session/route.ts`: Refactor to use `ensureConvenioFolder` before session creation.
+- [x] 3.1 `tests/integration/api-admin-convenios-actions.test.ts`: Write tests for status moves handling both legacy files and folderized convenios.
+- [x] 3.2 `app/api/admin/convenios/[id]/actions/route.ts`: Modify status move logic to use `resolveConvenioDriveAsset` and move file vs folder.
+- [x] 3.3 `tests/integration/api-admin-convenios-signed-pdf.test.ts`: Write tests asserting signed PDF upload to a legacy approved record creates a folder in `APPROVED`.
+- [x] 3.4 `app/api/admin/convenios/[id]/signed-pdf/route.ts`: Refactor to use `ensureConvenioFolder` before uploading.
+- [x] 3.5 `app/api/admin/convenios/[id]/signed-pdf/resumable-session/route.ts`: Refactor to use `ensureConvenioFolder` before session creation.
 
 ## Phase 4: Cleanup & Polish
 
-- [ ] 4.1 `app/api/*`: Remove old `convenio_type_id === 4` storage branching from routes where applicable.
+- [x] 4.1 `app/api/*`: Remove old `convenio_type_id === 4` storage branching from routes where applicable.

@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
-import { uploadFileToOAuthDriveWithMimeType, createFolderInOAuthDrive, DRIVE_FOLDERS } from '@/app/lib/google-drive';
+import { uploadFileToOAuthDriveWithMimeType, moveFileToFolderOAuth, DRIVE_FOLDERS } from '@/app/lib/google-drive';
+import { ensureConvenioFolder } from '@/app/lib/convenio-drive';
 
 export async function POST(
   request: Request,
@@ -70,9 +71,18 @@ export async function POST(
         );
       }
 
+      const folder = await ensureConvenioFolder({
+        convenioTitle: `Convenio_${convenio.title || convenio.id}_firmado`,
+        parentFolderId: DRIVE_FOLDERS.APPROVED,
+        currentDocumentPath: convenio.document_path,
+      });
+
+      await moveFileToFolderOAuth(body.driveFileId, folder.folderId);
+
       const { error: updateError } = await supabase
         .from("convenios")
         .update({
+          document_path: folder.folderWebViewLink,
           signed_pdf_path: body.webViewLink,
           signed_pdf_uploaded_at: new Date().toISOString(),
           signed_pdf_uploaded_by: user.id
@@ -139,50 +149,22 @@ export async function POST(
 
     console.log(`📄 [Signed PDF] Subiendo PDF firmado para convenio ${params.id}`);
 
-    let signedPdfPath = null;
+    const folder = await ensureConvenioFolder({
+      convenioTitle: `Convenio_${convenio.title || convenio.id}_firmado`,
+      parentFolderId: DRIVE_FOLDERS.APPROVED,
+      currentDocumentPath: convenio.document_path,
+    });
 
-    // Determinar dónde subir el PDF
-    // Si el convenio tiene una carpeta (específico o marco con anexos), subir ahí
-    // Si no, crear una carpeta en "aprobados" y subir ahí
-    
-    const isConvenioWithFolder = convenio.convenio_type_id === 4 || 
-      (convenio.document_path && convenio.document_path.includes('/folders/'));
+    console.log(`📁 [Signed PDF] Subiendo a carpeta resuelta: ${folder.folderId}`);
 
-    if (isConvenioWithFolder && convenio.document_path) {
-      // Extraer el ID de la carpeta del link
-      const folderId = convenio.document_path.split('/folders/')[1]?.split('?')[0];
-      
-      if (folderId) {
-        console.log(`📁 [Signed PDF] Subiendo a carpeta existente: ${folderId}`);
-        
-        const response = await uploadFileToOAuthDriveWithMimeType(
-          buffer,
-          `FIRMADO-${convenio.title || 'convenio'}.pdf`,
-          folderId,
-          'application/pdf'
-        );
-        
-        signedPdfPath = response.webViewLink;
-      }
-    }
+    const response = await uploadFileToOAuthDriveWithMimeType(
+      buffer,
+      `FIRMADO-${convenio.title || 'convenio'}.pdf`,
+      folder.folderId,
+      'application/pdf'
+    );
 
-    // Si no pudimos subir a una carpeta existente, crear una nueva en aprobados
-    if (!signedPdfPath) {
-      console.log(`📁 [Signed PDF] Creando carpeta para el PDF firmado`);
-      
-      // Crear carpeta para el convenio si no existe
-      const folderName = `Convenio_${convenio.title || convenio.id}_firmado`;
-      const folderResponse = await createFolderInOAuthDrive(folderName, DRIVE_FOLDERS.APPROVED);
-      
-      const response = await uploadFileToOAuthDriveWithMimeType(
-        buffer,
-        `FIRMADO-${convenio.title || 'convenio'}.pdf`,
-        folderResponse.folderId!,
-        'application/pdf'
-      );
-      
-      signedPdfPath = response.webViewLink;
-    }
+    const signedPdfPath = response.webViewLink;
 
     console.log(`✅ [Signed PDF] PDF firmado subido: ${signedPdfPath}`);
 
@@ -190,6 +172,7 @@ export async function POST(
     const { error: updateError } = await supabase
       .from("convenios")
       .update({
+        document_path: folder.folderWebViewLink,
         signed_pdf_path: signedPdfPath,
         signed_pdf_uploaded_at: new Date().toISOString(),
         signed_pdf_uploaded_by: user.id
