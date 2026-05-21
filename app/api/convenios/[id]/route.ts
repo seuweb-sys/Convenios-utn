@@ -23,6 +23,7 @@ import {
   deleteFileFromOAuthDrive,
   deleteFileFromDrive,
 } from '@/app/lib/google-drive';
+import { ensureConvenioFolder, resolveConvenioDriveAsset } from '@/app/lib/convenio-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 import { renderDocx } from '@/app/lib/utils/docx-templater';
 import { createDocument } from '@/app/lib/utils/doc-generator';
@@ -34,11 +35,6 @@ import {
   isApprovedConvenioStatus,
   type AdminDirectEditContext,
 } from '@/app/lib/convenio-editing';
-
-function extractDriveItemId(documentPath: string, isFolder: boolean) {
-  if (isFolder) return documentPath.split('/folders/')[1]?.split('?')[0] ?? null;
-  return documentPath.split('/d/')[1]?.split('/')[0] ?? null;
-}
 
 async function generateConvenioDocumentBuffer(
   supabase: any,
@@ -108,6 +104,41 @@ async function generateConvenioDocumentBuffer(
   }
 
   return buffer;
+}
+
+async function uploadConvenioDocumentToFolder(args: {
+  buffer: Buffer;
+  title: string | undefined;
+  anexos: any[];
+  parentFolderId: string;
+}) {
+  const convenioName = `Convenio_${args.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}`;
+
+  if (args.anexos.length > 0) {
+    return uploadConvenioEspecificoOAuth(
+      args.buffer,
+      convenioName,
+      args.anexos,
+      args.parentFolderId,
+    );
+  }
+
+  const folder = await ensureConvenioFolder({
+    convenioTitle: convenioName,
+    parentFolderId: args.parentFolderId,
+    currentDocumentPath: null,
+  });
+
+  await uploadFileToOAuthDrive(
+    args.buffer,
+    `${convenioName}.docx`,
+    folder.folderId,
+    false,
+  );
+
+  return {
+    webViewLink: folder.folderWebViewLink,
+  };
 }
 
 async function isSecretaryInScope(supabase: any, userId: string, secretariatId: string | null) {
@@ -414,30 +445,17 @@ export async function PATCH(
         );
       }
 
-      const isConvenioEspecifico = convenio.convenio_type_id === 4;
       const previousDocumentPath = convenio.document_path ?? null;
       const signedPdfWasCleared = isApprovedConvenioStatus(convenio.status) && !!convenio.signed_pdf_path;
 
       const buffer = await generateConvenioDocumentBuffer(supabase, convenio.convenio_type_id, formDataPayload);
 
-      let driveResponse: { webViewLink?: string | null } | null = null;
-
-      if (isConvenioEspecifico) {
-        const anexos = Array.isArray(body.anexos) ? body.anexos : [];
-        driveResponse = await uploadConvenioEspecificoOAuth(
-          buffer,
-          `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}`,
-          anexos,
-          DRIVE_FOLDERS.PENDING,
-        );
-      } else {
-        driveResponse = await uploadFileToOAuthDrive(
-          buffer,
-          `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}.docx`,
-          DRIVE_FOLDERS.PENDING,
-          false,
-        );
-      }
+      const driveResponse = await uploadConvenioDocumentToFolder({
+        buffer,
+        title: body.title,
+        anexos: Array.isArray(body.anexos) ? body.anexos : [],
+        parentFolderId: DRIVE_FOLDERS.PENDING,
+      });
 
       const newDocumentPath = driveResponse?.webViewLink ?? null;
 
@@ -449,19 +467,19 @@ export async function PATCH(
       }
 
       if (previousDocumentPath) {
-        const previousItemId = extractDriveItemId(previousDocumentPath, isConvenioEspecifico);
-        if (previousItemId) {
+        const previousAsset = resolveConvenioDriveAsset(previousDocumentPath);
+        if (previousAsset?.itemId) {
           if (isApprovedConvenioStatus(convenio.status)) {
-            if (isConvenioEspecifico) {
-              await moveFolderToFolderOAuth(previousItemId, DRIVE_FOLDERS.ARCHIVED);
+            if (previousAsset.kind === 'folder') {
+              await moveFolderToFolderOAuth(previousAsset.itemId, DRIVE_FOLDERS.ARCHIVED);
             } else {
-              await moveFileToFolderOAuth(previousItemId, DRIVE_FOLDERS.ARCHIVED);
+              await moveFileToFolderOAuth(previousAsset.itemId, DRIVE_FOLDERS.ARCHIVED);
             }
           } else {
             try {
-              await deleteFileFromOAuthDrive(previousItemId);
+              await deleteFileFromOAuthDrive(previousAsset.itemId);
             } catch (oauthDeleteError) {
-              await deleteFileFromDrive(previousItemId);
+              await deleteFileFromDrive(previousAsset.itemId);
             }
           }
         }
@@ -690,7 +708,6 @@ export async function PATCH(
     }
 
     const isResubmissionAfterCorrection = body.status === 'enviado' && convenio.status === 'revision';
-    const isConvenioEspecifico = updatedConvenio.convenio_type_id === 4;
     let latestDocumentPath: string | null = updatedConvenio.document_path;
     let uploadedDirectlyToPending = false;
 
@@ -706,99 +723,68 @@ export async function PATCH(
 
         if (buffer) {
           // Primero, eliminar el documento viejo de Archivados si existe
-          if (latestDocumentPath) {
-            try {
-              const oldItemId = extractDriveItemId(latestDocumentPath, isConvenioEspecifico);
-              if (oldItemId) {
-                try {
-                  console.log('🗑️ [Update] Eliminando documento viejo con OAuth:', oldItemId);
-                  await deleteFileFromOAuthDrive(oldItemId);
-                } catch (oauthDeleteError) {
-                  console.warn('⚠️ [Update] Falló borrado OAuth, usando fallback Service Account:', oauthDeleteError);
-                  await deleteFileFromDrive(oldItemId);
+            if (latestDocumentPath) {
+              try {
+                const oldAsset = resolveConvenioDriveAsset(latestDocumentPath);
+                if (oldAsset?.itemId) {
+                  try {
+                    console.log('🗑️ [Update] Eliminando documento viejo con OAuth:', oldAsset.itemId);
+                    await deleteFileFromOAuthDrive(oldAsset.itemId);
+                  } catch (oauthDeleteError) {
+                    console.warn('⚠️ [Update] Falló borrado OAuth, usando fallback Service Account:', oauthDeleteError);
+                    await deleteFileFromDrive(oldAsset.itemId);
+                  }
                 }
-              }
-            } catch (deleteError) {
+              } catch (deleteError) {
               console.error('Error al eliminar documento viejo:', deleteError);
               // No fallamos la operación si no se puede eliminar el archivo viejo
             }
           }
 
-          // Subir nuevo documento según el tipo
-          let driveResponse: { webViewLink?: string | null } | null = null;
+          console.log('📁 [Update] Regenerando convenio en carpeta dedicada...');
 
-          if (isConvenioEspecifico) {
-            console.log('📁 [Update] Regenerando convenio específico con carpeta...');
+          const anexos = [];
+          if (body.anexos && Array.isArray(body.anexos)) {
+            console.log('[Update] Procesando anexos...', body.anexos.length);
 
-            // Preparar anexos si existen en body (soporta legado con buffer y nueva subida directa con driveFileId)
-            const anexos = [];
-            if (body.anexos && Array.isArray(body.anexos)) {
-              console.log('[Update] Procesando anexos...', body.anexos.length);
+            for (const anexo of body.anexos) {
+              if (anexo.name && anexo.driveFileId) {
+                anexos.push({
+                  name: anexo.name,
+                  driveFileId: anexo.driveFileId,
+                  webViewLink: anexo.webViewLink,
+                  webContentLink: anexo.webContentLink,
+                  size: anexo.size,
+                  mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                });
+                continue;
+              }
 
-              for (const anexo of body.anexos) {
-                if (anexo.name && anexo.driveFileId) {
-                  anexos.push({
-                    name: anexo.name,
-                    driveFileId: anexo.driveFileId,
-                    webViewLink: anexo.webViewLink,
-                    webContentLink: anexo.webContentLink,
-                    size: anexo.size,
-                    mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                  });
-                  console.log(`[Update] Anexo pre-subido registrado: ${anexo.name}`);
-                  continue;
+              if (anexo.name && anexo.buffer) {
+                let anexoBuffer;
+                if (Array.isArray(anexo.buffer)) {
+                  anexoBuffer = new Uint8Array(anexo.buffer).buffer;
+                } else if (anexo.buffer instanceof ArrayBuffer) {
+                  anexoBuffer = anexo.buffer;
+                } else {
+                  anexoBuffer = new Uint8Array(anexo.buffer).buffer;
                 }
 
-                if (anexo.name && anexo.buffer) {
-                  try {
-                    let anexoBuffer;
-                    if (Array.isArray(anexo.buffer)) {
-                      anexoBuffer = new Uint8Array(anexo.buffer).buffer;
-                    } else if (anexo.buffer instanceof ArrayBuffer) {
-                      anexoBuffer = anexo.buffer;
-                    } else {
-                      anexoBuffer = new Uint8Array(anexo.buffer).buffer;
-                    }
-
-                    anexos.push({
-                      name: anexo.name,
-                      buffer: anexoBuffer,
-                      mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                    });
-
-                    console.log(`[Update] Anexo legacy procesado: ${anexo.name}`);
-                  } catch (bufferError) {
-                    console.error(`[Update] Error procesando anexo ${anexo.name}:`, bufferError);
-                  }
-                }
+                anexos.push({
+                  name: anexo.name,
+                  buffer: anexoBuffer,
+                  mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                });
               }
             }
-
-            console.log(`[Update] Anexos procesados: ${anexos.length}`);
-
-            // Regenerar en Drive con OAuth (misma estrategia que POST)
-            const convenioName = `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}`;
-            driveResponse = await uploadConvenioEspecificoOAuth(
-              buffer,
-              convenioName,
-              anexos,
-              DRIVE_FOLDERS.PENDING
-            );
-
-            console.log('✅ [Update] Convenio específico regenerado en carpeta:', driveResponse);
-          } else {
-            console.log('📄 [Update] Regenerando convenio normal...');
-
-            // Regenerar en Drive con OAuth para mantener paridad con el alta
-            driveResponse = await uploadFileToOAuthDrive(
-              buffer,
-              `Convenio_${body.title || 'Sin_titulo'}_${new Date().toISOString().split('T')[0]}.docx`,
-              DRIVE_FOLDERS.PENDING,
-              false
-            );
-
-            console.log('✅ [Update] Convenio normal regenerado:', driveResponse);
           }
+
+          const driveResponse = await uploadConvenioDocumentToFolder({
+            buffer,
+            title: body.title,
+            anexos,
+            parentFolderId: DRIVE_FOLDERS.PENDING,
+          });
 
           if (typeof driveResponse?.webViewLink === 'string') {
             latestDocumentPath = driveResponse.webViewLink;
@@ -830,16 +816,15 @@ export async function PATCH(
         } else {
           console.log('📋 [Update] Moviendo convenio corregido de vuelta a pendientes...');
 
-          const itemId = extractDriveItemId(latestDocumentPath, isConvenioEspecifico);
+          const asset = resolveConvenioDriveAsset(latestDocumentPath);
 
-          if (itemId) {
-            // Usar función apropiada según el tipo
-            if (isConvenioEspecifico) {
+          if (asset?.itemId) {
+            if (asset.kind === 'folder') {
               console.log('📁 [Update] Moviendo carpeta de convenio específico a pendientes...');
-              await moveFolderToFolderOAuth(itemId, DRIVE_FOLDERS.PENDING);
+              await moveFolderToFolderOAuth(asset.itemId, DRIVE_FOLDERS.PENDING);
             } else {
               console.log('📄 [Update] Moviendo archivo de convenio normal a pendientes...');
-              await moveFileToFolderOAuth(itemId, DRIVE_FOLDERS.PENDING);
+              await moveFileToFolderOAuth(asset.itemId, DRIVE_FOLDERS.PENDING);
             }
             console.log('✅ [Update] Convenio movido exitosamente a pendientes');
           }

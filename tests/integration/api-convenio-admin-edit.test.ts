@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
   mockMoveFileToFolderOAuth: vi.fn(),
   mockMoveFolderToFolderOAuth: vi.fn(),
+  mockEnsureConvenioFolder: vi.fn(),
   mockUploadFileToOAuthDrive: vi.fn(),
   mockUploadConvenioEspecificoOAuth: vi.fn(),
   mockDeleteFileFromOAuthDrive: vi.fn(),
@@ -32,6 +33,30 @@ vi.mock("@/app/lib/google-drive", () => ({
   uploadConvenioEspecificoOAuth: mocks.mockUploadConvenioEspecificoOAuth,
   deleteFileFromOAuthDrive: mocks.mockDeleteFileFromOAuthDrive,
   deleteFileFromDrive: mocks.mockDeleteFileFromDrive,
+}));
+
+vi.mock("@/app/lib/convenio-drive", () => ({
+  ensureConvenioFolder: mocks.mockEnsureConvenioFolder,
+  resolveConvenioDriveAsset: vi.fn((documentPath: string | null) => {
+    if (!documentPath) return null;
+    if (documentPath.includes("/folders/")) {
+      return {
+        kind: "folder",
+        itemId: documentPath.split("/folders/")[1]?.split("?")[0],
+        webViewLink: documentPath,
+      };
+    }
+
+    if (documentPath.includes("/d/")) {
+      return {
+        kind: "file",
+        itemId: documentPath.split("/d/")[1]?.split("/")[0],
+        webViewLink: documentPath,
+      };
+    }
+
+    return null;
+  }),
 }));
 
 vi.mock("@/app/lib/services/notification-service", () => ({
@@ -189,6 +214,11 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.mockRenderDocx.mockResolvedValue(Buffer.from("generated-doc"));
+    mocks.mockEnsureConvenioFolder.mockResolvedValue({
+      folderId: "new-folder",
+      folderWebViewLink: "https://drive.google.com/drive/folders/new-folder",
+      migratedFromFile: false,
+    });
     mocks.mockUploadFileToOAuthDrive.mockResolvedValue({
       webViewLink: "https://drive.google.com/file/d/new-doc/view",
     });
@@ -225,10 +255,20 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.mockMoveFileToFolderOAuth).toHaveBeenCalledWith("old-doc", DRIVE_FOLDERS.ARCHIVED);
-    expect(mocks.mockUploadFileToOAuthDrive).toHaveBeenCalled();
+    expect(mocks.mockEnsureConvenioFolder).toHaveBeenCalledWith({
+      convenioTitle: expect.stringContaining("Convenio_Convenio Test_"),
+      parentFolderId: DRIVE_FOLDERS.PENDING,
+      currentDocumentPath: null,
+    });
+    expect(mocks.mockUploadFileToOAuthDrive).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.stringContaining("Convenio_Convenio Test_"),
+      "new-folder",
+      false,
+    );
     expect(ctx.calls.convenios.updates[0]).toMatchObject({
       status: "enviado",
-      document_path: "https://drive.google.com/file/d/new-doc/view",
+      document_path: "https://drive.google.com/drive/folders/new-folder",
       signed_pdf_path: null,
       signed_pdf_uploaded_at: null,
       signed_pdf_uploaded_by: null,
@@ -247,7 +287,7 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
             previous_status: "aprobado",
             previous_document_path: "https://drive.google.com/file/d/old-doc/view",
             archived_document_path: "https://drive.google.com/file/d/old-doc/view",
-            new_document_path: "https://drive.google.com/file/d/new-doc/view",
+            new_document_path: "https://drive.google.com/drive/folders/new-folder",
             status_reset_to: "enviado",
             signed_pdf_cleared: true,
           }),
@@ -282,10 +322,14 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
 
     expect(response.status).toBe(200);
     expect(mocks.mockDeleteFileFromOAuthDrive).toHaveBeenCalledWith("revision-admin-doc");
-    expect(mocks.mockUploadFileToOAuthDrive).toHaveBeenCalled();
+    expect(mocks.mockEnsureConvenioFolder).toHaveBeenCalledWith({
+      convenioTitle: expect.stringContaining("Convenio_Convenio Test_"),
+      parentFolderId: DRIVE_FOLDERS.PENDING,
+      currentDocumentPath: null,
+    });
     expect(ctx.calls.convenios.updates[0]).toMatchObject({
       status: "enviado",
-      document_path: "https://drive.google.com/file/d/new-doc/view",
+      document_path: "https://drive.google.com/drive/folders/new-folder",
     });
     expect(ctx.calls.observaciones.updates[0]).toMatchObject({ resolved: true });
     expect(ctx.calls.activity_log.inserts).toEqual(
@@ -302,7 +346,7 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
             previous_status: "revision",
             previous_document_path: "https://drive.google.com/file/d/revision-admin-doc/view",
             archived_document_path: null,
-            new_document_path: "https://drive.google.com/file/d/new-doc/view",
+            new_document_path: "https://drive.google.com/drive/folders/new-folder",
             status_reset_to: "enviado",
             signed_pdf_cleared: false,
           }),

@@ -11,9 +11,11 @@ import {
   uploadFileToDrive,
   uploadConvenioEspecificoSimple,
   // Nuevas funciones OAuth
+  DRIVE_FOLDERS,
   uploadFileToOAuthDrive,
   uploadConvenioEspecificoOAuth
 } from '@/app/lib/google-drive';
+import { ensureConvenioFolder } from '@/app/lib/convenio-drive';
 import { NotificationService } from '@/app/lib/services/notification-service';
 import { normalizeAgreementYear, validatePracticeHistoricalRule } from '@/app/lib/authz/scope-rules';
 import {
@@ -884,17 +886,26 @@ export async function POST(request: Request) {
 
         console.log(`✅ [API] Convenio ${tipoConvenio} subido a carpeta:`, driveResponse);
       } else {
-        console.log('📄 [API] Procesando convenio normal (archivo directo)...');
+        console.log('📁 [API] Procesando convenio normal en carpeta dedicada...');
 
-        // Usar función OAuth (nueva) - reemplaza Service Account
-        console.log('🔐 [API] Usando OAuth para subir convenio normal...');
-        const driveResponse = await uploadFileToOAuthDrive(
+        const convenioName = `Convenio_${title}_${new Date().toISOString().split('T')[0]}`;
+        const folder = await ensureConvenioFolder({
+          convenioTitle: convenioName,
+          parentFolderId: DRIVE_FOLDERS.PENDING,
+          currentDocumentPath: null,
+        });
+        const targetFolderId = folder.folderId;
+
+        console.log('🔐 [API] Usando OAuth para subir documento principal a la carpeta...');
+        await uploadFileToOAuthDrive(
           buffer as Buffer,
-          `Convenio_${title}_${new Date().toISOString().split('T')[0]}.docx`
+          `${convenioName}.docx`,
+          targetFolderId,
+          false,
         );
-        documentPath = driveResponse.webViewLink;
+        documentPath = folder.folderWebViewLink;
 
-        console.log('✅ [API] Convenio normal subido:', driveResponse);
+        console.log('✅ [API] Convenio normal subido a carpeta:', folder);
       }
 
       // Actualizar el convenio con el path del documento
