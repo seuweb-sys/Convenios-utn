@@ -159,6 +159,8 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
           id: loadedData.id,
           status: loadedData.status,
           title: loadedData.title,
+          convenio_type_id: loadedData.convenio_type_id,
+          convenio_types: loadedData.convenio_types,
           // Copiar todos los campos directamente desde sourceData
           ...sourceData,
           // Asegurar campos específicos por tipo

@@ -38,6 +38,7 @@ type Convenio = {
   serial_number: string;
   title: string;
   status: string;
+  convenio_type_id: number;
   created_at: string;
   signed_pdf_path?: string | null;
   document_path?: string | null;
@@ -293,7 +294,7 @@ export const columns: ColumnDef<Convenio>[] = [
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href={buildAdminEditHref(convenio.id)} className="flex w-full items-center">
+                <Link href={buildAdminEditHref(convenio.id, convenio.convenio_type_id)} className="flex w-full items-center">
                   <AlertCircle className="mr-2 h-4 w-4" />
                   Editar convenio
                 </Link>

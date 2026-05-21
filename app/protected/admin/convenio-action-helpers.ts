@@ -3,6 +3,7 @@ import { buildAdminEditHref, isApprovedConvenioStatus } from "@/app/lib/convenio
 type AdminActionSource = {
   id: string;
   status: string;
+  convenioTypeId?: number | null;
   documentPath?: string | null;
   signedPdfPath?: string | null;
 };
@@ -21,7 +22,7 @@ export function getAdminActionItems(convenio: AdminActionSource): AdminActionIte
     {
       key: "edit",
       label: "Editar convenio",
-      href: buildAdminEditHref(convenio.id),
+      href: buildAdminEditHref(convenio.id, convenio.convenioTypeId),
     },
   ];
 

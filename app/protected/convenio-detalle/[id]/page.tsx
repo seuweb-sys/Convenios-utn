@@ -17,6 +17,7 @@ import { ConvenioFormLayout } from "@/app/components/convenios/ConvenioFormLayou
 import { ConvenioInfoDisplay } from "@/app/components/convenios/convenio-info-display";
 import { convenioConfigs } from "@/app/components/convenios/convenio-configs";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
+import { getConvenioFormSlugByTypeId } from "@/app/lib/convenio-editing";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,7 +86,13 @@ export default function ConvenioPage() {
     if (type && convenioConfigs[type]) {
       slug = type;
     } else {
-      const convenioTypeName = (useConvenioMarcoStore.getState().convenioData as any)?.convenio_types?.name as string | undefined;
+      const convenioData = useConvenioMarcoStore.getState().convenioData as any;
+      const slugByTypeId = getConvenioFormSlugByTypeId(convenioData?.convenio_type_id);
+      if (slugByTypeId) {
+        slug = slugByTypeId;
+      }
+
+      const convenioTypeName = convenioData?.convenio_types?.name as string | undefined;
       if (convenioTypeName) {
         const normalize = (str: string) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const name = normalize(convenioTypeName.toLowerCase());
