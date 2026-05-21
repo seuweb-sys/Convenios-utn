@@ -7,9 +7,11 @@ import {
 } from "./helpers/auth";
 import {
   createFakeUploadFile,
+  expectAttachmentMetadataOnly,
   expectCareerDisabledOutsideSA,
   expectAnexosCount,
   expectMockedSuccess,
+  mockDirectDriveUpload,
   expectScopedPayload,
   fillParticularForm,
   fillAcuerdoForm,
@@ -98,5 +100,32 @@ test.describe("Admin convenio submission", () => {
 
     await expectMockedSuccess(page, "Convenio Particular Enviado");
     expectScopedPayload(capture.payload, secretariatValue, careerValue, null);
+    expectAnexosCount(capture.payload, 0);
+  });
+
+  test("practice submission uploads optional attachments directly and submits metadata only", async ({ page }) => {
+    const capture = await interceptConvenioSubmission(page);
+    const uploadFile = createFakeUploadFile(
+      "anexo-pps.pdf",
+      "application/pdf",
+      "fake pps attachment"
+    );
+
+    await mockDirectDriveUpload(page, ["drive-pps-1"]);
+    await login(page, getRoleCredentials("admin")!);
+    await openConvenioForm(page, "particular");
+    const { secretariatValue, careerValue } = await setAdminClassification(page, saSecretariatLabel, {
+      careerLabel: saCareerLabel,
+    });
+
+    await fillParticularForm(page, "mocked-admin-particular-attachment", {
+      attachments: [uploadFile],
+    });
+    await submitFinalAction(page, /^Finalizar$/, /Enviar convenio/i);
+
+    await expectMockedSuccess(page, "Convenio Particular Enviado");
+    expectScopedPayload(capture.payload, secretariatValue, careerValue, null);
+    expectAnexosCount(capture.payload, 1);
+    expectAttachmentMetadataOnly(capture.payload);
   });
 });

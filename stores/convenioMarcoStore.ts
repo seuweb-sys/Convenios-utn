@@ -75,6 +75,7 @@ interface ConvenioMarcoState {
     facultad_docente_tutor_nombre?: string;
     fecha_firma?: string;
     practica_fecha_firma?: string;
+    anexos?: any[];
 
     // Campos para Acuerdo de Colaboración
     entidad_nombre?: string;
@@ -206,6 +207,7 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
             practica_fecha_firma: sourceData.practica_fecha_firma || sourceData.fecha_firma,
             dia: sourceData.dia,
             mes: sourceData.mes,
+            anexos: Array.isArray(sourceData.anexos) ? sourceData.anexos : [],
           };
         }
 

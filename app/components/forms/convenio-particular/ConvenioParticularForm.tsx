@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { BuildingIcon, UserIcon, ClipboardCheckIcon, CheckIcon } from "lucide-react";
+import { BuildingIcon, UserIcon, ClipboardCheckIcon, CheckIcon, FileTextIcon, PaperclipIcon, UploadIcon, XIcon } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
@@ -16,6 +16,15 @@ import { cn } from "@/lib/utils";
 import { isDiaValidForMes } from "@/lib/date-select-helpers";
 import { dniSchema, normalizeOptionalCuit, optionalCuitSchema } from "@/app/lib/forms/identity-validation";
 import { PPS_CAREER_OPTIONS } from "@/app/lib/forms/pps-careers";
+import { uploadFileToDriveInChunks } from "@/app/lib/client-drive-upload";
+import {
+  buildPpsSubmissionRequest,
+  createPpsAttachmentDrafts,
+  hydratePpsAttachmentRefs,
+  isValidPpsAttachment,
+  PPS_ATTACHMENT_ACCEPT,
+  type PPSAttachmentRef,
+} from "./pps-attachments";
 
 // Esquemas de validación para cada paso
 const empresaSchema = z.object({
@@ -100,6 +109,8 @@ export default function ConvenioParticularForm({
   const router = useRouter();
   const [showModal, setShowModal] = React.useState(false);
   const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+  const [attachmentRefs, setAttachmentRefs] = React.useState<PPSAttachmentRef[]>([]);
+  const hydratedAttachmentsRef = React.useRef(false);
 
   const meses = [
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
@@ -159,6 +170,102 @@ export default function ConvenioParticularForm({
       practicaForm.setValue('fecha_firma', '');
     }
   }, [practicaForm.watch('mes'), practicaForm.watch('dia')]);
+
+  React.useEffect(() => {
+    if (hydratedAttachmentsRef.current) return;
+
+    const hydrated = hydratePpsAttachmentRefs(convenioData.anexos);
+    if (hydrated.length > 0) {
+      setAttachmentRefs(hydrated);
+    }
+    hydratedAttachmentsRef.current = true;
+  }, [convenioData.anexos]);
+
+  const updateAttachmentState = (attachmentId: string, patch: Partial<PPSAttachmentRef>) => {
+    setAttachmentRefs((prev) => prev.map((attachment) => (
+      attachment.id === attachmentId ? { ...attachment, ...patch } : attachment
+    )));
+  };
+
+  const removeAttachment = (attachmentId: string) => {
+    setAttachmentRefs((prev) => prev.filter((attachment) => attachment.id !== attachmentId));
+  };
+
+  const handleAttachmentSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const validDrafts: PPSAttachmentRef[] = [];
+    const invalidNames: string[] = [];
+
+    for (const file of Array.from(files)) {
+      if (isValidPpsAttachment(file)) {
+        validDrafts.push(...createPpsAttachmentDrafts([file]));
+      } else {
+        invalidNames.push(file.name);
+      }
+    }
+
+    if (invalidNames.length > 0) {
+      onError(`Archivos no válidos: ${invalidNames.join(", ")}. Solo se aceptan PDF o Word.`);
+    } else {
+      onError(null);
+    }
+
+    if (validDrafts.length > 0) {
+      setAttachmentRefs((prev) => [...prev, ...validDrafts]);
+    }
+
+    event.target.value = "";
+  };
+
+  const uploadPendingAttachments = async () => {
+    const uploadedAttachments: PPSAttachmentRef[] = [];
+
+    for (const attachment of attachmentRefs) {
+      if (attachment.uploadStatus === "uploaded" && attachment.driveFileId) {
+        uploadedAttachments.push(attachment);
+        continue;
+      }
+
+      if (!attachment.file) {
+        continue;
+      }
+
+      try {
+        updateAttachmentState(attachment.id, {
+          uploadStatus: "uploading",
+          progress: Math.max(attachment.progress || 0, 1),
+          uploadError: undefined,
+        });
+
+        const uploaded = await uploadFileToDriveInChunks({
+          file: attachment.file,
+          sessionEndpoint: "/api/uploads/drive/resumable-session",
+          onProgress: ({ progress }) => updateAttachmentState(attachment.id, { progress }),
+        });
+
+        const uploadedAttachment: PPSAttachmentRef = {
+          ...attachment,
+          driveFileId: uploaded.id,
+          webViewLink: uploaded.webViewLink,
+          webContentLink: uploaded.webContentLink,
+          uploadStatus: "uploaded",
+          progress: 100,
+          existing: false,
+        };
+
+        updateAttachmentState(attachment.id, uploadedAttachment);
+        uploadedAttachments.push(uploadedAttachment);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Error inesperado subiendo adjunto";
+        updateAttachmentState(attachment.id, { uploadStatus: "error", uploadError: message });
+        throw new Error(`No se pudo subir ${attachment.name}: ${message}`);
+      }
+    }
+
+    return uploadedAttachments;
+  };
 
   const handleNext = async () => {
     let isValid = false;
@@ -229,69 +336,20 @@ export default function ConvenioParticularForm({
       }
 
       setIsSubmitting(true);
-      
-      const cd = convenioData as Record<string, any>;
-      const fechaFirmaStr =
-        cd.fecha_firma || cd.practica_fecha_firma || '';        // yyyy-mm-dd
+      const uploadedAttachments = await uploadPendingAttachments();
+      const requestData = buildPpsSubmissionRequest({
+        convenioData: {
+          ...(convenioData as Record<string, any>),
+          empresa_cuit: normalizeOptionalCuit((convenioData as Record<string, any>).empresa_cuit),
+        },
+        secretariatId: scopeSecretariatId,
+        careerId: scopeCareerId || null,
+        orgUnitId: scopeOrgUnitId || null,
+        agreementYear,
+        attachmentRefs: uploadedAttachments,
+      });
 
-      let dia = '';
-      let mes = '';
-      if (fechaFirmaStr) {
-        const fechaFirma = new Date(fechaFirmaStr);
-        dia = fechaFirma.getDate().toString();                  // 1 … 31
-        mes = fechaFirma.toLocaleDateString('es-ES', { month: 'long' }); // junio, julio…
-      }
-
-      const dbData = {
-        // Empresa
-        empresa_nombre: cd.empresa_nombre || '',
-        empresa_cuit: normalizeOptionalCuit(cd.empresa_cuit),
-        empresa_representante_nombre: cd.empresa_representante_nombre || '',
-        empresa_representante_caracter: cd.empresa_representante_caracter || '',
-        empresa_direccion_calle: cd.empresa_direccion_calle || '',
-        empresa_direccion_ciudad: cd.empresa_direccion_ciudad || '',
-        empresa_tutor_nombre: cd.empresa_tutor_nombre || '',
-
-        // Alumno
-        alumno_nombre: cd.alumno_nombre || '',
-        alumno_carrera: cd.alumno_carrera || '',
-        alumno_dni: cd.alumno_dni || '',
-        alumno_legajo: cd.alumno_legajo || '',
-
-        // Práctica / Fechas
-        practica_fecha_inicio: cd.fecha_inicio || cd.practica_fecha_inicio || '',
-        practica_fecha_fin: cd.fecha_fin   || cd.practica_fecha_fin    || '',
-        practica_tutor_docente: cd.facultad_docente_tutor_nombre || cd.practica_tutor_docente || '',
-        practica_duracion: cd.practica_duracion || '',
-        practica_tematica: cd.practica_tematica || '',
-        practica_fecha_firma: cd.fecha_firma || cd.practica_fecha_firma || '',
-
-        // Claves sin prefijo (compatibilidad templates)
-        fecha_inicio: cd.fecha_inicio || cd.practica_fecha_inicio || '',
-        fecha_fin:    cd.fecha_fin    || cd.practica_fecha_fin    || '',
-        fecha_firma:  cd.fecha_firma  || cd.practica_fecha_firma  || '',
-
-        // Extras que el template usa
-        facultad_docente_tutor_nombre: cd.facultad_docente_tutor_nombre || '',
-        dia,
-        mes,
-      };
-
-      console.log('FormState debug:', formState);
-      console.log('DBData debug:', dbData);
-
-      const requestData = {
-        title: `${dbData.empresa_nombre} - ${dbData.alumno_nombre}`,
-        convenio_type_id: 2, // ID específico para práctica supervisada
-        convenio_type: "particular",
-        template_slug: "nuevo-convenio-particular-de-practica-supervisada",
-        content_data: dbData,
-        secretariat_id: scopeSecretariatId,
-        career_id: scopeCareerId || null,
-        org_unit_id: scopeOrgUnitId || null,
-        agreement_year: agreementYear,
-        status: 'enviado'
-      };
+      updateConvenioData('anexos', requestData.anexos);
 
       let response, responseData;
       // Si tenemos ID desde la URL (modo corrección) o desde convenioData, usar PATCH
@@ -647,6 +705,64 @@ export default function ConvenioParticularForm({
               <p className="text-sm text-red-500">{String(practicaForm.formState.errors.fecha_firma.message)}</p>
             )}
           </div>
+
+          <div className="space-y-3 md:col-span-2 border border-dashed border-border rounded-lg p-4 bg-muted/20">
+            <div className="flex items-center gap-2">
+              <PaperclipIcon className="h-4 w-4 text-indigo-600" />
+              <Label className="text-sm font-medium">Adjuntos opcionales</Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Podés adjuntar varios archivos PDF o Word. Se suben directo a Drive y el formulario solo envía referencias.
+            </p>
+            <input
+              type="file"
+              id="pps-anexos-upload"
+              accept={PPS_ATTACHMENT_ACCEPT}
+              multiple
+              onChange={handleAttachmentSelection}
+              className="hidden"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => document.getElementById("pps-anexos-upload")?.click()}
+              className="w-full"
+            >
+              <UploadIcon className="h-4 w-4 mr-2" />
+              Seleccionar archivos (.pdf / .doc / .docx)
+            </Button>
+
+            {attachmentRefs.length > 0 && (
+              <div className="space-y-2">
+                {attachmentRefs.map((attachment) => (
+                  <div key={attachment.id} className="flex items-center justify-between rounded-md border border-indigo-200 bg-indigo-500/5 p-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <FileTextIcon className="h-4 w-4 text-indigo-600" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{attachment.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {attachment.size ? `${(attachment.size / 1024 / 1024).toFixed(2)} MB • ` : ""}
+                          {attachment.uploadStatus === "uploaded"
+                            ? attachment.existing ? "Ya vinculado" : "Subido a Drive"
+                            : attachment.uploadStatus === "uploading"
+                              ? `Subiendo ${attachment.progress || 0}%`
+                              : attachment.uploadStatus === "error"
+                                ? "Error al subir"
+                                : "Pendiente de subir"}
+                        </p>
+                        {attachment.uploadError && (
+                          <p className="text-xs text-red-500 mt-1">{attachment.uploadError}</p>
+                        )}
+                      </div>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => removeAttachment(attachment.id)}>
+                      <XIcon className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -722,6 +838,16 @@ export default function ConvenioParticularForm({
                 <div className="md:col-span-2"><span className="font-medium">Duración:</span> {convenioData.practica_duracion}</div>
               </div>
               <div><span className="font-medium">Temática:</span> {convenioData.practica_tematica}</div>
+              {attachmentRefs.length > 0 && (
+                <div>
+                  <span className="font-medium">Adjuntos:</span>
+                  <ul className="mt-2 space-y-1 list-disc pl-5">
+                    {attachmentRefs.map((attachment) => (
+                      <li key={attachment.id}>{attachment.name}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         </div>

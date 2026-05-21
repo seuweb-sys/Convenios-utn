@@ -5,6 +5,11 @@ type SubmissionCapture = {
   responseStatus: number | null;
 };
 
+type SubmissionOptions = {
+  method?: "POST" | "PATCH";
+  urlPattern?: string;
+};
+
 export function createFakeUploadFile(name: string, mimeType: string, contents: string) {
   return {
     name,
@@ -14,15 +19,19 @@ export function createFakeUploadFile(name: string, mimeType: string, contents: s
 }
 
 export async function interceptConvenioSubmission(page: Page) {
+  return interceptConvenioSubmissionWithOptions(page);
+}
+
+export async function interceptConvenioSubmissionWithOptions(page: Page, options?: SubmissionOptions) {
   const capture: SubmissionCapture = {
     payload: null,
     responseStatus: null,
   };
 
-  await page.route("**/api/convenios", async (route: Route) => {
+  await page.route(options?.urlPattern || "**/api/convenios**", async (route: Route) => {
     const request = route.request();
 
-    if (request.method() !== "POST") {
+    if (request.method() !== (options?.method || "POST")) {
       await route.continue();
       return;
     }
@@ -49,6 +58,39 @@ export async function interceptConvenioSubmission(page: Page) {
   });
 
   return capture;
+}
+
+export async function mockDirectDriveUpload(page: Page, uploadedIds: string[] = []) {
+  let uploadIndex = 0;
+
+  await page.route("**/api/uploads/drive/resumable-session", async (route) => {
+    const request = route.request();
+    const body = request.postDataJSON() as { fileName?: string } | null;
+    const nextId = uploadedIds[uploadIndex] || `drive-upload-${uploadIndex + 1}`;
+    uploadIndex += 1;
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        uploadUrl: `https://mocked-drive-upload.local/${nextId}`,
+        fileName: body?.fileName,
+      }),
+    });
+  });
+
+  await page.route("https://mocked-drive-upload.local/**", async (route) => {
+    const uploadId = route.request().url().split("/").pop() || "drive-upload-1";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: uploadId,
+        webViewLink: `https://drive.google.com/file/d/${uploadId}/view`,
+        webContentLink: `https://drive.google.com/uc?id=${uploadId}`,
+      }),
+    });
+  });
 }
 
 export async function expectScopedClassificationLoaded(page: Page) {
@@ -138,9 +180,13 @@ export async function submitFinalAction(page: Page, triggerLabel: RegExp | strin
   await page.getByRole("button", { name: confirmLabel }).click();
 }
 
-export async function fillParticularForm(page: Page, suffix: string) {
+export async function fillParticularForm(
+  page: Page,
+  suffix: string,
+  options?: { attachments?: Array<{ name: string; mimeType: string; buffer: Buffer }> }
+) {
   await page.getByLabel("Nombre de la Empresa *").fill(`Empresa E2E ${suffix}`);
-  await page.getByLabel("CUIT (sin guiones) *").fill("30712345678");
+  await page.getByLabel("CUIT (sin guiones, opcional)").fill("30712345678");
   await page.getByLabel("Representante Legal *").fill("Ana Prueba");
   await page.getByLabel("Carácter del Representante *").fill("Gerente");
   await page.getByLabel("Dirección *").fill("Calle Falsa 123");
@@ -163,6 +209,12 @@ export async function fillParticularForm(page: Page, suffix: string) {
   );
   await page.locator("#mes").selectOption({ label: "Abril" });
   await page.locator("#dia").selectOption("4");
+
+  if (options?.attachments?.length) {
+    await page.locator("#pps-anexos-upload").setInputFiles(options.attachments);
+    await expect(page.getByText(options.attachments[0].name).first()).toBeVisible();
+  }
+
   await page.getByRole("button", { name: /^Siguiente$/ }).click();
 
   await page.getByLabel(/Confirmo que toda la información es correcta/i).check();
@@ -287,4 +339,15 @@ export function expectAnexosCount(payload: Record<string, unknown> | null, expec
   const anexos = payload?.anexos as unknown[] | undefined;
   expect(Array.isArray(anexos)).toBe(true);
   expect(anexos?.length).toBe(expectedCount);
+}
+
+export function expectAttachmentMetadataOnly(payload: Record<string, unknown> | null) {
+  expect(payload).not.toBeNull();
+  const anexos = payload?.anexos as Array<Record<string, unknown>> | undefined;
+  expect(Array.isArray(anexos)).toBe(true);
+  for (const anexo of anexos || []) {
+    expect(anexo.file).toBeUndefined();
+    expect(anexo.buffer).toBeUndefined();
+    expect(typeof anexo.driveFileId).toBe("string");
+  }
 }
