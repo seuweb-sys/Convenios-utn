@@ -190,9 +190,11 @@ function createSupabaseDouble(options?: { role?: string; fullName?: string; user
 }
 
 describe("POST /api/convenios", () => {
+  let ctx: ReturnType<typeof createSupabaseDouble>;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    const ctx = createSupabaseDouble();
+    ctx = createSupabaseDouble();
     mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
     mocks.mockCreateSupabaseAdmin.mockReturnValue(ctx.supabaseAdmin);
     mocks.mockRenderDocx.mockResolvedValue(Buffer.from("generated-doc"));
@@ -263,6 +265,63 @@ describe("POST /api/convenios", () => {
 
     const payload = await response.json();
     expect(payload.convenio.document_path).toBe("https://drive.google.com/drive/folders/folder-anexos");
+  });
+
+  it("stores PPS attachment refs in form_data and uploads them into the convenio folder", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/convenios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Convenio Particular PPS",
+          convenio_type_id: 1,
+          convenio_type: "particular",
+          template_slug: "nuevo-convenio-particular-de-practica-supervisada",
+          secretariat_id: "sec-1",
+          agreement_year: 2026,
+          content_data: {
+            empresa_nombre: "Empresa SA",
+            alumno_nombre: "Alumno Test",
+          },
+          anexos: [
+            {
+              name: "pps-anexo.pdf",
+              driveFileId: "drive-pps-1",
+              mimeType: "application/pdf",
+              size: 12345,
+              webViewLink: "https://drive.google.com/file/d/drive-pps-1/view",
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockUploadConvenioEspecificoOAuth).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.stringContaining("Convenio_Convenio Particular PPS_"),
+      [
+        expect.objectContaining({
+          name: "pps-anexo.pdf",
+          driveFileId: "drive-pps-1",
+        }),
+      ],
+      "pending-folder",
+    );
+
+    expect(ctx.adminCalls.inserts[0]).toMatchObject({
+      convenio_type_id: 1,
+      form_data: expect.objectContaining({
+        empresa_nombre: "Empresa SA",
+        alumno_nombre: "Alumno Test",
+        anexos: [
+          expect.objectContaining({
+            name: "pps-anexo.pdf",
+            driveFileId: "drive-pps-1",
+          }),
+        ],
+      }),
+    });
   });
 
   it("stores secretary-created convenios under a dedicated folder URL", async () => {

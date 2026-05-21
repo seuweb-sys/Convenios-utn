@@ -141,6 +141,36 @@ async function uploadConvenioDocumentToFolder(args: {
   };
 }
 
+function normalizeAttachmentRefs(rawAnexos: any): any[] {
+  if (!Array.isArray(rawAnexos)) return [];
+
+  return rawAnexos
+    .filter((anexo) => anexo && typeof anexo.name === 'string' && typeof anexo.driveFileId === 'string')
+    .map((anexo) => ({
+      name: anexo.name,
+      driveFileId: anexo.driveFileId,
+      webViewLink: anexo.webViewLink,
+      webContentLink: anexo.webContentLink,
+      size: anexo.size,
+      mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    }));
+}
+
+function mergeFormDataWithAttachments(formData: Record<string, any> | undefined, rawAnexos: any, fallbackAnexos: any[]) {
+  if (!formData) return formData;
+
+  const nextAnexos = normalizeAttachmentRefs(rawAnexos);
+  if (nextAnexos.length > 0) {
+    return { ...formData, anexos: nextAnexos };
+  }
+
+  if (fallbackAnexos.length > 0) {
+    return { ...formData, anexos: fallbackAnexos };
+  }
+
+  return formData;
+}
+
 async function isSecretaryInScope(supabase: any, userId: string, secretariatId: string | null) {
   if (!secretariatId) return false;
   const { data, error } = await supabase
@@ -323,7 +353,7 @@ export async function PATCH(
     // Verificar que el convenio exista y el usuario tenga permiso
     const { data: convenio, error: checkError } = await supabase
       .from('convenios')
-      .select('user_id, status, title, convenio_type_id, secretariat_id, career_id, org_unit_id, agreement_year, document_path, signed_pdf_path, signed_pdf_uploaded_at, signed_pdf_uploaded_by')
+      .select('user_id, status, title, convenio_type_id, secretariat_id, career_id, org_unit_id, agreement_year, form_data, document_path, signed_pdf_path, signed_pdf_uploaded_at, signed_pdf_uploaded_by')
       .eq('id', params.id)
       .single();
 
@@ -428,10 +458,16 @@ export async function PATCH(
       );
     }
 
+    const persistedAnexos = normalizeAttachmentRefs(convenio.form_data?.anexos);
+    const mergedFormDataPayload = mergeFormDataWithAttachments(formDataPayload, body.anexos, persistedAnexos);
+    const effectiveAnexos = normalizeAttachmentRefs(body.anexos).length > 0
+      ? normalizeAttachmentRefs(body.anexos)
+      : persistedAnexos;
+
     const isAdminDirectEdit = isAdminDirectEditRequest(userRole, convenio.status, body.status, editContext);
 
     if (isAdminDirectEdit) {
-      if (!formDataPayload) {
+      if (!mergedFormDataPayload) {
         return NextResponse.json(
           { error: 'La edición administrativa requiere regenerar el documento con form_data' },
           { status: 400 }
@@ -448,12 +484,12 @@ export async function PATCH(
       const previousDocumentPath = convenio.document_path ?? null;
       const signedPdfWasCleared = isApprovedConvenioStatus(convenio.status) && !!convenio.signed_pdf_path;
 
-      const buffer = await generateConvenioDocumentBuffer(supabase, convenio.convenio_type_id, formDataPayload);
+      const buffer = await generateConvenioDocumentBuffer(supabase, convenio.convenio_type_id, mergedFormDataPayload);
 
       const driveResponse = await uploadConvenioDocumentToFolder({
         buffer,
         title: body.title,
-        anexos: Array.isArray(body.anexos) ? body.anexos : [],
+        anexos: effectiveAnexos,
         parentFolderId: DRIVE_FOLDERS.PENDING,
       });
 
@@ -487,7 +523,7 @@ export async function PATCH(
 
       const adminUpdateData: Record<string, any> = {
         updated_at: new Date().toISOString(),
-        form_data: formDataPayload,
+        form_data: mergedFormDataPayload,
         status: 'enviado',
         document_path: newDocumentPath,
       };
@@ -613,8 +649,8 @@ export async function PATCH(
     // Preparar datos de actualización
     updateData.updated_at = new Date().toISOString();
 
-    if (formDataPayload) {
-      updateData.form_data = formDataPayload;
+    if (mergedFormDataPayload) {
+      updateData.form_data = mergedFormDataPayload;
     }
 
     if (body.document_path) {
@@ -712,9 +748,9 @@ export async function PATCH(
     let uploadedDirectlyToPending = false;
 
     // Si se está reenvíando después de corrección, regenerar el documento
-    if (isResubmissionAfterCorrection && formDataPayload) {
+    if (isResubmissionAfterCorrection && mergedFormDataPayload) {
       try {
-        const formData = formDataPayload;
+        const formData = mergedFormDataPayload;
         const buffer = await generateConvenioDocumentBuffer(
           supabase,
           updatedConvenio.convenio_type_id,
@@ -744,10 +780,10 @@ export async function PATCH(
           console.log('📁 [Update] Regenerando convenio en carpeta dedicada...');
 
           const anexos = [];
-          if (body.anexos && Array.isArray(body.anexos)) {
-            console.log('[Update] Procesando anexos...', body.anexos.length);
+          if (effectiveAnexos.length > 0) {
+            console.log('[Update] Procesando anexos...', effectiveAnexos.length);
 
-            for (const anexo of body.anexos) {
+            for (const anexo of effectiveAnexos) {
               if (anexo.name && anexo.driveFileId) {
                 anexos.push({
                   name: anexo.name,
@@ -758,23 +794,6 @@ export async function PATCH(
                   mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
                 });
                 continue;
-              }
-
-              if (anexo.name && anexo.buffer) {
-                let anexoBuffer;
-                if (Array.isArray(anexo.buffer)) {
-                  anexoBuffer = new Uint8Array(anexo.buffer).buffer;
-                } else if (anexo.buffer instanceof ArrayBuffer) {
-                  anexoBuffer = anexo.buffer;
-                } else {
-                  anexoBuffer = new Uint8Array(anexo.buffer).buffer;
-                }
-
-                anexos.push({
-                  name: anexo.name,
-                  buffer: anexoBuffer,
-                  mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                });
               }
             }
           }

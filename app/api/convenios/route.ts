@@ -47,6 +47,30 @@ interface TemplateField {
   value: string;
 }
 
+type AttachmentRef = {
+  name: string;
+  driveFileId?: string;
+  webViewLink?: string;
+  webContentLink?: string;
+  size?: number;
+  mimeType?: string;
+};
+
+function extractAttachmentRefs(rawAnexos: any): AttachmentRef[] {
+  if (!Array.isArray(rawAnexos)) return [];
+
+  return rawAnexos
+    .filter((anexo) => anexo && typeof anexo.name === 'string' && typeof anexo.driveFileId === 'string')
+    .map((anexo) => ({
+      name: anexo.name,
+      driveFileId: anexo.driveFileId,
+      webViewLink: anexo.webViewLink,
+      webContentLink: anexo.webContentLink,
+      size: anexo.size,
+      mimeType: anexo.mimeType || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    }));
+}
+
 // Definimos la estructura de los datos que esperamos de Supabase
 interface ConvenioFromDB {
   id: string;
@@ -454,6 +478,7 @@ export async function POST(request: Request) {
 
     // Permitimos tanto form_data (nuevo) como content_data (compatibilidad)
     const formData = body.form_data || body.content_data;
+    const attachmentRefs = extractAttachmentRefs(body.anexos);
     console.log('📥 [API] Datos recibidos en form_data:', formData);
     if (!formData || Object.keys(formData).length === 0) {
       console.warn('⚠️ [API] form_data está vacío!');
@@ -776,12 +801,16 @@ export async function POST(request: Request) {
     const serialNumber = await generateSerialNumber(supabase, requestedYear);
 
     // Primero crear el convenio en la base de datos
+    const persistedFormData = attachmentRefs.length > 0
+      ? { ...formData, anexos: attachmentRefs }
+      : formData;
+
     const { data: convenio, error: createError } = await supabaseAdmin
       .from('convenios')
       .insert({
         title: title, // Usar el título con fallbacks
         convenio_type_id: convenioTypeId, // Usar el ID del mapeo hardcodeado
-        form_data: formData,
+        form_data: persistedFormData,
         status: 'enviado',
         user_id: user.id,
         serial_number: serialNumber,
@@ -812,10 +841,12 @@ export async function POST(request: Request) {
     try {
       // Detectar si es convenio específico (type_id 4) o convenio marco con anexos (type_id 2)
       const isConvenioEspecifico = convenioTypeId === 4;
-      const isConvenioMarcoConAnexos = convenioTypeId === 2 && body.anexos && Array.isArray(body.anexos) && body.anexos.length > 0;
+      const hasAttachmentRefs = attachmentRefs.length > 0;
+      const isConvenioMarcoConAnexos = convenioTypeId === 2 && hasAttachmentRefs;
+      const isPpsConAnexos = convenioTypeId === 1 && hasAttachmentRefs;
 
-      if (isConvenioEspecifico || isConvenioMarcoConAnexos) {
-        const tipoConvenio = isConvenioEspecifico ? 'específico' : 'marco';
+      if (isConvenioEspecifico || isConvenioMarcoConAnexos || isPpsConAnexos) {
+        const tipoConvenio = isConvenioEspecifico ? 'específico' : isPpsConAnexos ? 'pps' : 'marco';
         console.log(`📁 [API] Procesando convenio ${tipoConvenio} con carpeta...`);
 
         // Preparar anexos si existen (soporta legado con buffer y nueva subida directa con driveFileId)
@@ -879,7 +910,8 @@ export async function POST(request: Request) {
         const driveResponse = await uploadConvenioEspecificoOAuth(
           buffer as Buffer,
           convenioName,
-          anexos
+          anexos,
+          DRIVE_FOLDERS.PENDING,
         );
 
         documentPath = driveResponse.webViewLink; // Enlace a la carpeta

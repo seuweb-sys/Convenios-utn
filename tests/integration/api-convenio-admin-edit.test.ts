@@ -108,6 +108,7 @@ function createSupabaseDouble(options: {
   signedPdfPath?: string | null;
   convenioTypeId?: number;
   memberships?: any[];
+  formData?: Record<string, any>;
 }) {
   const calls: Record<string, TableCall> = {
     convenios: { inserts: [], updates: [] },
@@ -124,6 +125,7 @@ function createSupabaseDouble(options: {
     career_id: null,
     org_unit_id: null,
     agreement_year: 2026,
+    form_data: options.formData ?? {},
     document_path: options.documentPath,
     signed_pdf_path: options.signedPdfPath ?? null,
     signed_pdf_uploaded_at: options.signedPdfPath ? "2026-05-10T10:00:00.000Z" : null,
@@ -406,6 +408,58 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
       ]),
     );
     expect(mocks.mockConvenioResubmitted).toHaveBeenCalledWith("admin-1", "Convenio Test", "conv-2");
+  });
+
+  it("preserves PPS attachment refs on admin regeneration when attachments were not changed", async () => {
+    const existingAnexos = [
+      {
+        name: "pps-anexo.pdf",
+        driveFileId: "drive-pps-1",
+        mimeType: "application/pdf",
+        webViewLink: "https://drive.google.com/file/d/drive-pps-1/view",
+      },
+    ];
+    const ctx = createSupabaseDouble({
+      convenioStatus: "revision",
+      convenioTypeId: 1,
+      documentPath: "https://drive.google.com/drive/folders/revision-folder",
+      formData: {
+        empresa_nombre: "Empresa SA",
+        alumno_nombre: "Alumno Test",
+        anexos: existingAnexos,
+      },
+    });
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const response = await PATCH(
+      new Request("http://localhost/api/convenios/conv-pps", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-forwarded-for": "127.0.0.1" },
+        body: JSON.stringify({
+          title: "Convenio Test",
+          status: "enviado",
+          form_data: {
+            empresa_nombre: "Empresa SA",
+            alumno_nombre: "Alumno Test",
+          },
+          edit_context: {
+            source: "admin_direct",
+          },
+        }),
+      }),
+      { params: { id: "conv-pps" } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockUploadConvenioEspecificoOAuth).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.stringContaining("Convenio_Convenio Test_"),
+      existingAnexos,
+      DRIVE_FOLDERS.PENDING,
+    );
+    expect(ctx.calls.convenios.updates[0]?.form_data?.empresa_nombre).toBe("Empresa SA");
+    expect(ctx.calls.convenios.updates[0]?.form_data?.alumno_nombre).toBe("Alumno Test");
+    expect(ctx.calls.convenios.updates[0]?.form_data?.anexos).toEqual(existingAnexos);
   });
 
   it("returns untouched legacy convenios without migrating their single-file document path", async () => {
