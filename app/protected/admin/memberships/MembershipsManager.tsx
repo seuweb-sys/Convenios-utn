@@ -42,14 +42,6 @@ interface MembershipsPayload {
   memberships: MembershipRecord[];
 }
 
-interface LegacyConvenio {
-  id: string;
-  serial_number: string;
-  title: string;
-  convenio_type_id: number;
-  profiles?: { full_name: string | null };
-}
-
 const MEMBERSHIP_ROLES: MembershipRole[] = ["secretario", "director", "profesor", "miembro"];
 
 export function MembershipsManager() {
@@ -63,18 +55,11 @@ export function MembershipsManager() {
     org_units: [],
     memberships: [],
   });
-  const [legacyConvenios, setLegacyConvenios] = useState<LegacyConvenio[]>([]);
-
   const [profileId, setProfileId] = useState("");
   const [membershipRole, setMembershipRole] = useState<MembershipRole>("miembro");
   const [secretariatId, setSecretariatId] = useState("");
   const [careerId, setCareerId] = useState("");
   const [orgUnitId, setOrgUnitId] = useState("");
-  const [legacyConvenioId, setLegacyConvenioId] = useState("");
-  const [legacySecretariatId, setLegacySecretariatId] = useState("");
-  const [legacyCareerId, setLegacyCareerId] = useState("");
-  const [legacyOrgUnitId, setLegacyOrgUnitId] = useState("");
-  const [legacyYear, setLegacyYear] = useState<number>(new Date().getFullYear());
 
   const selectedSecretariatCode = useMemo(() => {
     const sec = payload.secretariats.find((s) => s.id === secretariatId);
@@ -91,40 +76,18 @@ export function MembershipsManager() {
     return payload.careers;
   }, [selectedSecretariatCode, payload.careers]);
 
-  const legacySelectedSecretariatCode = useMemo(() => {
-    const sec = payload.secretariats.find((s) => s.id === legacySecretariatId);
-    return sec?.code || "";
-  }, [payload.secretariats, legacySecretariatId]);
-
-  const legacyOrgUnits = useMemo(() => {
-    if (!legacySecretariatId) return payload.org_units;
-    return payload.org_units.filter((ou) => ou.secretariat_id === legacySecretariatId);
-  }, [payload.org_units, legacySecretariatId]);
-
-  const legacyCareers = useMemo(() => {
-    return legacySelectedSecretariatCode === "SA" ? payload.careers : [];
-  }, [legacySelectedSecretariatCode, payload.careers]);
-
   const load = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [membershipsRes, legacyRes] = await Promise.all([
-        fetch("/api/admin/memberships", { cache: "no-store" }),
-        fetch("/api/admin/legacy-convenios", { cache: "no-store" }),
-      ]);
+      const membershipsRes = await fetch("/api/admin/memberships", { cache: "no-store" });
 
       if (!membershipsRes.ok) {
         throw new Error("No se pudo cargar la gestión de membresías");
       }
-      if (!legacyRes.ok) {
-        throw new Error("No se pudo cargar convenios legacy");
-      }
 
       const data = (await membershipsRes.json()) as MembershipsPayload;
-      const legacyData = (await legacyRes.json()) as { convenios: LegacyConvenio[] };
       setPayload(data);
-      setLegacyConvenios(legacyData.convenios || []);
     } catch (e: any) {
       setError(e.message || "Error inesperado");
     } finally {
@@ -191,42 +154,6 @@ export function MembershipsManager() {
       await load();
     } catch (e: any) {
       setError(e.message || "Error inesperado");
-    }
-  };
-
-  const reclassifyLegacy = async () => {
-    if (!legacyConvenioId || !legacySecretariatId) {
-      setError("Selecciona convenio legacy y secretaría para reclasificar");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const res = await fetch("/api/admin/legacy-convenios", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          convenio_id: legacyConvenioId,
-          secretariat_id: legacySecretariatId,
-          career_id: legacyCareerId || null,
-          org_unit_id: legacyOrgUnitId || null,
-          agreement_year: legacyYear,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "No se pudo reclasificar");
-      }
-      setLegacyConvenioId("");
-      setLegacySecretariatId("");
-      setLegacyCareerId("");
-      setLegacyOrgUnitId("");
-      setLegacyYear(new Date().getFullYear());
-      await load();
-    } catch (e: any) {
-      setError(e.message || "Error inesperado");
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -364,82 +291,6 @@ export function MembershipsManager() {
               )}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-border/60 bg-card/80 p-4">
-        <h3 className="text-lg font-semibold mb-3">Reclasificar convenios legacy</h3>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={legacyConvenioId}
-            onChange={(e) => setLegacyConvenioId(e.target.value)}
-          >
-            <option value="">Convenio legacy</option>
-            {legacyConvenios.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.serial_number || c.id.slice(0, 8)} - {c.title}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={legacySecretariatId}
-            onChange={(e) => {
-              setLegacySecretariatId(e.target.value);
-              setLegacyCareerId("");
-              setLegacyOrgUnitId("");
-            }}
-          >
-            <option value="">Secretaría</option>
-            {payload.secretariats.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.code} - {s.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={legacyCareerId}
-            onChange={(e) => setLegacyCareerId(e.target.value)}
-            disabled={legacySelectedSecretariatCode !== "SA"}
-          >
-            <option value="">Carrera (opcional)</option>
-            {legacyCareers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code ? `${c.code} - ` : ""}{c.name}
-              </option>
-            ))}
-          </select>
-
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={legacyOrgUnitId}
-            onChange={(e) => setLegacyOrgUnitId(e.target.value)}
-          >
-            <option value="">Subárea (opcional)</option>
-            {legacyOrgUnits.map((ou) => (
-              <option key={ou.id} value={ou.id}>
-                {formatOrgUnitLabel(ou)}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="number"
-            min={2000}
-            max={2100}
-            value={legacyYear}
-            onChange={(e) => setLegacyYear(parseInt(e.target.value || String(new Date().getFullYear()), 10))}
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="mt-3 flex justify-end">
-          <Button onClick={reclassifyLegacy} disabled={saving}>
-            {saving ? "Reclasificando..." : "Reclasificar convenio legacy"}
-          </Button>
         </div>
       </div>
     </div>

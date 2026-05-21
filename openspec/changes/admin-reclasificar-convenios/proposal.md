@@ -2,19 +2,18 @@
 
 ## Intent
 
-Los administradores necesitan corregir la clasificación organizativa de cualquier convenio (secretaría, carrera, subárea, año) sin depender del flujo solo-legacy en Membresías.
+Los administradores necesitan corregir la clasificación organizativa de cualquier convenio (secretaría, carrera, subárea, año) desde el panel admin.
 
 ## Scope
 
 ### In Scope
 
-- Pestaña **Reclasificar** en el panel admin con listado filtrable y formulario alineado al bloque legacy.
-- Endpoint `PATCH` admin que actualice clasificación y audite con acción distinta de `reclassify_legacy`.
+- Pestaña **Reclasificar** en el panel admin con listado filtrable y formulario dedicado.
+- Endpoint `PATCH` admin que actualice clasificación y audite con acción `reclassify_admin`.
 - Carga de catálogo `org_units` en la página admin.
 
 ### Out of Scope
 
-- Eliminar el bloque «Reclasificar convenios legacy» en Membresías (convivencia).
 - Cambiar reglas de visibilidad por rol fuera de lo que ya implica actualizar `convenios`.
 
 ## Approach

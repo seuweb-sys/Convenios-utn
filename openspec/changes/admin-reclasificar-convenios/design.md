@@ -2,7 +2,7 @@
 
 ## Technical Approach
 
-Nueva ruta `PATCH /api/admin/convenios/[id]/classification` valida rol admin, coherencia secretaría/subárea/regla SA, normaliza año, actualiza fila `convenios` (incl. limpieza de flags como en legacy cuando aplica) e inserta `activity_log` con `action: "reclassify_admin"` y metadata con valores previos y nuevos.
+Nueva ruta `PATCH /api/admin/convenios/[id]/classification` valida rol admin, coherencia secretaría/subárea/regla SA, normaliza año, actualiza fila `convenios` e inserta `activity_log` con `action: "reclassify_admin"` y metadata con valores previos y nuevos.
 
 Cliente: `ReclassifyConveniosPanel` con estado de filtros (misma lógica que `AdminPanelClient`), `useMemo` para carreras/subáreas como `MembershipsManager`, `useRouter().refresh()` y toast tras éxito.
 
@@ -10,7 +10,7 @@ Cliente: `ReclassifyConveniosPanel` con estado de filtros (misma lógica que `Ad
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Ubicación API | `classification/route.ts` bajo admin | Separado de legacy; REST claro |
+| Ubicación API | `classification/route.ts` bajo admin | Endpoint dedicado; REST claro |
 | Catálogo org_units | SSR en `page.tsx` | Evita fetch extra y mantiene patrón admin |
 | Regla SA | Servidor + cliente | Doble capa; mensajes consistentes |
 
