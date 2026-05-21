@@ -83,7 +83,7 @@ vi.mock("fs", () => ({
 
 import { POST } from "@/app/api/convenios/route";
 
-function createSupabaseDouble() {
+function createSupabaseDouble(options?: { role?: string; fullName?: string; userId?: string }) {
   const adminCalls = {
     inserts: [] as any[],
     updates: [] as any[],
@@ -92,7 +92,7 @@ function createSupabaseDouble() {
   const supabase = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
-        data: { user: { id: "user-1" } },
+        data: { user: { id: options?.userId ?? "user-1" } },
         error: null,
       }),
     },
@@ -103,7 +103,12 @@ function createSupabaseDouble() {
           select: vi.fn(() => ({
             eq: vi.fn(() => ({
               single: vi.fn(async () => ({
-                data: { full_name: "Admin", role: "admin", is_approved: true, career_id: null },
+                data: {
+                  full_name: options?.fullName ?? "Admin",
+                  role: options?.role ?? "admin",
+                  is_approved: true,
+                  career_id: null,
+                },
                 error: null,
               })),
             })),
@@ -258,5 +263,34 @@ describe("POST /api/convenios", () => {
 
     const payload = await response.json();
     expect(payload.convenio.document_path).toBe("https://drive.google.com/drive/folders/folder-anexos");
+  });
+
+  it("stores secretary-created convenios under a dedicated folder URL", async () => {
+    const ctx = createSupabaseDouble({ role: "user", fullName: "Secretaria SA", userId: "secretary-1" });
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const response = await POST(
+      new Request("http://localhost/api/convenios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Convenio Secretaría",
+          template_slug: "nuevo-convenio-marco",
+          secretariat_id: "sec-1",
+          form_data: { entidad_nombre: "Empresa SA" },
+          agreement_year: 2026,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockEnsureConvenioFolder).toHaveBeenCalledWith({
+      convenioTitle: expect.stringContaining("Convenio_Convenio Secretaría_"),
+      parentFolderId: "pending-folder",
+      currentDocumentPath: null,
+    });
+
+    const payload = await response.json();
+    expect(payload.convenio.document_path).toBe("https://drive.google.com/drive/folders/folder-1");
   });
 });

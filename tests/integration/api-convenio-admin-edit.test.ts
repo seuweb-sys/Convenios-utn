@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 import { DRIVE_FOLDERS } from "@/app/lib/google-drive";
-import { PATCH } from "@/app/api/convenios/[id]/route";
+import { GET, PATCH } from "@/app/api/convenios/[id]/route";
 
 vi.mock("@/utils/supabase/server", () => ({
   createClient: mocks.mockCreateClient,
@@ -65,6 +65,15 @@ vi.mock("@/app/lib/services/notification-service", () => ({
   },
 }));
 
+vi.mock("@/app/lib/authz/profesor-membership-scope", () => ({
+  shouldApplyProfesorPracticeOnlyConvenioFilter: vi.fn(async () => false),
+}));
+
+vi.mock("@/app/lib/authz/classification-scope", () => ({
+  computeConstrainedClassification: vi.fn(() => ({ kind: "full" })),
+  validateCreateClassification: vi.fn(() => ({ ok: true })),
+}));
+
 vi.mock("@/app/lib/utils/docx-templater", () => ({
   renderDocx: mocks.mockRenderDocx,
 }));
@@ -93,10 +102,12 @@ type TableCall = {
 
 function createSupabaseDouble(options: {
   role?: string;
+  userId?: string;
   convenioStatus: string;
   documentPath: string | null;
   signedPdfPath?: string | null;
   convenioTypeId?: number;
+  memberships?: any[];
 }) {
   const calls: Record<string, TableCall> = {
     convenios: { inserts: [], updates: [] },
@@ -122,7 +133,7 @@ function createSupabaseDouble(options: {
   const supabase = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
-        data: { user: { id: "admin-1" } },
+        data: { user: { id: options.userId ?? "admin-1" } },
         error: null,
       }),
     },
@@ -186,7 +197,7 @@ function createSupabaseDouble(options: {
       return {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
-            eq: vi.fn(() => Promise.resolve({ data: [], error: null })),
+            eq: vi.fn(() => Promise.resolve({ data: options.memberships ?? [], error: null })),
           })),
         })),
       };
@@ -395,5 +406,81 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
       ]),
     );
     expect(mocks.mockConvenioResubmitted).toHaveBeenCalledWith("admin-1", "Convenio Test", "conv-2");
+  });
+
+  it("returns untouched legacy convenios without migrating their single-file document path", async () => {
+    const ctx = createSupabaseDouble({
+      convenioStatus: "revision",
+      documentPath: "https://drive.google.com/file/d/legacy-untouched/view",
+      role: "user",
+      userId: "secretary-1",
+    });
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const response = await GET(
+      new Request("http://localhost/api/convenios/conv-legacy"),
+      { params: { id: "conv-legacy" } },
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.document_path).toBe("https://drive.google.com/file/d/legacy-untouched/view");
+    expect(mocks.mockMoveFileToFolderOAuth).not.toHaveBeenCalled();
+    expect(mocks.mockMoveFolderToFolderOAuth).not.toHaveBeenCalled();
+    expect(mocks.mockEnsureConvenioFolder).not.toHaveBeenCalled();
+  });
+
+  it("moves secretary resubmissions with folder URLs back to pending as folders", async () => {
+    const ctx = createSupabaseDouble({
+      convenioStatus: "revision",
+      documentPath: "https://drive.google.com/drive/folders/revision-folder?usp=sharing",
+      role: "user",
+      userId: "owner-1",
+      memberships: [{ membership_role: "secretario", secretariat_id: "sec-1", career_id: null, org_unit_id: null, is_active: true }],
+    });
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const response = await PATCH(
+      new Request("http://localhost/api/convenios/conv-secretary-folder", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-forwarded-for": "127.0.0.1" },
+        body: JSON.stringify({
+          status: "enviado",
+        }),
+      }),
+      { params: { id: "conv-secretary-folder" } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockMoveFolderToFolderOAuth).toHaveBeenCalledWith("revision-folder", DRIVE_FOLDERS.PENDING);
+    expect(mocks.mockMoveFileToFolderOAuth).not.toHaveBeenCalled();
+    expect(mocks.mockEnsureConvenioFolder).not.toHaveBeenCalled();
+  });
+
+  it("moves secretary resubmissions with legacy file URLs back to pending as single files", async () => {
+    const ctx = createSupabaseDouble({
+      convenioStatus: "revision",
+      documentPath: "https://drive.google.com/file/d/revision-file/view",
+      role: "user",
+      userId: "owner-1",
+      memberships: [{ membership_role: "secretario", secretariat_id: "sec-1", career_id: null, org_unit_id: null, is_active: true }],
+    });
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const response = await PATCH(
+      new Request("http://localhost/api/convenios/conv-secretary-file", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-forwarded-for": "127.0.0.1" },
+        body: JSON.stringify({
+          status: "enviado",
+        }),
+      }),
+      { params: { id: "conv-secretary-file" } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockMoveFileToFolderOAuth).toHaveBeenCalledWith("revision-file", DRIVE_FOLDERS.PENDING);
+    expect(mocks.mockMoveFolderToFolderOAuth).not.toHaveBeenCalled();
+    expect(mocks.mockEnsureConvenioFolder).not.toHaveBeenCalled();
   });
 });

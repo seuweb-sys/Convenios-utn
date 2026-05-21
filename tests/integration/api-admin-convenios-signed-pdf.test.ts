@@ -165,4 +165,43 @@ describe("admin signed PDF folderized storage", () => {
       document_path: "https://drive.google.com/drive/folders/approved-convenio-folder",
     });
   });
+
+  it("uploads signed PDFs into an existing folderized convenio without remigrating it", async () => {
+    mocks.mockEnsureConvenioFolder.mockResolvedValueOnce({
+      folderId: "existing-folder",
+      folderWebViewLink: "https://drive.google.com/drive/folders/existing-folder",
+      migratedFromFile: false,
+    });
+
+    const ctx = createSupabaseDouble("https://drive.google.com/drive/folders/existing-folder");
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const formData = new FormData();
+    formData.append("file", new File([Buffer.from("pdf")], "firmado.pdf", { type: "application/pdf" }));
+
+    const response = await postSignedPdf(
+      new Request("http://localhost/api/admin/convenios/conv-1/signed-pdf", {
+        method: "POST",
+        body: formData,
+      }),
+      { params: { id: "conv-1" } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockEnsureConvenioFolder).toHaveBeenCalledWith({
+      convenioTitle: "Convenio_Convenio Firmado_firmado",
+      parentFolderId: "approved-folder",
+      currentDocumentPath: "https://drive.google.com/drive/folders/existing-folder",
+    });
+    expect(mocks.mockUploadFileToOAuthDriveWithMimeType).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      "FIRMADO-Convenio Firmado.pdf",
+      "existing-folder",
+      "application/pdf",
+    );
+    expect(ctx.calls.convenios[0]).toMatchObject({
+      document_path: "https://drive.google.com/drive/folders/existing-folder",
+      signed_pdf_path: "https://drive.google.com/file/d/signed-pdf/view",
+    });
+  });
 });
