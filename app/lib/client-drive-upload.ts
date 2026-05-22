@@ -13,17 +13,22 @@ export type DriveUploadedFile = {
   webContentLink?: string;
 };
 
-export async function uploadFileToDriveInChunks({
+type DriveUploadSession = {
+  uploadUrl: string;
+};
+
+type DriveUploadDeps = {
+  createSession?: (input: { file: File; sessionEndpoint: string }) => Promise<DriveUploadSession>;
+  uploadChunk?: typeof uploadChunk;
+};
+
+async function createDriveUploadSession({
   file,
   sessionEndpoint,
-  chunkSize = 5 * 1024 * 1024,
-  onProgress,
 }: {
   file: File;
   sessionEndpoint: string;
-  chunkSize?: number;
-  onProgress?: (progress: DriveUploadProgress) => void;
-}): Promise<DriveUploadedFile> {
+}): Promise<DriveUploadSession> {
   const sessionResponse = await fetch(sessionEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -44,6 +49,26 @@ export async function uploadFileToDriveInChunks({
     throw new Error('No se recibio la URL de subida de Google Drive');
   }
 
+  return { uploadUrl };
+}
+
+export async function uploadFileToDriveInChunks({
+  file,
+  sessionEndpoint,
+  chunkSize = 5 * 1024 * 1024,
+  onProgress,
+  deps,
+}: {
+  file: File;
+  sessionEndpoint: string;
+  chunkSize?: number;
+  onProgress?: (progress: DriveUploadProgress) => void;
+  deps?: DriveUploadDeps;
+}): Promise<DriveUploadedFile> {
+  const createSession = deps?.createSession ?? createDriveUploadSession;
+  const uploadChunkWithTransport = deps?.uploadChunk ?? uploadChunk;
+  const { uploadUrl } = await createSession({ file, sessionEndpoint });
+
   let uploadedBytes = 0;
   let finalGoogleResponse: DriveUploadedFile | null = null;
 
@@ -51,7 +76,7 @@ export async function uploadFileToDriveInChunks({
     const nextByte = Math.min(uploadedBytes + chunkSize, file.size);
     const chunk = file.slice(uploadedBytes, nextByte);
 
-    finalGoogleResponse = await uploadChunk({
+    finalGoogleResponse = await uploadChunkWithTransport({
       uploadUrl,
       chunk,
       start: uploadedBytes,

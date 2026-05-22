@@ -324,6 +324,51 @@ describe("POST /api/convenios", () => {
     });
   });
 
+  it("submits PPS without attachments using the normal folder flow", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/convenios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Convenio Particular PPS Sin Anexos",
+          convenio_type_id: 1,
+          convenio_type: "particular",
+          template_slug: "nuevo-convenio-particular-de-practica-supervisada",
+          secretariat_id: "sec-1",
+          agreement_year: 2026,
+          content_data: {
+            empresa_nombre: "Empresa SA",
+            alumno_nombre: "Alumno Sin Anexo",
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockUploadConvenioEspecificoOAuth).not.toHaveBeenCalled();
+    expect(mocks.mockEnsureConvenioFolder).toHaveBeenCalledWith({
+      convenioTitle: expect.stringContaining("Convenio_Convenio Particular PPS Sin Anexos_"),
+      parentFolderId: "pending-folder",
+      currentDocumentPath: null,
+    });
+    expect(mocks.mockUploadFileToOAuthDrive).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.stringContaining("Convenio_Convenio Particular PPS Sin Anexos_"),
+      "folder-1",
+      false,
+    );
+
+    expect(ctx.adminCalls.inserts[0]).toMatchObject({
+      convenio_type_id: 1,
+      form_data: expect.not.objectContaining({
+        anexos: expect.anything(),
+      }),
+    });
+
+    const payload = await response.json();
+    expect(payload.convenio.document_path).toBe("https://drive.google.com/drive/folders/folder-1");
+  });
+
   it("stores secretary-created convenios under a dedicated folder URL", async () => {
     const ctx = createSupabaseDouble({ role: "user", fullName: "Secretaria SA", userId: "secretary-1" });
     mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
