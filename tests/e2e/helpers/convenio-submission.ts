@@ -195,7 +195,9 @@ export async function fillParticularForm(
   await page.getByRole("button", { name: /^Siguiente$/ }).click();
 
   await page.getByLabel("Nombre Completo del Alumno *").fill(`Alumno ${suffix}`);
-  await page.getByLabel("Carrera del Alumno *").fill("Ingeniería en Sistemas de Información");
+  await page.getByLabel("Carrera del Alumno *").selectOption({
+    label: "Ingeniería en Sistemas de Información",
+  });
   await page.getByLabel("DNI del Alumno *").fill("40123456");
   await page.getByLabel("Legajo del Alumno *").fill("12345");
   await page.getByRole("button", { name: /^Siguiente$/ }).click();

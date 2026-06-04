@@ -154,4 +154,35 @@ test.describe("Profesor convenio submission", () => {
     expectAnexosCount(capture.payload, 1);
     expectAttachmentMetadataOnly(capture.payload);
   });
+
+  test("particular submission uploads multiple optional attachment refs for professors", async ({ page }) => {
+    const capture = await interceptConvenioSubmission(page);
+    const uploadFiles = [
+      {
+        name: "pps-profesor-1.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from("fake profesor attachment 1"),
+      },
+      {
+        name: "pps-profesor-2.docx",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        buffer: Buffer.from("fake profesor attachment 2"),
+      },
+    ];
+
+    await mockDirectDriveUpload(page, ["drive-profesor-a", "drive-profesor-b"]);
+    await login(page, getRoleCredentials("profesor")!);
+    await openConvenioForm(page, "particular");
+    const { secretariatValue, careerValue } = await expectScopedClassificationLoaded(page);
+
+    await fillParticularForm(page, "mocked-particular-multi-attachment", {
+      attachments: uploadFiles,
+    });
+    await submitFinalAction(page, /^Finalizar$/, /Enviar convenio/i);
+
+    await expectMockedSuccess(page, "Convenio Particular Enviado");
+    expectScopedPayload(capture.payload, secretariatValue, careerValue);
+    expectAnexosCount(capture.payload, 2);
+    expectAttachmentMetadataOnly(capture.payload);
+  });
 });
