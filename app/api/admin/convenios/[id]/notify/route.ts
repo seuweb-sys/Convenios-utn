@@ -48,6 +48,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     if (n.includes('especifico')) return 'especifico';
     if (n.includes('particular')) return 'particular';
     if (n.includes('acuerdo')) return 'acuerdo';
+    if (n.includes('adenda')) return 'adenda';
     return 'marco';
   };
   const typeSlug = mapNameToSlug((convenio as any)?.convenio_types?.name ?? null);

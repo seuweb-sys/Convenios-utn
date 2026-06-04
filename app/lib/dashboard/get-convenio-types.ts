@@ -54,6 +54,14 @@ const defaultTypes = [
     iconName: "colaboracion",
     colorName: "Acuerdo de Colaboración",
     previewUrl: "/plantillas/acuerdo-colaboracion/preview"
+  },
+  {
+    id: 6,
+    title: "Adenda",
+    description: "Adenda para complementar o modificar un convenio previo existente.",
+    iconName: "adenda",
+    colorName: "Adenda",
+    previewUrl: "/plantillas/adenda/preview"
   }
 ];
 

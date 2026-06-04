@@ -28,4 +28,26 @@ describe("DOCX template data preparation", () => {
       partes: [{ nombre: "Sin CUIT", cuit: "" }],
     });
   });
+
+  it("preserves Adenda repeatable arrays for docxtemplater loops", () => {
+    const data = prepareDocxTemplateData({
+      entidad_tipo: "Empresa",
+      convenios_previos: [
+        { tipo: "Convenio Marco", fecha: "2026-05-01", objeto: "Cooperación" },
+      ],
+      acuerdan: [
+        { ordinal: "PRIMERA", texto: "Texto de prueba" },
+      ],
+    });
+
+    expect(data).toEqual({
+      entidad_tipo: "Empresa",
+      convenios_previos: [
+        { tipo: "Convenio Marco", fecha: "2026-05-01", objeto: "Cooperación" },
+      ],
+      acuerdan: [
+        { ordinal: "PRIMERA", texto: "Texto de prueba" },
+      ],
+    });
+  });
 });

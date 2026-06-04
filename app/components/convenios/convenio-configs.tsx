@@ -4,6 +4,7 @@ import ConvenioPracticaMarcoForm from '@/app/components/forms/convenio-practica-
 import ConvenioEspecificoForm from '@/app/components/forms/convenio-especifico/ConvenioEspecificoForm';
 import ConvenioParticularForm from '@/app/components/forms/convenio-particular/ConvenioParticularForm';
 import AcuerdoColaboracionForm from '@/app/components/forms/acuerdo-colaboracion/AcuerdoColaboracionForm';
+import AdendaForm from '@/app/components/forms/adenda/AdendaForm';
 
 export const convenioConfigs = {
   marco: {
@@ -170,5 +171,43 @@ export const convenioConfigs = {
       }
     ],
     FormComponent: AcuerdoColaboracionForm
+  },
+
+  adenda: {
+    title: "Nueva Adenda",
+    description: "Completá la información de la adenda paso a paso",
+    steps: [
+      {
+        id: 1,
+        title: "Encabezado y Fecha",
+        description: "Ciudad, provincia y fecha de firma",
+        icon: <CalendarIcon className="h-5 w-5" />
+      },
+      {
+        id: 2,
+        title: "Contraparte",
+        description: "Datos de la entidad y representante",
+        icon: <BuildingIcon className="h-5 w-5" />
+      },
+      {
+        id: 3,
+        title: "Convenio Previo",
+        description: "Antecedentes y exponen adicional",
+        icon: <ClipboardCheckIcon className="h-5 w-5" />
+      },
+      {
+        id: 4,
+        title: "Acuerdan y Anexos",
+        description: "Cláusulas y documentación adjunta",
+        icon: <UserIcon className="h-5 w-5" />
+      },
+      {
+        id: 5,
+        title: "Revisión",
+        description: "Revisá y enviá la adenda",
+        icon: <FileTextIcon className="h-5 w-5" />
+      }
+    ],
+    FormComponent: AdendaForm
   }
 }; 

@@ -77,6 +77,37 @@ export async function POST(request: Request) {
     const allDocx = fs.readdirSync(templateDir).filter((f) => f.toLowerCase().endsWith('.docx'));
     const scored: {file:string;score:number}[] = [];
     const norm = (s:string)=>s.replace(/-/g,'');
+
+    if (safeNameNormalized === 'adenda') {
+      const adendaAliases = ['adenda.docx', 'addenda.docx'];
+      const aliasMatch = adendaAliases.find((candidate) => allDocx.includes(candidate));
+      if (aliasMatch) {
+        const filePath = path.join(templateDir, aliasMatch);
+        console.log('Usando template DOCX Adenda:', filePath);
+        const templateBuffer = fs.readFileSync(filePath);
+        const rendered = await renderDocx(templateBuffer, fields);
+        const todayStr = new Date().toISOString().split('T')[0];
+        const entityNameRaw: string = (fields.entidad_nombre as string) || safeName;
+        const entityNameSanitized = entityNameRaw
+          ? entityNameRaw.trim().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '')
+          : safeNameNormalized;
+        const fileName = `Convenio_${entityNameSanitized}_${todayStr}.docx`;
+
+        try {
+          const driveResponse = await uploadFileToDrive(rendered, fileName);
+          return NextResponse.json({ success: true, ...driveResponse });
+        } catch (driveErr) {
+          console.error('Falla al subir a Drive, devolviendo descarga directa');
+          return new NextResponse(rendered, {
+            headers: {
+              'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              'Content-Disposition': `attachment; filename="${fileName}"`,
+            },
+          });
+        }
+      }
+    }
+
     allDocx.forEach((f)=>{
       const fileSlug = slugify(path.parse(f).name);
       const fileSlugClean = removeStop(fileSlug);

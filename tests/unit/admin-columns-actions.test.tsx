@@ -32,6 +32,7 @@ describe("admin convenio edit actions", () => {
     expect(getConvenioFormSlugByTypeId(3)).toBe("acuerdo");
     expect(getConvenioFormSlugByTypeId(4)).toBe("especifico");
     expect(getConvenioFormSlugByTypeId(5)).toBe("practica-marco");
+    expect(getConvenioFormSlugByTypeId(6)).toBe("adenda");
     expect(getConvenioFormSlugByTypeId(null)).toBeNull();
   });
 

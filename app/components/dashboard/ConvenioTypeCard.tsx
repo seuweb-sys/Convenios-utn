@@ -80,6 +80,9 @@ export const ConvenioTypeCard = ({
     if (titleLower === "acuerdo de colaboración" || titleLower === "acuerdo de colaboracion") {
       return "/protected/convenio-detalle/nuevo?type=acuerdo";
     }
+    if (titleLower === "adenda") {
+      return "/protected/convenio-detalle/nuevo?type=adenda";
+    }
     // Condiciones más generales después
     if (titleLower.includes("práctica supervisada") || titleLower.includes("practica supervisada")) {
       return "/protected/convenio-detalle/nuevo?type=practica-marco";
@@ -93,9 +96,10 @@ export const ConvenioTypeCard = ({
                    titleLower === "convenio específico" ||
                    titleLower === "convenio especifico" ||
                    titleLower === "convenio particular de práctica supervisada" ||
-                   titleLower === "convenio particular de practica supervisada" ||
-                   titleLower === "acuerdo de colaboración" ||
-                   titleLower === "acuerdo de colaboracion";
+                    titleLower === "convenio particular de practica supervisada" ||
+                    titleLower === "acuerdo de colaboración" ||
+                    titleLower === "acuerdo de colaboracion" ||
+                    titleLower === "adenda";
   
 
 

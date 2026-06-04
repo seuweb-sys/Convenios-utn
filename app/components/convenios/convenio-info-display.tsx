@@ -121,6 +121,8 @@ export function ConvenioInfoDisplay({ convenioId }: ConvenioInfoDisplayProps) {
       typeSlug = 'particular';
     } else if (convenioTypeName.includes('acuerdo')) {
       typeSlug = 'acuerdo';
+    } else if (convenioTypeName.includes('adenda')) {
+      typeSlug = 'adenda';
     }
     
     router.push(`/protected/convenio-detalle/${convenioId}?type=${typeSlug}&mode=correccion`);

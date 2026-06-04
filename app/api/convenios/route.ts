@@ -90,7 +90,8 @@ function getConvenioTypeName(typeId: number | null, dbName?: string): string {
     2: "Convenio Marco",
     3: "Acuerdo de Colaboración",
     4: "Convenio Específico",
-    5: "Convenio Marco Práctica Supervisada"
+    5: "Convenio Marco Práctica Supervisada",
+    6: "Adenda"
   };
 
   if (typeId && typeMap[typeId]) {
@@ -501,7 +502,8 @@ export async function POST(request: Request) {
           'practica-marco': 'nuevo-convenio-marco-practica-supervisada', // ID: 5
           'especifico': 'nuevo-convenio-especifico',                // ID: 4
           'particular': 'nuevo-convenio-particular-de-practica-supervisada', // ID: 1
-          'acuerdo': 'nuevo-acuerdo-de-colaboracion'                // ID: 3
+          'acuerdo': 'nuevo-acuerdo-de-colaboracion',               // ID: 3
+          'adenda': 'nuevo-adenda'                                  // ID: 6
         };
 
         finalTemplateSlug = TYPE_TO_SLUG_MAPPING[explicitType];
@@ -524,6 +526,8 @@ export async function POST(request: Request) {
           finalTemplateSlug = 'nuevo-convenio-particular-de-practica-supervisada';
         } else if (referrerUrl.includes('type=acuerdo')) {
           finalTemplateSlug = 'nuevo-acuerdo-de-colaboracion';
+        } else if (referrerUrl.includes('type=adenda')) {
+          finalTemplateSlug = 'nuevo-adenda';
         } else if (referrerUrl.includes('type=marco')) {
           finalTemplateSlug = 'nuevo-convenio-marco';
         }
@@ -577,7 +581,11 @@ export async function POST(request: Request) {
       'nuevo-acuerdo-de-colaboracion': 3,
       'acuerdo-de-colaboracion': 3,
       'acuerdo-colaboracion': 3,
-      'acuerdo': 3
+      'acuerdo': 3,
+
+      // Adenda (ID: 6)
+      'nuevo-adenda': 6,
+      'adenda': 6
     };
 
     const convenioTypeId = TEMPLATE_MAPPING[finalTemplateSlug];
@@ -701,26 +709,30 @@ export async function POST(request: Request) {
       const templateDir = path.join(process.cwd(), 'templates');
 
       // Mapeo EXACTO de slugs a nombres de archivos
-      const TEMPLATE_FILE_MAPPING: { [key: string]: string } = {
-        'convenio-marco': 'convenio-marco.docx',
-        'convenio-marco-practica-supervisada': 'convenio-marco-practica-supervisada.docx',
-        'convenio-especifico': 'convenio-especifico.docx',
-        'convenio-particular-de-practica-supervisada': 'convenio-particular-de-practica-supervisada.docx',
-        'acuerdo-de-colaboracion': 'acuerdo-de-colaboracion.docx'
+      const TEMPLATE_FILE_MAPPING: { [key: string]: string[] } = {
+        'convenio-marco': ['convenio-marco.docx'],
+        'convenio-marco-practica-supervisada': ['convenio-marco-practica-supervisada.docx'],
+        'convenio-especifico': ['convenio-especifico.docx'],
+        'convenio-particular-de-practica-supervisada': ['convenio-particular-de-practica-supervisada.docx'],
+        'acuerdo-de-colaboracion': ['acuerdo-de-colaboracion.docx'],
+        'adenda': ['adenda.docx', 'addenda.docx']
       };
 
       console.log(`🔍 [API] Limpiando slug: ${finalTemplateSlug} -> ${cleanSlug}`);
 
       // Buscar primero en el mapeo exacto
-      let templateFileName = TEMPLATE_FILE_MAPPING[cleanSlug];
+      let templateFileCandidates = TEMPLATE_FILE_MAPPING[cleanSlug];
 
-      if (!templateFileName) {
+      if (!templateFileCandidates) {
         // Fallback: usar el patrón tradicional
-        templateFileName = `${cleanSlug}.docx`;
-        console.log(`⚠️ [API] Slug no encontrado en mapeo, usando patrón: ${templateFileName}`);
+        templateFileCandidates = [`${cleanSlug}.docx`];
+        console.log(`⚠️ [API] Slug no encontrado en mapeo, usando patrón: ${templateFileCandidates[0]}`);
       } else {
-        console.log(`✅ [API] Mapeo exacto encontrado: ${cleanSlug} -> ${templateFileName}`);
+        console.log(`✅ [API] Mapeo exacto encontrado: ${cleanSlug} -> ${templateFileCandidates.join(', ')}`);
       }
+
+      const templateFileName = templateFileCandidates.find((candidate) => fs.existsSync(path.join(templateDir, candidate)))
+        || templateFileCandidates[0];
 
       const filePath = path.join(templateDir, templateFileName);
       console.log(`🔍 [API] Buscando template: ${filePath}`);
@@ -767,6 +779,10 @@ export async function POST(request: Request) {
     }
 
     if (!buffer) {
+      if (convenioTypeId === 6) {
+        throw new Error('No se encontró el template DOCX de Adenda. Agregá "templates/adenda.docx" (o el alias local "templates/addenda.docx") para habilitar la generación.');
+      }
+
       console.log('⚠️ [API] No se pudo generar buffer desde archivo físico. Intentando fallback programático...');
 
       // Obtener template de la DB usando el ID que ya determinamos
@@ -844,9 +860,10 @@ export async function POST(request: Request) {
       const hasAttachmentRefs = attachmentRefs.length > 0;
       const isConvenioMarcoConAnexos = convenioTypeId === 2 && hasAttachmentRefs;
       const isPpsConAnexos = convenioTypeId === 1 && hasAttachmentRefs;
+      const isAdendaConAnexos = convenioTypeId === 6 && hasAttachmentRefs;
 
-      if (isConvenioEspecifico || isConvenioMarcoConAnexos || isPpsConAnexos) {
-        const tipoConvenio = isConvenioEspecifico ? 'específico' : isPpsConAnexos ? 'pps' : 'marco';
+      if (isConvenioEspecifico || isConvenioMarcoConAnexos || isPpsConAnexos || isAdendaConAnexos) {
+        const tipoConvenio = isConvenioEspecifico ? 'específico' : isPpsConAnexos ? 'pps' : isAdendaConAnexos ? 'adenda' : 'marco';
         console.log(`📁 [API] Procesando convenio ${tipoConvenio} con carpeta...`);
 
         // Preparar anexos si existen (soporta legado con buffer y nueva subida directa con driveFileId)

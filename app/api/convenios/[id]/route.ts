@@ -68,6 +68,21 @@ async function generateConvenioDocumentBuffer(
     const allDocx = fs.readdirSync(templateDir).filter(f => f.endsWith('.docx'));
     const scored: Array<{ file: string, score: number }> = [];
 
+    if (convenioTypeId === 6) {
+      for (const candidate of ['adenda.docx', 'addenda.docx']) {
+        if (allDocx.includes(candidate)) {
+          const filePath = path.join(templateDir, candidate);
+          const templateBuffer = fs.readFileSync(filePath);
+          buffer = await renderDocx(templateBuffer, formData);
+          break;
+        }
+      }
+    }
+
+    if (buffer) {
+      return buffer;
+    }
+
     allDocx.forEach((f) => {
       const fileSlug = slugify(path.parse(f).name);
       const fileSlugClean = removeStop(fileSlug);

@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   mockRenderDocx: vi.fn(),
   mockCreateDocument: vi.fn(),
   mockPackerToBuffer: vi.fn(),
+  mockFsExistsSync: vi.fn(() => true),
+  mockFsReadFileSync: vi.fn(() => Buffer.from("template")),
 }));
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -76,8 +78,8 @@ vi.mock("docx", () => ({
 
 vi.mock("fs", () => ({
   default: {
-    existsSync: vi.fn(() => true),
-    readFileSync: vi.fn(() => Buffer.from("template")),
+    existsSync: mocks.mockFsExistsSync,
+    readFileSync: mocks.mockFsReadFileSync,
   },
 }));
 
@@ -318,6 +320,100 @@ describe("POST /api/convenios", () => {
           expect.objectContaining({
             name: "pps-anexo.pdf",
             driveFileId: "drive-pps-1",
+          }),
+        ],
+      }),
+    });
+  });
+
+  it("maps adenda to type 6, stores acuerdos and uploads anexos to folder flow", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/convenios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Adenda Test",
+          convenio_type: "adenda",
+          template_slug: "nuevo-adenda",
+          secretariat_id: "sec-1",
+          agreement_year: 2026,
+          form_data: {
+            entidad_nombre: "Entidad Adenda",
+            entidad_tipo: "Empresa",
+            convenios_previos: [
+              {
+                tipo: "Convenio Marco",
+                fecha: "2026-05-01",
+                objeto: "Cooperación institucional",
+              },
+            ],
+            acuerdan: [{ ordinal: "PRIMERA", texto: "Texto de prueba" }],
+          },
+          anexos: [
+            {
+              name: "adenda-anexo.pdf",
+              driveFileId: "drive-adenda-1",
+              mimeType: "application/pdf",
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockFsReadFileSync).toHaveBeenCalledWith(expect.stringMatching(/[\\/]templates[\\/]adenda\.docx$/));
+    expect(mocks.mockRenderDocx).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.objectContaining({
+        entidad_tipo: "Empresa",
+        convenios_previos: [
+          expect.objectContaining({
+            tipo: "Convenio Marco",
+            fecha: "2026-05-01",
+            objeto: "Cooperación institucional",
+          }),
+        ],
+        acuerdan: [
+          expect.objectContaining({
+            ordinal: "PRIMERA",
+            texto: "Texto de prueba",
+          }),
+        ],
+      }),
+    );
+    expect(mocks.mockUploadConvenioEspecificoOAuth).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.stringContaining("Convenio_Adenda Test_"),
+      [
+        expect.objectContaining({
+          name: "adenda-anexo.pdf",
+          driveFileId: "drive-adenda-1",
+        }),
+      ],
+      "pending-folder",
+    );
+
+    expect(ctx.adminCalls.inserts[0]).toMatchObject({
+      convenio_type_id: 6,
+      form_data: expect.objectContaining({
+        entidad_nombre: "Entidad Adenda",
+        entidad_tipo: "Empresa",
+        convenios_previos: [
+          expect.objectContaining({
+            tipo: "Convenio Marco",
+            fecha: "2026-05-01",
+            objeto: "Cooperación institucional",
+          }),
+        ],
+        acuerdan: [
+          expect.objectContaining({
+            ordinal: "PRIMERA",
+            texto: "Texto de prueba",
+          }),
+        ],
+        anexos: [
+          expect.objectContaining({
+            driveFileId: "drive-adenda-1",
           }),
         ],
       }),

@@ -33,6 +33,8 @@ export function getIconForType(typeName: string): ReactNode {
     return <GraduationCapIcon className="h-5 w-5" />;
   } else if (type.includes("colaboración") || type.includes("colaboracion")) {
     return <HeartHandshakeIcon className="h-5 w-5" />;
+  } else if (type.includes("adenda")) {
+    return <FilePlusIcon className="h-5 w-5" />;
   }
   
   // Icono predeterminado para cualquier otro tipo
@@ -56,6 +58,8 @@ export function getColorForType(typeName: string): ConvenioColor {
     return "green";
   } else if (type === "acuerdo de colaboración" || type === "acuerdo de colaboracion") {
     return "red";
+  } else if (type === "adenda") {
+    return "cyan";
   }
   
   // Fallback por palabras clave
@@ -69,6 +73,8 @@ export function getColorForType(typeName: string): ConvenioColor {
     return "purple";
   } else if (type.includes("colaboración") || type.includes("colaboracion")) {
     return "red";
+  } else if (type.includes("adenda")) {
+    return "cyan";
   }
   
   // Color predeterminado para cualquier otro tipo
@@ -156,6 +162,8 @@ export function getIconByName(iconName: string | undefined | null): ReactNode {
       return <ClipboardCheckIcon {...iconProps} />;
     case "colaboracion":
       return <HeartHandshakeIcon {...iconProps} />;
+    case "adenda":
+      return <FilePlusIcon {...iconProps} />;
     default:
       // No mostrar warning si es un icono específico que no necesitamos mapear
       if (!["undefined", "null", ""].includes(iconName.toLowerCase())) {

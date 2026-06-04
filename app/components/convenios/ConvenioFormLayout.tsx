@@ -21,6 +21,7 @@ import {
 import { Button } from "@/app/components/ui/button";
 import { Progress } from "@/app/components/ui/progress";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
+import { isAdendaConvenioData } from "@/stores/convenioMarcoStore";
 import { cn } from "@/lib/utils";
 import { formatOrgUnitLabel } from "@/lib/org-unit-label";
 import { FullScreenPreview } from "@/app/components/convenios/full-screen-preview";
@@ -81,6 +82,40 @@ const FormSkeleton = () => (
 // Función para extraer y mapear datos del store a formato plano para API
 const mapConvenioDataToFields = (convenioData: any) => {
   console.log('Datos crudos del store:', convenioData);
+  if (isAdendaConvenioData(convenioData, convenioData)) {
+    const conveniosPrevios = Array.isArray(convenioData.convenios_previos) && convenioData.convenios_previos.length > 0
+      ? convenioData.convenios_previos
+      : (convenioData?.convenio_previo_tipo || convenioData?.convenio_previo_fecha || convenioData?.convenio_previo_objeto)
+        ? [{
+            tipo: convenioData.convenio_previo_tipo || '',
+            fecha: convenioData.convenio_previo_fecha || '',
+            objeto: convenioData.convenio_previo_objeto || '',
+          }]
+        : [];
+
+    const mappedAdendaData = {
+      ciudad: convenioData.ciudad || '',
+      provincia: convenioData.provincia || '',
+      dia: convenioData.dia || '',
+      mes: convenioData.mes || '',
+      anio: convenioData.anio || '',
+      entidad_nombre: convenioData.entidad_nombre || '',
+      entidad_tipo: convenioData.entidad_tipo || '',
+      entidad_domicilio: convenioData.entidad_domicilio || '',
+      entidad_ciudad: convenioData.entidad_ciudad || '',
+      entidad_provincia: convenioData.entidad_provincia || '',
+      entidad_cuit: convenioData.entidad_cuit || '',
+      entidad_representante: convenioData.entidad_representante || '',
+      entidad_dni: convenioData.entidad_dni || '',
+      entidad_cargo: convenioData.entidad_cargo || '',
+      convenios_previos: conveniosPrevios,
+      exponen_adicional: convenioData.exponen_adicional || '',
+      acuerdan: Array.isArray(convenioData.acuerdan) ? convenioData.acuerdan : [],
+    };
+    console.log('Datos mapeados para API:', mappedAdendaData);
+    return mappedAdendaData;
+  }
+
   const parte = convenioData.partes?.[0] || {};
   const datosBasicos = convenioData.datosBasicos || {};
   const mappedData = {
@@ -107,7 +142,8 @@ const SLUG_MAPPING: { [key: string]: string } = {
   'practica-marco': 'nuevo-convenio-marco-practica-supervisada', // ID: 5
   'especifico': 'nuevo-convenio-especifico',                // ID: 4
   'particular': 'nuevo-convenio-particular-de-practica-supervisada', // ID: 1
-  'acuerdo': 'nuevo-acuerdo-de-colaboracion'                // ID: 3
+  'acuerdo': 'nuevo-acuerdo-de-colaboracion',               // ID: 3
+  'adenda': 'nuevo-adenda'                                  // ID: 6
 };
 
 export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {

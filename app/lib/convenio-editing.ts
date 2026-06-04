@@ -8,7 +8,8 @@ export type ConvenioFormSlug =
   | "marco"
   | "acuerdo"
   | "especifico"
-  | "practica-marco";
+  | "practica-marco"
+  | "adenda";
 
 const CONVENIO_TYPE_SLUGS: Record<number, ConvenioFormSlug> = {
   1: "particular",
@@ -16,6 +17,7 @@ const CONVENIO_TYPE_SLUGS: Record<number, ConvenioFormSlug> = {
   3: "acuerdo",
   4: "especifico",
   5: "practica-marco",
+  6: "adenda",
 };
 
 export function getConvenioFormSlugByTypeId(typeId?: number | string | null) {

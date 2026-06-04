@@ -101,6 +101,7 @@ export default function ConvenioPage() {
         else if (name.includes('especifico')) slug = 'especifico';
         else if (name.includes('particular')) slug = 'particular';
         else if (name.includes('acuerdo')) slug = 'acuerdo';
+        else if (name.includes('adenda')) slug = 'adenda';
       }
     }
 

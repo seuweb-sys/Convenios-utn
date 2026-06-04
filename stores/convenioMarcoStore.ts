@@ -1,6 +1,37 @@
 import { create } from 'zustand';
 import { FieldDefinition } from '@/types/fieldDefinition';
 
+type LoadedConvenioLike = {
+  convenio_type_id?: number | null;
+  convenio_types?: { name?: string | null } | null;
+  template_slug?: string | null;
+};
+
+function normalizeConvenioTypeToken(value?: string | null) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+export function isAdendaConvenioData(
+  loadedData: LoadedConvenioLike | null | undefined,
+  sourceData: Record<string, any> | null | undefined,
+) {
+  if (loadedData?.convenio_type_id === 6) return true;
+
+  const typeName = normalizeConvenioTypeToken(loadedData?.convenio_types?.name);
+  if (typeName.includes('adenda')) return true;
+
+  const templateSlug = normalizeConvenioTypeToken(loadedData?.template_slug);
+  if (templateSlug === 'nuevo-adenda' || templateSlug === 'adenda') return true;
+
+  const explicitType = normalizeConvenioTypeToken(sourceData?.convenio_type);
+  if (explicitType === 'adenda') return true;
+
+  return false;
+}
+
 // Tipo para el estado de cada paso
 interface StepState {
   isValid: boolean;
@@ -154,6 +185,7 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
 
         // Mapeo genérico que funciona para TODOS los tipos de convenio
         let mappedData: any = {};
+        const isAdenda = isAdendaConvenioData(loadedData, sourceData);
 
         // Mapeo genérico que funciona para TODOS los tipos de convenio
         mappedData = {
@@ -253,6 +285,41 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
           };
         }
 
+        if (isAdenda) {
+          const conveniosPrevios = Array.isArray(sourceData.convenios_previos) && sourceData.convenios_previos.length > 0
+            ? sourceData.convenios_previos
+            : (sourceData.convenio_previo_tipo || sourceData.convenio_previo_fecha || sourceData.convenio_previo_objeto)
+              ? [{
+                  tipo: sourceData.convenio_previo_tipo || '',
+                  fecha: sourceData.convenio_previo_fecha || '',
+                  objeto: sourceData.convenio_previo_objeto || '',
+                }]
+              : [];
+
+          mappedData = {
+            ...mappedData,
+            ciudad: sourceData.ciudad || '',
+            provincia: sourceData.provincia || '',
+            dia: sourceData.dia || '',
+            mes: sourceData.mes || '',
+            anio: sourceData.anio || '',
+            entidad_nombre: sourceData.entidad_nombre || '',
+            entidad_tipo: sourceData.entidad_tipo || '',
+            entidad_domicilio: sourceData.entidad_domicilio || '',
+            entidad_ciudad: sourceData.entidad_ciudad || '',
+            entidad_provincia: sourceData.entidad_provincia || '',
+            entidad_cuit: sourceData.entidad_cuit || '',
+            entidad_representante: sourceData.entidad_representante || '',
+            entidad_dni: sourceData.entidad_dni || '',
+            entidad_cargo: sourceData.entidad_cargo || '',
+            convenios_previos: conveniosPrevios,
+            exponen_adicional: sourceData.exponen_adicional || '',
+            acuerdan: Array.isArray(sourceData.acuerdan) ? sourceData.acuerdan : [],
+            anexos: Array.isArray(sourceData.anexos) ? sourceData.anexos : [],
+            anexosMarco: Array.isArray(sourceData.anexos) ? sourceData.anexos : [],
+          };
+        }
+
         // Mapeo para Convenio Marco y otros tipos tradicionales
         if (sourceData.datosBasicos || sourceData.datos_basicos) {
           mappedData = {
@@ -265,7 +332,7 @@ export const useConvenioMarcoStore = create<ConvenioMarcoState>((set, get) => ({
 
         // FALLBACK: Si es Convenio Marco con campos planos (entidad_nombre, etc.)
         // pero NO tiene estructura anidada, construir la estructura canónica
-        if (sourceData.entidad_nombre && !sourceData.datosBasicos && !sourceData.partes) {
+        if (!isAdenda && sourceData.entidad_nombre && !sourceData.datosBasicos && !sourceData.partes) {
           console.log('[Store] Fallback: Mapping flat Marco fields to nested structure');
           mappedData = {
             ...mappedData,
