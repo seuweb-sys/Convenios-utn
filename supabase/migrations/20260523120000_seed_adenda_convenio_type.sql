@@ -41,15 +41,12 @@ VALUES (
     },
     {"name":"anexos","type":"array","required":false}
   ]$$::jsonb,
-  $$
-{#convenios_previos}
-Que las partes firmaron un {tipo} el {fecha}, cuyo objeto es {objeto}.
-{/convenios_previos}
-
-{#acuerdan}
-{ordinal}: {texto}
-{/acuerdan}
-  $$
+  jsonb_build_object(
+    'title', 'ADDENDA AL CONVENIO ESPECÍFICO',
+    'template', 'templates/addenda.docx',
+    'uses_physical_docx', true,
+    'repeatable', jsonb_build_array('convenios_previos', 'acuerdan')
+  )
 )
 ON CONFLICT (id) DO UPDATE
 SET
