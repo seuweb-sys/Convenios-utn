@@ -8,7 +8,6 @@ import {
   CalendarIcon, 
   BuildingIcon, 
   UserIcon,
-  AlertTriangle,
   CheckCircle,
   Clock,
   XCircle,
@@ -17,8 +16,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/app/components/ui/button';
-import { RequestModificationModal } from '@/app/components/ui/request-modification-modal';
 import { resolveFacultadResponsible } from '@/app/lib/forms/pps-display';
+import { resolveConvenioActions } from '@/app/components/convenios/convenio-info-actions';
 
 interface ConvenioInfoDisplayProps {
   convenioId: string;
@@ -67,11 +66,6 @@ const statusConfig = {
     icon: FileTextIcon,
     color: 'text-gray-600 bg-gray-100 dark:bg-gray-900/20',
     label: 'Borrador'
-  },
-  revision_modificacion: {
-    icon: AlertTriangle,
-    color: 'text-orange-600 bg-orange-100 dark:bg-orange-900/20',
-    label: 'Solicitud de Modificación'
   }
 };
 
@@ -79,7 +73,6 @@ export function ConvenioInfoDisplay({ convenioId }: ConvenioInfoDisplayProps) {
   const router = useRouter();
   const [convenio, setConvenio] = useState<ConvenioData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showRequestModal, setShowRequestModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -403,33 +396,11 @@ export function ConvenioInfoDisplay({ convenioId }: ConvenioInfoDisplayProps) {
         <h3 className="text-lg font-semibold mb-4">Acciones Disponibles</h3>
         <div className="flex flex-wrap gap-3">
           {/* Solo mostrar botón de editar si está en borrador */}
-          {convenio.status === 'borrador' && (
+          {resolveConvenioActions(convenio.status).canEdit && (
             <Button onClick={handleEditClick} className="flex items-center gap-2">
               <Edit className="w-4 h-4" />
               Continuar Editando
             </Button>
-          )}
-          
-          {/* Solicitar modificación si está aprobado */}
-          {convenio.status === 'aprobado' && (
-            <Button 
-              onClick={() => setShowRequestModal(true)}
-              variant="outline"
-              className="flex items-center gap-2 text-yellow-600 border-yellow-600 hover:bg-yellow-50"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              Solicitar Modificación
-            </Button>
-          )}
-
-          {/* Mostrar estado si está en revisión de modificación */}
-          {convenio.status === 'revision_modificacion' && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg">
-              <AlertTriangle className="w-4 h-4 text-orange-600" />
-              <span className="text-sm text-orange-800 dark:text-orange-200">
-                Solicitud de modificación enviada. Esperando respuesta del administrador.
-              </span>
-            </div>
           )}
         </div>
         
@@ -437,25 +408,12 @@ export function ConvenioInfoDisplay({ convenioId }: ConvenioInfoDisplayProps) {
         <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <p className="text-sm text-blue-800 dark:text-blue-200">
             <strong>Nota:</strong> Esta es una vista de solo lectura por motivos de privacidad. 
-            {convenio.status === 'aprobado' && ' Si necesitas realizar cambios, usa "Solicitar Modificación".'}
             {convenio.status === 'borrador' && ' Puedes continuar editando mientras esté en borrador.'}
             {convenio.status === 'pendiente' && ' El convenio está siendo revisado por el equipo administrativo.'}
-            {convenio.status === 'revision_modificacion' && ' Has solicitado una modificación. El administrador revisará tu solicitud y podrá habilitar la edición.'}
+            {convenio.status === 'aprobado' && ' Si necesitas realizar cambios, contacta al equipo administrativo para que inicie la corrección.'}
           </p>
         </div>
       </div>
-
-      {/* Modal de solicitud de modificación */}
-      <RequestModificationModal
-        isOpen={showRequestModal}
-        onClose={() => setShowRequestModal(false)}
-        convenioId={convenio.id}
-        convenioTitle={convenio.title}
-        onSuccess={() => {
-          // Actualizar la página o mostrar mensaje
-          window.location.reload();
-        }}
-      />
     </div>
   );
 }
