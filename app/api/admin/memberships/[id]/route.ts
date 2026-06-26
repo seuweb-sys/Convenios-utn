@@ -22,7 +22,7 @@ async function requireAdmin() {
     return { error: NextResponse.json({ error: "No autorizado" }, { status: 403 }) };
   }
 
-  return { supabase };
+  return { supabase, user };
 }
 
 export async function PATCH(
@@ -57,12 +57,68 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   const guard = await requireAdmin();
   if ("error" in guard) return guard.error;
-  const { supabase } = guard;
+  const { supabase, user } = guard;
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("profile_memberships")
+    .select("id, profile_id, membership_role, secretariat_id, career_id, org_unit_id, is_active")
+    .eq("id", params.id)
+    .single();
+
+  if (membershipError || !membership) {
+    return NextResponse.json({ error: "Membresía no encontrada" }, { status: 404 });
+  }
+
+  const { data: targetProfile, error: targetProfileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", membership.profile_id)
+    .single();
+
+  if (targetProfileError || !targetProfile) {
+    return NextResponse.json({ error: "Perfil no encontrado" }, { status: 404 });
+  }
+
+  if (targetProfile.role === "admin" && membership.is_active) {
+    const { data: siblingMemberships, error: siblingMembershipsError } = await supabase
+      .from("profile_memberships")
+      .select("id, is_active")
+      .eq("profile_id", membership.profile_id);
+
+    if (siblingMembershipsError) {
+      console.error("Error checking active admin memberships", siblingMembershipsError);
+      return NextResponse.json({ error: "Error al validar membresías activas" }, { status: 500 });
+    }
+
+    const activeMemberships = (siblingMemberships || []).filter((row: { is_active?: boolean }) => row.is_active !== false);
+    if (activeMemberships.length <= 1) {
+      return NextResponse.json(
+        {
+          error: "No se puede eliminar la última membresía activa de un administrador",
+          code: "LAST_ACTIVE_ADMIN_MEMBERSHIP",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
+  const { error: auditError } = await supabase
+    .from("profile_membership_correction_audit")
+    .insert({
+      correction_key: `admin_delete_membership:${membership.id}:${Date.now()}`,
+      profile_id: membership.profile_id,
+      previous_rows: [membership],
+    });
+
+  if (auditError) {
+    console.error("Error auditing membership deletion", auditError);
+    return NextResponse.json({ error: "Error al auditar la membresía" }, { status: 500 });
+  }
 
   const { error } = await supabase
     .from("profile_memberships")
@@ -72,6 +128,29 @@ export async function DELETE(
   if (error) {
     console.error("Error deleting membership", error);
     return NextResponse.json({ error: "Error al eliminar membresía" }, { status: 500 });
+  }
+
+  const { error: activityError } = await supabase
+    .from("activity_log")
+    .insert({
+      convenio_id: null,
+      user_id: user.id,
+      action: "admin_delete_membership",
+      status_from: membership.is_active ? "active" : "inactive",
+      status_to: "deleted",
+      metadata: {
+        membership_id: membership.id,
+        profile_id: membership.profile_id,
+        membership_role: membership.membership_role,
+        secretariat_id: membership.secretariat_id,
+        career_id: membership.career_id,
+        org_unit_id: membership.org_unit_id,
+      },
+      ip_address: request.headers.get("x-forwarded-for") || "unknown",
+    });
+
+  if (activityError) {
+    console.error("Error logging membership deletion", activityError);
   }
 
   return NextResponse.json({ success: true });

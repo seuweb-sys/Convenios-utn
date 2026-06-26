@@ -8,6 +8,11 @@ export interface MembershipScope {
   is_active?: boolean;
 }
 
+export type MembershipRuleCode =
+  | "SECRETARIO_REQUIRES_NULL_CAREER"
+  | "DIRECTOR_PROFESOR_REQUIRE_SA"
+  | "DIRECTOR_PROFESOR_REQUIRE_CAREER";
+
 export const PRACTICE_TYPE_IDS = new Set([1, 5]);
 
 export function isPracticeType(convenioTypeId: number) {
@@ -89,6 +94,79 @@ export function hasMembership(
   });
 }
 
+export function hasMembershipExact(
+  memberships: MembershipScope[],
+  role: MembershipRole,
+  secretariatId: string | null,
+  careerId: string | null = null,
+  orgUnitId: string | null = null,
+) {
+  return memberships.some((membership) => {
+    if ((membership.is_active ?? true) === false) return false;
+    return (
+      membership.membership_role === role &&
+      membership.secretariat_id === secretariatId &&
+      membership.career_id === careerId &&
+      membership.org_unit_id === orgUnitId
+    );
+  });
+}
+
+function hasValidSaScopedMembership(
+  memberships: MembershipScope[],
+  role: Extract<MembershipRole, "director" | "profesor">,
+  secretariatId: string,
+  careerId?: string | null,
+) {
+  if (careerId) {
+    return hasMembershipExact(memberships, role, secretariatId, careerId, null);
+  }
+
+  return memberships.some((membership) => {
+    if ((membership.is_active ?? true) === false) return false;
+    return (
+      membership.membership_role === role &&
+      membership.secretariat_id === secretariatId &&
+      membership.career_id !== null &&
+      membership.org_unit_id === null
+    );
+  });
+}
+
+export function validateMembershipScopeRule(input: {
+  membership_role: MembershipRole;
+  secretariatCode: string | null;
+  career_id: string | null;
+}) {
+  if (input.membership_role === "secretario" && input.career_id !== null) {
+    return {
+      valid: false as const,
+      code: "SECRETARIO_REQUIRES_NULL_CAREER" as const,
+      error: "La membresía secretario no admite carrera",
+    };
+  }
+
+  if (input.membership_role === "director" || input.membership_role === "profesor") {
+    if (input.secretariatCode !== "SA") {
+      return {
+        valid: false as const,
+        code: "DIRECTOR_PROFESOR_REQUIRE_SA" as const,
+        error: "Las membresías director/profesor solo pueden pertenecer a SA",
+      };
+    }
+
+    if (input.career_id === null) {
+      return {
+        valid: false as const,
+        code: "DIRECTOR_PROFESOR_REQUIRE_CAREER" as const,
+        error: "Las membresías director/profesor requieren carrera",
+      };
+    }
+  }
+
+  return { valid: true as const };
+}
+
 export interface CreateScopeInput {
   role: string;
   secretariatCode: string;
@@ -119,22 +197,21 @@ export function canCreateByMembershipMatrix(input: CreateScopeInput) {
     }
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
-      hasMembership(memberships, "director", secretariatId) ||
-      hasMembership(memberships, "profesor", secretariatId, careerId)
+      hasValidSaScopedMembership(memberships, "director", secretariatId, careerId) ||
+      hasValidSaScopedMembership(memberships, "profesor", secretariatId, careerId)
     );
   }
 
   if (secretariatCode === "SA") {
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
-      hasMembership(memberships, "director", secretariatId)
+      hasValidSaScopedMembership(memberships, "director", secretariatId, careerId)
     );
   }
 
   if (secretariatCode === "CYT") {
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
-      hasMembership(memberships, "director", secretariatId) ||
       (!!orgUnitId && hasMembership(memberships, "miembro", secretariatId, null, orgUnitId))
     );
   }
@@ -142,7 +219,6 @@ export function canCreateByMembershipMatrix(input: CreateScopeInput) {
   if (secretariatCode === "SEU") {
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
-      hasMembership(memberships, "director", secretariatId) ||
       (orgUnitId
         ? hasMembership(memberships, "miembro", secretariatId, null, orgUnitId)
         : hasMembership(memberships, "miembro", secretariatId))
@@ -152,7 +228,6 @@ export function canCreateByMembershipMatrix(input: CreateScopeInput) {
   if (secretariatCode === "SAU") {
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
-      hasMembership(memberships, "director", secretariatId) ||
       hasMembership(memberships, "miembro", secretariatId)
     );
   }

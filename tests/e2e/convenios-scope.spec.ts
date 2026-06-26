@@ -51,16 +51,15 @@ test.describe("Convenio classification scope", () => {
     await expectScopedClassificationLoaded(page);
   });
 
-  test("director outside SA has locked secretariat and disabled career", async ({ page }) => {
+  test("director fixture stays in SA and loads the ISI-scoped career", async ({ page }) => {
     test.skip(!hasRoleFixtures("director"), "Set director e2e credentials to run this test.");
 
     await login(page, getRoleCredentials("director")!);
     await openConvenioForm(page, "acuerdo");
 
-    const { secretariatValue } = await expectLockedNonSaClassification(page);
+    const { secretariatValue, careerValue } = await expectScopedClassificationLoaded(page);
     expect(secretariatValue).not.toBe("");
-    const orgUnitOptions = await page.locator("select").nth(2).locator("option").count();
-    expect(orgUnitOptions).toBeGreaterThan(1);
+    expect(careerValue).not.toBe("");
   });
 
   test("miembro outside SA selects an allowed CYT group", async ({ page }) => {

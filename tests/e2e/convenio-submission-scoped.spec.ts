@@ -6,9 +6,9 @@ import {
   openConvenioForm,
 } from "./helpers/auth";
 import {
-  expectLockedNonSaClassification,
   expectMockedSuccess,
   expectScopedPayload,
+  expectScopedClassificationLoaded,
   fillAcuerdoForm,
   interceptConvenioSubmission,
   selectOrgUnit,
@@ -19,14 +19,14 @@ const cytGroupLabel =
   "cinaptic - Centro de Investigación Aplicada en Tecnologías de la Información y Comunicación";
 
 test.describe("Scoped convenio submission", () => {
-  test("director submits non-SA convenio with secretariat scope and no career", async ({ page }) => {
+  test("director submits convenio with SA + career scope", async ({ page }) => {
     test.skip(!hasRoleFixtures("director"), "Set director e2e credentials to run this test.");
 
     const capture = await interceptConvenioSubmission(page);
 
     await login(page, getRoleCredentials("director")!);
     await openConvenioForm(page, "acuerdo");
-    const { secretariatValue, careerValue } = await expectLockedNonSaClassification(page);
+    const { secretariatValue, careerValue } = await expectScopedClassificationLoaded(page);
 
     await fillAcuerdoForm(page, "mocked-director-acuerdo");
     await submitFinalAction(page, /^Finalizar$/, /Enviar acuerdo/i);

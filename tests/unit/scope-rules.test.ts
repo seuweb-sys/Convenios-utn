@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  canCreateByMembershipMatrix,
   canUserToggleHiddenFromArea,
+  hasMembership,
+  hasMembershipExact,
   isPracticeType,
   normalizeAgreementYear,
   validatePracticeHistoricalUpdateRule,
@@ -78,5 +81,134 @@ describe("scope-rules (unit)", () => {
     expect(canUserToggleHiddenFromArea("decano", [], "sa")).toBe(true);
     expect(canUserToggleHiddenFromArea("profesor", memberships, "sa")).toBe(true);
     expect(canUserToggleHiddenFromArea("profesor", memberships, "cyt")).toBe(false);
+  });
+
+  it("keeps loose matching for legacy callers while exact matching requires the full membership scope", () => {
+    const memberships = [
+      {
+        membership_role: "director" as const,
+        secretariat_id: "sa",
+        career_id: "isi",
+        org_unit_id: null,
+        is_active: true,
+      },
+    ];
+
+    expect(hasMembership(memberships, "director", "sa")).toBe(true);
+    expect(hasMembershipExact(memberships, "director", "sa", "isi", null)).toBe(true);
+    expect(hasMembershipExact(memberships, "director", "sa", null, null)).toBe(false);
+  });
+
+  it("preserves CYT/SEU/SAU non-practice semantics while rejecting invalid director memberships", () => {
+    const cytMember = [
+      {
+        membership_role: "miembro" as const,
+        secretariat_id: "cyt",
+        career_id: null,
+        org_unit_id: "grp-1",
+        is_active: true,
+      },
+    ];
+    const seuMember = [
+      {
+        membership_role: "miembro" as const,
+        secretariat_id: "seu",
+        career_id: null,
+        org_unit_id: null,
+        is_active: true,
+      },
+    ];
+    const sauMember = [
+      {
+        membership_role: "miembro" as const,
+        secretariat_id: "sau",
+        career_id: null,
+        org_unit_id: null,
+        is_active: true,
+      },
+    ];
+    const invalidDirector = [
+      {
+        membership_role: "director" as const,
+        secretariat_id: "cyt",
+        career_id: null,
+        org_unit_id: null,
+        is_active: true,
+      },
+    ];
+
+    expect(
+      hasMembershipExact(
+        [
+          {
+            membership_role: "director",
+            secretariat_id: "sa",
+            career_id: "isi",
+            org_unit_id: null,
+            is_active: true,
+          },
+        ],
+        "director",
+        "sa",
+        "isi",
+        null,
+      ),
+    ).toBe(true);
+
+    expect(
+      canCreateByMembershipMatrix({
+        role: "user",
+        secretariatCode: "CYT",
+        secretariatId: "cyt",
+        careerId: null,
+        orgUnitId: "grp-1",
+        convenioTypeId: 2,
+        memberships: cytMember,
+      }),
+    ).toBe(true);
+    expect(
+      canCreateByMembershipMatrix({
+        role: "user",
+        secretariatCode: "SEU",
+        secretariatId: "seu",
+        careerId: null,
+        orgUnitId: null,
+        convenioTypeId: 2,
+        memberships: seuMember,
+      }),
+    ).toBe(true);
+    expect(
+      canCreateByMembershipMatrix({
+        role: "user",
+        secretariatCode: "SAU",
+        secretariatId: "sau",
+        careerId: null,
+        orgUnitId: null,
+        convenioTypeId: 2,
+        memberships: sauMember,
+      }),
+    ).toBe(true);
+    expect(
+      canCreateByMembershipMatrix({
+        role: "user",
+        secretariatCode: "CYT",
+        secretariatId: "cyt",
+        careerId: null,
+        orgUnitId: null,
+        convenioTypeId: 2,
+        memberships: invalidDirector,
+      }),
+    ).toBe(false);
+    expect(
+      canCreateByMembershipMatrix({
+        role: "user",
+        secretariatCode: "SA",
+        secretariatId: "sa",
+        careerId: "isi",
+        orgUnitId: null,
+        convenioTypeId: 2,
+        memberships: invalidDirector,
+      }),
+    ).toBe(false);
   });
 });

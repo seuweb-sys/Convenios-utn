@@ -140,7 +140,15 @@ export function computeConstrainedClassification(
     };
   }
 
-  const directors = m.filter((x) => x.membership_role === "director");
+  const directors = saSecretariatId
+    ? m.filter(
+        (x) =>
+          x.membership_role === "director" &&
+          x.secretariat_id === saSecretariatId &&
+          !!x.career_id &&
+          x.org_unit_id == null,
+      )
+    : [];
   if (directors.length > 0) {
     const saDirectors = saSecretariatId
       ? directors.filter((d) => d.secretariat_id === saSecretariatId)
@@ -159,26 +167,31 @@ export function computeConstrainedClassification(
       };
     }
 
-    const d = saSecretariatId
-      ? directors.find((x) => x.secretariat_id === saSecretariatId) ?? directors[0]
-      : directors[0];
+    const d = directors[0];
     if (!d.secretariat_id) {
       return fallbackMiembro(m, saSecretariatId);
     }
-    const isSa = saSecretariatId && d.secretariat_id === saSecretariatId;
     return {
       kind: "constrained",
       canChooseSecretariat: false,
       lockedSecretariatId: d.secretariat_id,
-      careerScope: isSa ? "all_sa" : "fixed",
-      lockedCareerId: null,
-      allowedCareerIds: null,
+      careerScope: directors.length > 1 ? "subset" : "fixed",
+      lockedCareerId: directors.length === 1 ? d.career_id : null,
+      allowedCareerIds: uniqueCareerIds(directors),
       orgUnitsForSecretariat: "all_active",
       effectiveRole: "director",
     };
   }
 
-  const profesores = m.filter((x) => x.membership_role === "profesor");
+  const profesores = saSecretariatId
+    ? m.filter(
+        (x) =>
+          x.membership_role === "profesor" &&
+          x.secretariat_id === saSecretariatId &&
+          !!x.career_id &&
+          x.org_unit_id == null,
+      )
+    : [];
   if (profesores.length > 0) {
     const inSa = saSecretariatId
       ? profesores.filter((p) => p.secretariat_id === saSecretariatId)
@@ -257,6 +270,59 @@ export function validateCreateClassification(
   saSecretariatId?: string | null,
 ): { ok: true } | { ok: false; error: string } {
   const practice = convenioTypeId === 1 || convenioTypeId === 5;
+  const requiresExactCareerOnAnyFlow =
+    constrained.kind === "constrained" &&
+    (constrained.effectiveRole === "director" || constrained.effectiveRole === "profesor");
+
+  const validateCareerScope = (
+    requireCareerMessage: string,
+  ): { ok: true } | { ok: false; error: string } => {
+    if (constrained.kind !== "constrained") {
+      return { ok: true };
+    }
+
+    if (constrained.careerScope === "all_sa") {
+      if (constrained.effectiveRole === "secretario" && !careerId) {
+        return { ok: true };
+      }
+      if (!careerId) {
+        return {
+          ok: false,
+          error: requireCareerMessage,
+        };
+      }
+      return { ok: true };
+    }
+
+    if (constrained.careerScope === "fixed") {
+      if (!constrained.lockedCareerId) {
+        return { ok: false, error: "Carrera no definida para tu rol" };
+      }
+      if (!careerId) {
+        return {
+          ok: false,
+          error: requireCareerMessage,
+        };
+      }
+      if (careerId !== constrained.lockedCareerId) {
+        return { ok: false, error: "No puedes asignar otra carrera" };
+      }
+      return { ok: true };
+    }
+
+    if (constrained.careerScope === "subset") {
+      if (!careerId || !constrained.allowedCareerIds?.includes(careerId)) {
+        return {
+          ok: false,
+          error: "Debes elegir una carrera de tu ámbito",
+        };
+      }
+      return { ok: true };
+    }
+
+    return { ok: true };
+  };
+
   if (constrained.kind === "full") {
     if (practice && !careerId) {
       return {
@@ -294,41 +360,14 @@ export function validateCreateClassification(
     }
 
     if (constrained.careerScope === "all_sa") {
-      if (constrained.effectiveRole === "secretario" && !careerId) {
-        return { ok: true };
-      }
-      if (!careerId) {
-        return {
-          ok: false,
-          error: "Para convenios de práctica, debes seleccionar una carrera",
-        };
-      }
-      return { ok: true };
+      return validateCareerScope("Para convenios de práctica, debes seleccionar una carrera");
     }
-    if (constrained.careerScope === "fixed") {
-      if (!constrained.lockedCareerId) {
-        return { ok: false, error: "Carrera no definida para tu rol" };
-      }
-      if (!careerId) {
-        return {
-          ok: false,
-          error: "Para convenios de práctica, debes seleccionar una carrera",
-        };
-      }
-      if (careerId !== constrained.lockedCareerId) {
-        return { ok: false, error: "No puedes asignar otra carrera" };
-      }
-      return { ok: true };
-    }
-    if (constrained.careerScope === "subset") {
-      if (!careerId || !constrained.allowedCareerIds?.includes(careerId)) {
-        return {
-          ok: false,
-          error: "Debes elegir una carrera de tu ámbito",
-        };
-      }
-      return { ok: true };
-    }
+
+    return validateCareerScope("Para convenios de práctica, debes seleccionar una carrera");
+  }
+
+  if (requiresExactCareerOnAnyFlow) {
+    return validateCareerScope("Debes seleccionar una carrera de tu ámbito");
   }
 
   return { ok: true };

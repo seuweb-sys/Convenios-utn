@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { validateMembershipScopeRule } from "@/app/lib/authz/scope-rules";
 import { createClient } from "@/utils/supabase/server";
 
 async function requireAdmin() {
@@ -128,6 +129,34 @@ export async function POST(request: Request) {
     org_unit_id: body.org_unit_id || null,
     is_active: body.is_active ?? true,
   };
+
+  let secretariatCode: string | null = null;
+  if (payload.secretariat_id) {
+    const { data: secretariat, error: secretariatError } = await supabase
+      .from("secretariats")
+      .select("code")
+      .eq("id", payload.secretariat_id)
+      .single();
+
+    if (secretariatError || !secretariat) {
+      return NextResponse.json({ error: "secretariat_id inválido" }, { status: 400 });
+    }
+
+    secretariatCode = secretariat.code;
+  }
+
+  const validation = validateMembershipScopeRule({
+    membership_role: payload.membership_role,
+    secretariatCode,
+    career_id: payload.career_id,
+  });
+
+  if (!validation.valid) {
+    return NextResponse.json(
+      { error: validation.error, code: validation.code },
+      { status: 422 },
+    );
+  }
 
   const { data, error } = await supabase
     .from("profile_memberships")

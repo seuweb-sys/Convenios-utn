@@ -102,6 +102,31 @@ describe("classification scope", () => {
     );
   });
 
+  it("director/profesor in SA cannot create non-practice outside their career", () => {
+    for (const membership_role of ["director", "profesor"] as const) {
+      const memberships = [
+        {
+          membership_role,
+          secretariat_id: SA,
+          career_id: "c1",
+          org_unit_id: null,
+          is_active: true,
+        },
+      ];
+
+      const r = computeConstrainedClassification("user", memberships, SA);
+      expect(r.kind).toBe("constrained");
+      if (r.kind !== "constrained") continue;
+
+      expect(validateCreateClassification(r, SA, "c1", 2, memberships, SA).ok).toBe(
+        true,
+      );
+      expect(validateCreateClassification(r, SA, "c2", 2, memberships, SA).ok).toBe(
+        false,
+      );
+    }
+  });
+
   it("profesor with two careers gets subset", () => {
     const r = computeConstrainedClassification(
       "user",
@@ -179,7 +204,7 @@ describe("classification scope", () => {
     expect(r.careerScope).toBe("all_sa");
   });
 
-  it("director outside SA does not use career input", () => {
+  it("ignores invalid director memberships outside SA", () => {
     const r = computeConstrainedClassification(
       "user",
       [
@@ -195,9 +220,10 @@ describe("classification scope", () => {
     );
     expect(r.kind).toBe("constrained");
     if (r.kind !== "constrained") return;
+    expect(r.effectiveRole).toBe("miembro");
     expect(r.lockedSecretariatId).toBe("cyt-id");
     expect(r.lockedCareerId).toBeNull();
-    expect(r.orgUnitsForSecretariat).toBe("all_active");
+    expect(r.orgUnitsForSecretariat).toBe("membership_only");
     expect(validateCreateClassification(r, "cyt-id", null, 2).ok).toBe(true);
   });
 });

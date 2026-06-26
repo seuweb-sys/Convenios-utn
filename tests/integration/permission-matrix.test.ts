@@ -30,7 +30,7 @@ describe("permission matrix (integration)", () => {
       {
         membership_role: "director",
         secretariat_id: "sa-id",
-        career_id: null,
+        career_id: "career-a",
         org_unit_id: null,
       },
     ];
@@ -76,7 +76,7 @@ describe("permission matrix (integration)", () => {
       {
         membership_role: "director",
         secretariat_id: "sa-id",
-        career_id: null,
+        career_id: "career-a",
         org_unit_id: null,
       },
     ];
@@ -114,7 +114,53 @@ describe("permission matrix (integration)", () => {
       memberships,
     });
 
-    expect(result).toBe(true);
+    expect(result).toBe(false);
+  });
+
+  it("rejects SA director memberships without a career for non-practice", () => {
+    const memberships: MembershipScope[] = [
+      {
+        membership_role: "director",
+        secretariat_id: "sa-id",
+        career_id: null,
+        org_unit_id: null,
+      },
+    ];
+
+    const result = canCreateByMembershipMatrix({
+      role: "user",
+      secretariatCode: "SA",
+      secretariatId: "sa-id",
+      careerId: "career-a",
+      orgUnitId: null,
+      convenioTypeId: 2,
+      memberships,
+    });
+
+    expect(result).toBe(false);
+  });
+
+  it("rejects SA director memberships without a career for practice", () => {
+    const memberships: MembershipScope[] = [
+      {
+        membership_role: "director",
+        secretariat_id: "sa-id",
+        career_id: null,
+        org_unit_id: null,
+      },
+    ];
+
+    const result = canCreateByMembershipMatrix({
+      role: "user",
+      secretariatCode: "SA",
+      secretariatId: "sa-id",
+      careerId: "career-a",
+      orgUnitId: null,
+      convenioTypeId: 1,
+      memberships,
+    });
+
+    expect(result).toBe(false);
   });
 
   it("requires CyT group for member creation", () => {
