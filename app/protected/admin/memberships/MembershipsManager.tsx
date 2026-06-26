@@ -3,8 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/app/components/ui/button";
 import { formatOrgUnitLabel } from "@/lib/org-unit-label";
-
-type MembershipRole = "secretario" | "director" | "profesor" | "miembro";
+import { type MembershipRole } from "@/app/lib/authz/scope-rules";
+import {
+  resolveCareerAfterRoleChange,
+  resolveEnforcedSecretariat,
+  resolveMembershipRuleMessage,
+  resolveRoleControls,
+  resolveSubmitValidation,
+} from "@/app/protected/admin/memberships/membership-form-rules";
 
 interface MembershipRecord {
   id: string;
@@ -47,7 +53,9 @@ const MEMBERSHIP_ROLES: MembershipRole[] = ["secretario", "director", "profesor"
 export function MembershipsManager() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [payload, setPayload] = useState<MembershipsPayload>({
     users: [],
     secretariats: [],
@@ -60,6 +68,25 @@ export function MembershipsManager() {
   const [secretariatId, setSecretariatId] = useState("");
   const [careerId, setCareerId] = useState("");
   const [orgUnitId, setOrgUnitId] = useState("");
+
+  const saSecretariatId = useMemo(
+    () => payload.secretariats.find((s) => s.code === "SA")?.id ?? null,
+    [payload.secretariats],
+  );
+
+  const controls = useMemo(() => resolveRoleControls(membershipRole), [membershipRole]);
+
+  // Lock the secretariat to SA for director/profesor once the SA id is known,
+  // and keep it in sync when the admin switches roles.
+  useEffect(() => {
+    setSecretariatId((prev) =>
+      resolveEnforcedSecretariat({
+        role: membershipRole,
+        saSecretariatId,
+        currentSecretariatId: prev,
+      }),
+    );
+  }, [membershipRole, saSecretariatId]);
 
   const selectedSecretariatCode = useMemo(() => {
     const sec = payload.secretariats.find((s) => s.id === secretariatId);
@@ -75,6 +102,17 @@ export function MembershipsManager() {
     if (selectedSecretariatCode !== "SA") return [];
     return payload.careers;
   }, [selectedSecretariatCode, payload.careers]);
+
+  const validation = useMemo(
+    () =>
+      resolveSubmitValidation({
+        role: membershipRole,
+        secretariatId,
+        secretariatCode: selectedSecretariatCode || null,
+        careerId: careerId || null,
+      }),
+    [membershipRole, secretariatId, selectedSecretariatCode, careerId],
+  );
 
   const load = async () => {
     try {
@@ -107,13 +145,26 @@ export function MembershipsManager() {
     setOrgUnitId("");
   };
 
+  const onRoleChange = (role: MembershipRole) => {
+    setMembershipRole(role);
+    // Clear the career for secretario and reset the subarea so the locked
+    // SA career-scoped form stays unambiguous.
+    setCareerId((prev) => resolveCareerAfterRoleChange({ role, currentCareerId: prev }));
+    setOrgUnitId("");
+  };
+
   const createMembership = async () => {
     if (!profileId) {
       setError("Selecciona un usuario");
       return;
     }
+    if (!validation.canSubmit) {
+      setError(validation.error || "Revisá los campos de la membresía");
+      return;
+    }
     setSaving(true);
     setError(null);
+    setFeedback(null);
     try {
       const res = await fetch("/api/admin/memberships", {
         method: "POST",
@@ -129,8 +180,11 @@ export function MembershipsManager() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "No se pudo crear la membresía");
+        const message =
+          resolveMembershipRuleMessage(data.code) ?? data.error ?? "No se pudo crear la membresía";
+        throw new Error(message);
       }
+      setFeedback("Membresía creada.");
       resetForm();
       await load();
     } catch (e: any) {
@@ -157,90 +211,164 @@ export function MembershipsManager() {
     }
   };
 
+  const deleteMembership = async (membership: MembershipRecord) => {
+    const label = membership.profiles?.full_name || membership.profile_id.slice(0, 8);
+    const confirmed = window.confirm(
+      `¿Eliminar la membresía ${membership.membership_role} de ${label}?\nEsta acción no se puede deshacer y se audita.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingId(membership.id);
+    setError(null);
+    setFeedback(null);
+    try {
+      const res = await fetch(`/api/admin/memberships/${membership.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          resolveMembershipRuleMessage(data.code) ?? data.error ?? "No se pudo eliminar la membresía";
+        throw new Error(message);
+      }
+      setFeedback("Membresía eliminada (auditoría registrada).");
+      await load();
+    } catch (e: any) {
+      setError(e.message || "Error inesperado");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return <div className="p-4 text-sm text-muted-foreground">Cargando membresías...</div>;
   }
+
+  const canSubmit = !!profileId && validation.canSubmit;
 
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border/60 bg-card/80 p-4">
         <h3 className="text-lg font-semibold mb-3">Asignar membresía</h3>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={profileId}
-            onChange={(e) => setProfileId(e.target.value)}
-          >
-            <option value="">Usuario</option>
-            {payload.users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.full_name || u.id.slice(0, 8)} ({u.role})
-              </option>
-            ))}
-          </select>
+          <label className="flex flex-col gap-1 text-sm">
+            <span>Usuario</span>
+            <select
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+              value={profileId}
+              onChange={(e) => setProfileId(e.target.value)}
+            >
+              <option value="">Usuario</option>
+              {payload.users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.full_name || u.id.slice(0, 8)} ({u.role})
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={membershipRole}
-            onChange={(e) => setMembershipRole(e.target.value as MembershipRole)}
-          >
-            {MEMBERSHIP_ROLES.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
+          <label className="flex flex-col gap-1 text-sm">
+            <span>Rol membresía{controls.secretariatRequired || controls.careerRequired ? " *" : ""}</span>
+            <select
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+              value={membershipRole}
+              onChange={(e) => onRoleChange(e.target.value as MembershipRole)}
+            >
+              {MEMBERSHIP_ROLES.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={secretariatId}
-            onChange={(e) => {
-              setSecretariatId(e.target.value);
-              setCareerId("");
-              setOrgUnitId("");
-            }}
-          >
-            <option value="">Secretaría</option>
-            {payload.secretariats.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.code} - {s.name}
-              </option>
-            ))}
-          </select>
+          <label className="flex flex-col gap-1 text-sm">
+            <span>Secretaría{controls.secretariatRequired ? " *" : ""}</span>
+            <select
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+              value={secretariatId}
+              disabled={controls.secretariatLockedToSA}
+              onChange={(e) => {
+                setSecretariatId(e.target.value);
+                setCareerId("");
+                setOrgUnitId("");
+              }}
+            >
+              <option value="">Secretaría</option>
+              {payload.secretariats.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.code} - {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={careerId}
-            onChange={(e) => setCareerId(e.target.value)}
-            disabled={selectedSecretariatCode !== "SA"}
-          >
-            <option value="">Carrera (opcional)</option>
-            {filteredCareers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.code ? `${c.code} - ` : ""}{c.name}
-              </option>
-            ))}
-          </select>
+          <label className="flex flex-col gap-1 text-sm">
+            <span>
+              Carrera
+              {controls.careerRequired ? " *" : controls.careerDisabled ? " (opcional)" : ""}
+            </span>
+            <select
+              className={
+                "rounded-md border border-border bg-background px-3 py-2 text-sm " +
+                (controls.careerDisabled ? "opacity-60" : "")
+              }
+              value={careerId}
+              disabled={controls.careerDisabled || selectedSecretariatCode !== "SA"}
+              onChange={(e) => setCareerId(e.target.value)}
+            >
+              <option value="">{controls.careerRequired ? "Carrera requerida" : "Carrera (opcional)"}</option>
+              {filteredCareers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code ? `${c.code} - ` : ""}
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={orgUnitId}
-            onChange={(e) => setOrgUnitId(e.target.value)}
-          >
-            <option value="">Subárea (opcional)</option>
-            {filteredOrgUnits.map((ou) => (
-              <option key={ou.id} value={ou.id}>
-                {formatOrgUnitLabel(ou)}
-              </option>
-            ))}
-          </select>
+          <label className="flex flex-col gap-1 text-sm">
+            <span>Subárea (opcional)</span>
+            <select
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+              value={orgUnitId}
+              disabled={controls.secretariatLockedToSA}
+              onChange={(e) => setOrgUnitId(e.target.value)}
+            >
+              <option value="">Subárea (opcional)</option>
+              {filteredOrgUnits.map((ou) => (
+                <option key={ou.id} value={ou.id}>
+                  {formatOrgUnitLabel(ou)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <div className="mt-3 flex justify-end">
-          <Button onClick={createMembership} disabled={saving}>
+
+        {controls.helperText && (
+          <p className="mt-3 text-xs text-muted-foreground" role="note">
+            {controls.helperText}
+          </p>
+        )}
+
+        <div className="mt-3 flex items-center justify-end gap-3">
+          {!validation.canSubmit && validation.error && (
+            <span className="text-xs text-red-600" role="alert">
+              {validation.error}
+            </span>
+          )}
+          <Button onClick={createMembership} disabled={saving || !canSubmit}>
             {saving ? "Guardando..." : "Agregar membresía"}
           </Button>
         </div>
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="mt-2 text-sm text-red-600" role="alert">
+            {error}
+          </p>
+        )}
+        {feedback && (
+          <p className="mt-2 text-sm text-green-600" role="status">
+            {feedback}
+          </p>
+        )}
       </div>
 
       <div className="rounded-lg border border-border/60 bg-card/80 p-4">
@@ -272,13 +400,23 @@ export function MembershipsManager() {
                   </td>
                   <td className="py-2 pr-2">{m.is_active ? "Activa" : "Inactiva"}</td>
                   <td className="py-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleMembership(m.id, m.is_active)}
-                    >
-                      {m.is_active ? "Desactivar" : "Activar"}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleMembership(m.id, m.is_active)}
+                      >
+                        {m.is_active ? "Desactivar" : "Activar"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteMembership(m)}
+                        disabled={deletingId === m.id}
+                      >
+                        {deletingId === m.id ? "Eliminando..." : "Eliminar"}
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

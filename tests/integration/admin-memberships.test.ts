@@ -149,7 +149,7 @@ describe("admin memberships routes", () => {
     const ctx = createMembershipAdminSupabaseDouble({ secretariatCodeById: { "cyt-id": "CYT" } });
     mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
 
-    const response = await POST(
+    const response = (await POST(
       new Request("http://localhost/api/admin/memberships", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -162,7 +162,7 @@ describe("admin memberships routes", () => {
           is_active: true,
         }),
       }),
-    );
+    ))!;
 
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({
@@ -175,7 +175,7 @@ describe("admin memberships routes", () => {
     const ctx = createMembershipAdminSupabaseDouble();
     mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
 
-    const response = await POST(
+    const response = (await POST(
       new Request("http://localhost/api/admin/memberships", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,7 +188,7 @@ describe("admin memberships routes", () => {
           is_active: true,
         }),
       }),
-    );
+    ))!;
 
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toMatchObject({
@@ -204,9 +204,9 @@ describe("admin memberships routes", () => {
     });
     mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
 
-    const response = await DELETE(new Request("http://localhost/api/admin/memberships/membership-1", { method: "DELETE" }), {
+    const response = (await DELETE(new Request("http://localhost/api/admin/memberships/membership-1", { method: "DELETE" }), {
       params: { id: "membership-1" },
-    });
+    }))!;
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({
@@ -226,13 +226,13 @@ describe("admin memberships routes", () => {
     });
     mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
 
-    const response = await DELETE(
+    const response = (await DELETE(
       new Request("http://localhost/api/admin/memberships/membership-1", {
         method: "DELETE",
         headers: { "x-forwarded-for": "127.0.0.1" },
       }),
       { params: { id: "membership-1" } },
-    );
+    ))!;
 
     expect(response.status).toBe(200);
     expect(ctx.calls.auditInserts[0]).toMatchObject({
@@ -252,14 +252,14 @@ describe("admin memberships routes", () => {
     const ctx = createMembershipAdminSupabaseDouble();
     mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
 
-    const response = await PATCH(
+    const response = (await PATCH(
       new Request("http://localhost/api/admin/memberships/membership-1", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_active: false }),
       }),
       { params: { id: "membership-1" } },
-    );
+    ))!;
 
     expect(response.status).toBe(200);
   });

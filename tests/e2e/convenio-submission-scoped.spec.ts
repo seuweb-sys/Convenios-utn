@@ -6,6 +6,7 @@ import {
   openConvenioForm,
 } from "./helpers/auth";
 import {
+  expectLockedNonSaClassification,
   expectMockedSuccess,
   expectScopedPayload,
   expectScopedClassificationLoaded,
