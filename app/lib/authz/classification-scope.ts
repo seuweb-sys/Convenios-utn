@@ -12,6 +12,8 @@ export type MembershipRow = {
   is_active?: boolean;
 };
 
+type PracticeCreatorRole = "secretario" | "director" | "profesor";
+
 /** Resultado para usuarios no admin/decano; admin usa kind "full". */
 export type ConstrainedClassification =
   | {
@@ -30,6 +32,47 @@ export type ConstrainedClassification =
 
 const ACTIVE = (m: MembershipRow) => (m.is_active ?? true) !== false;
 
+function uniqueCareerIds(rows: MembershipRow[]) {
+  return Array.from(
+    new Set(rows.map((row) => row.career_id).filter((id): id is string => !!id)),
+  );
+}
+
+function hasExactActiveMembership(
+  memberships: MembershipRow[],
+  role: PracticeCreatorRole,
+  secretariatId: string,
+  careerId: string | null,
+  orgUnitId: string | null,
+) {
+  return memberships.some(
+    (membership) =>
+      ACTIVE(membership) &&
+      membership.membership_role === role &&
+      membership.secretariat_id === secretariatId &&
+      membership.career_id === careerId &&
+      membership.org_unit_id === orgUnitId,
+  );
+}
+
+function canCreateSaPracticeWithExactMemberships(
+  memberships: MembershipRow[],
+  secretariatId: string,
+  careerId: string | null,
+) {
+  if (hasExactActiveMembership(memberships, "secretario", secretariatId, null, null)) {
+    return true;
+  }
+
+  if (!careerId) {
+    return false;
+  }
+
+  return (["secretario", "director", "profesor"] as const).some((role) =>
+    hasExactActiveMembership(memberships, role, secretariatId, careerId, null),
+  );
+}
+
 /** Prioridad: secretario > director > profesor > miembro */
 export function computeConstrainedClassification(
   profileRole: string,
@@ -44,6 +87,39 @@ export function computeConstrainedClassification(
 
   const secretarios = m.filter((x) => x.membership_role === "secretario");
   if (secretarios.length > 0) {
+    const saSecretarios = saSecretariatId
+      ? secretarios.filter((s) => s.secretariat_id === saSecretariatId)
+      : [];
+    if (saSecretariatId && saSecretarios.length > 0) {
+      const hasSaWideSecretario = saSecretarios.some((s) => s.career_id == null);
+      if (hasSaWideSecretario) {
+        return {
+          kind: "constrained",
+          canChooseSecretariat: false,
+          lockedSecretariatId: saSecretariatId,
+          careerScope: "all_sa",
+          lockedCareerId: null,
+          allowedCareerIds: null,
+          orgUnitsForSecretariat: "membership_only",
+          effectiveRole: "secretario",
+        };
+      }
+
+      const saCareerIds = uniqueCareerIds(saSecretarios);
+      if (saCareerIds.length > 0) {
+        return {
+          kind: "constrained",
+          canChooseSecretariat: false,
+          lockedSecretariatId: saSecretariatId,
+          careerScope: saCareerIds.length === 1 ? "fixed" : "subset",
+          lockedCareerId: saCareerIds.length === 1 ? saCareerIds[0] : null,
+          allowedCareerIds: saCareerIds,
+          orgUnitsForSecretariat: "membership_only",
+          effectiveRole: "secretario",
+        };
+      }
+    }
+
     const preferSa = saSecretariatId
       ? secretarios.find((s) => s.secretariat_id === saSecretariatId)
       : undefined;
@@ -66,6 +142,23 @@ export function computeConstrainedClassification(
 
   const directors = m.filter((x) => x.membership_role === "director");
   if (directors.length > 0) {
+    const saDirectors = saSecretariatId
+      ? directors.filter((d) => d.secretariat_id === saSecretariatId)
+      : [];
+    if (saSecretariatId && saDirectors.length > 0) {
+      const saCareerIds = uniqueCareerIds(saDirectors);
+      return {
+        kind: "constrained",
+        canChooseSecretariat: false,
+        lockedSecretariatId: saSecretariatId,
+        careerScope: saCareerIds.length > 1 ? "subset" : "fixed",
+        lockedCareerId: saCareerIds.length === 1 ? saCareerIds[0] : null,
+        allowedCareerIds: saCareerIds.length > 0 ? saCareerIds : null,
+        orgUnitsForSecretariat: "all_active",
+        effectiveRole: "director",
+      };
+    }
+
     const d = saSecretariatId
       ? directors.find((x) => x.secretariat_id === saSecretariatId) ?? directors[0]
       : directors[0];
@@ -159,7 +252,9 @@ export function validateCreateClassification(
   constrained: ConstrainedClassification,
   secretariatId: string,
   careerId: string | null,
-  convenioTypeId: number
+  convenioTypeId: number,
+  memberships?: MembershipRow[],
+  saSecretariatId?: string | null,
 ): { ok: true } | { ok: false; error: string } {
   const practice = convenioTypeId === 1 || convenioTypeId === 5;
   if (constrained.kind === "full") {
@@ -183,6 +278,21 @@ export function validateCreateClassification(
   }
 
   if (practice) {
+    if (memberships && saSecretariatId && secretariatId === saSecretariatId) {
+      if (canCreateSaPracticeWithExactMemberships(memberships, secretariatId, careerId)) {
+        return { ok: true };
+      }
+
+      if (!careerId) {
+        return {
+          ok: false,
+          error: "Para convenios de práctica, debes seleccionar una carrera",
+        };
+      }
+
+      return { ok: false, error: "No puedes asignar otra carrera" };
+    }
+
     if (constrained.careerScope === "all_sa") {
       if (constrained.effectiveRole === "secretario" && !careerId) {
         return { ok: true };

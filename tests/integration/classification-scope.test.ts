@@ -18,18 +18,19 @@ describe("classification scope", () => {
     expect(validateCreateClassification(r, SA, "c1", 1).ok).toBe(true);
   });
 
-  it("SA secretario gets all_sa careers and locked SA", () => {
+  it("SA-wide secretario (career_id null) gets all_sa careers and locked SA", () => {
+    const memberships = [
+      {
+        membership_role: "secretario" as const,
+        secretariat_id: SA,
+        career_id: null,
+        org_unit_id: null,
+        is_active: true,
+      },
+    ];
     const r = computeConstrainedClassification(
       "user",
-      [
-        {
-          membership_role: "secretario",
-          secretariat_id: SA,
-          career_id: null,
-          org_unit_id: null,
-          is_active: true,
-        },
-      ],
+      memberships,
       SA
     );
     expect(r.kind).toBe("constrained");
@@ -37,29 +38,68 @@ describe("classification scope", () => {
     expect(r.lockedSecretariatId).toBe(SA);
     expect(r.careerScope).toBe("all_sa");
     expect(r.canChooseSecretariat).toBe(false);
+    expect(validateCreateClassification(r, SA, null, 1, memberships, SA).ok).toBe(
+      true,
+    );
+    expect(validateCreateClassification(r, SA, "c1", 1, memberships, SA).ok).toBe(
+      true,
+    );
   });
 
-  it("director in SA can choose any SA career for practice", () => {
+  it("career-scoped secretario can only create same-career practice in SA", () => {
+    const memberships = [
+      {
+        membership_role: "secretario" as const,
+        secretariat_id: SA,
+        career_id: "c1",
+        org_unit_id: null,
+        is_active: true,
+      },
+    ];
     const r = computeConstrainedClassification(
       "user",
-      [
-        {
-          membership_role: "director",
-          secretariat_id: SA,
-          career_id: "c1",
-          org_unit_id: null,
-          is_active: true,
-        },
-      ],
+      memberships,
       SA
     );
     expect(r.kind).toBe("constrained");
     if (r.kind !== "constrained") return;
-    expect(r.careerScope).toBe("all_sa");
-    expect(r.lockedCareerId).toBeNull();
-    expect(validateCreateClassification(r, SA, "c1", 1).ok).toBe(true);
-    expect(validateCreateClassification(r, SA, "c2", 1).ok).toBe(true);
-    expect(validateCreateClassification(r, SA, null, 1).ok).toBe(false);
+    expect(r.careerScope).toBe("fixed");
+    expect(r.lockedCareerId).toBe("c1");
+    expect(validateCreateClassification(r, SA, "c1", 1, memberships, SA).ok).toBe(
+      true,
+    );
+    expect(validateCreateClassification(r, SA, "c2", 1, memberships, SA).ok).toBe(
+      false,
+    );
+    expect(validateCreateClassification(r, SA, null, 1, memberships, SA).ok).toBe(
+      false,
+    );
+  });
+
+  it("director in SA remains exact-career only for practice", () => {
+    const memberships = [
+      {
+        membership_role: "director" as const,
+        secretariat_id: SA,
+        career_id: "c1",
+        org_unit_id: null,
+        is_active: true,
+      },
+    ];
+    const r = computeConstrainedClassification("user", memberships, SA);
+    expect(r.kind).toBe("constrained");
+    if (r.kind !== "constrained") return;
+    expect(r.careerScope).toBe("fixed");
+    expect(r.lockedCareerId).toBe("c1");
+    expect(validateCreateClassification(r, SA, "c1", 1, memberships, SA).ok).toBe(
+      true,
+    );
+    expect(validateCreateClassification(r, SA, "c2", 1, memberships, SA).ok).toBe(
+      false,
+    );
+    expect(validateCreateClassification(r, SA, null, 1, memberships, SA).ok).toBe(
+      false,
+    );
   });
 
   it("profesor with two careers gets subset", () => {
@@ -91,23 +131,26 @@ describe("classification scope", () => {
     expect(validateCreateClassification(r, SA, "c3", 1).ok).toBe(false);
   });
 
-  it("secretario may omit career on practice (validate)", () => {
+  it("SA-wide secretario may still omit career on practice (validate)", () => {
+    const memberships = [
+      {
+        membership_role: "secretario" as const,
+        secretariat_id: SA,
+        career_id: null,
+        org_unit_id: null,
+        is_active: true,
+      },
+    ];
     const r = computeConstrainedClassification(
       "user",
-      [
-        {
-          membership_role: "secretario",
-          secretariat_id: SA,
-          career_id: null,
-          org_unit_id: null,
-          is_active: true,
-        },
-      ],
+      memberships,
       SA
     );
     expect(r.kind).toBe("constrained");
     if (r.kind !== "constrained") return;
-    expect(validateCreateClassification(r, SA, null, 1).ok).toBe(true);
+    expect(validateCreateClassification(r, SA, null, 1, memberships, SA).ok).toBe(
+      true,
+    );
   });
 
   it("secretario wins over director membership", () => {

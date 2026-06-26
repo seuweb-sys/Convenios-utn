@@ -452,7 +452,9 @@ export async function PATCH(
         constrained,
         requestedSecretariatId,
         requestedCareerId,
-        convenio.convenio_type_id
+        convenio.convenio_type_id,
+        (memRows || []) as MembershipRow[],
+        saRow?.id ?? null,
       );
       if (!scopeCheck.ok) {
         return NextResponse.json({ error: scopeCheck.error }, { status: 400 });

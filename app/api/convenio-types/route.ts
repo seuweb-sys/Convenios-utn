@@ -4,7 +4,8 @@ import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from 'next/server';
 // Asumimos que estas utilidades no dependen del contexto de React y pueden importarse aquí
 // Si dependen de React, habrá que ajustar o no usarlas en la API.
-import { getIconForType, getColorForType } from "@/app/lib/dashboard/utils"; 
+import { getIconForType, getColorForType } from "@/app/lib/dashboard/utils";
+import { canonicalConvenioTypeName } from "@/app/lib/convenios/type-normalization"; 
 
 // Definimos la interfaz aquí también para claridad
 export interface ConvenioTypeApiData {
@@ -96,18 +97,24 @@ export async function GET() {
       // Si no hay datos, usamos los de fallback
       responseData = defaultConvenioTypes;
     } else {
-      // Transformamos los datos de la DB al formato de la API
-      responseData = data.map(type => ({
-        id: type.id,
-        title: type.name,
-        description: type.description || "Sin descripción",
-        iconName: type.name.toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // Remover acentos
-          .replace(/ /g, '-'), // Reemplazar espacios con guiones
-        colorName: type.name,
-        previewUrl: `/protected/convenio-types/${type.id}/preview`
-      }));
+      // Transformamos los datos de la DB al formato de la API.
+      // El título y el colorName usan el nombre canónico (acentuado) del helper
+      // compartido para que "Convenio Marco Practica Supervisada" (sin acento en
+      // la DB) colapse a "Convenio Marco Práctica Supervisada".
+      responseData = data.map(type => {
+        const canonicalName = canonicalConvenioTypeName(type.id, type.name);
+        return {
+          id: type.id,
+          title: canonicalName,
+          description: type.description || "Sin descripción",
+          iconName: type.name.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+            .replace(/ /g, '-'), // Reemplazar espacios con guiones
+          colorName: canonicalName,
+          previewUrl: `/protected/convenio-types/${type.id}/preview`
+        };
+      });
     }
     
     // if (!data || data.length === 0) {

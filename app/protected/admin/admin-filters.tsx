@@ -23,6 +23,10 @@ import {
   getUploadYearLocal,
   type AgreementYearFilterValue,
 } from "@/app/lib/admin/convenio-year-filters";
+import {
+  canonicalConvenioTypeName,
+  resolveConvenioTypeIdByAlias,
+} from "@/app/lib/convenios/type-normalization";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -74,10 +78,6 @@ const tipoConvenioUI: Record<string, { icon: React.ReactNode; color: string }> =
     icon: <BriefcaseIcon className="h-7 w-7 text-green-500" />,
     color: "bg-green-100 dark:bg-green-900/20",
   },
-  "Acuerdo de Colaboracion": {
-    icon: <HeartHandshake className="h-7 w-7 text-red-500" />,
-    color: "bg-red-100 dark:bg-red-900/20",
-  },
   "Acuerdo de Colaboración": {
     icon: <HeartHandshake className="h-7 w-7 text-red-500" />,
     color: "bg-red-100 dark:bg-red-900/20",
@@ -91,6 +91,17 @@ function resolveTipoUI(typeName: string) {
       color: "",
     }
   );
+}
+
+/**
+ * Collapse raw `convenio_types.name` (accented or unaccented DB spelling) into a
+ * single canonical key so accented/unaccented Marco PPS render and count as one.
+ */
+function canonicalTypeOf(row: any): string {
+  const rawName = row?.convenio_types?.name;
+  if (typeof rawName !== "string") return "Sin tipo";
+  const typeId = resolveConvenioTypeIdByAlias(rawName);
+  return canonicalConvenioTypeName(typeId, rawName);
 }
 
 export function AdminFilters({
@@ -144,7 +155,7 @@ export function AdminFilters({
   );
 
   const availableTypes = Array.from(
-    new Set(data.map((item: any) => (item as any).convenio_types?.name).filter(Boolean))
+    new Set(data.map((item: any) => canonicalTypeOf(item)).filter((t) => t !== "Sin tipo"))
   );
 
   const getStatusCount = (status: string) => {
@@ -152,8 +163,7 @@ export function AdminFilters({
   };
 
   const getTypeCount = (type: string) => {
-    return data.filter((item: any) => (item as any).convenio_types?.name === type)
-      .length;
+    return data.filter((item: any) => canonicalTypeOf(item) === type).length;
   };
 
   const getCareerCount = (careerId: string) => {

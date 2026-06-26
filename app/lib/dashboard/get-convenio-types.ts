@@ -3,6 +3,7 @@ import { getIconForType, getColorForType } from "./utils";
 import type { ConvenioTypeApiData } from "@/app/api/convenio-types/route";
 import { getApiUrl } from "../utils/api";
 import { headers } from 'next/headers';
+import { canonicalConvenioTypeName } from "@/app/lib/convenios/type-normalization";
 
 export interface ConvenioTypeData {
   id: number;
@@ -101,14 +102,19 @@ export async function getConvenioTypes(): Promise<ConvenioTypeData[]> {
       }));
     }
 
-    return apiData.map(item => ({
-      id: item.id,
-      title: item.title,
-      description: item.description,
-      icon: getIconForType(item.iconName),
-      color: getColorForType(item.colorName),
-      previewUrl: item.previewUrl
-    }));
+    return apiData.map(item => {
+      // Resolve the canonical title (accented) so raw/unaccented DB spellings
+      // collapse to one consistent key before icon/color resolution.
+      const canonicalTitle = canonicalConvenioTypeName(item.id, item.title);
+      return {
+        id: item.id,
+        title: canonicalTitle,
+        description: item.description,
+        icon: getIconForType(canonicalTitle),
+        color: getColorForType(canonicalTitle),
+        previewUrl: item.previewUrl
+      };
+    });
 
   } catch (error) {
     console.error("Error fetching convenio types from API:", error);

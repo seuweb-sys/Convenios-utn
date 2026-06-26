@@ -7,6 +7,7 @@ import {
   shouldApplyProfesorPracticeOnlyConvenioFilter,
 } from "@/app/lib/authz/profesor-membership-scope";
 import { shouldUseMineOnlyConveniosForDashboard } from "@/app/lib/authz/membership-scope";
+import { resolveConvenioTypeIdByAlias } from "@/app/lib/convenios/type-normalization";
 import {
   BackgroundPattern,
   DashboardHeader
@@ -94,9 +95,18 @@ export default async function ConveniosListaPage({
 
   if (queryParams.type) {
     const typeId = Number.parseInt(queryParams.type, 10);
-    conveniosQuery = Number.isFinite(typeId)
-      ? conveniosQuery.eq("convenio_type_id", typeId)
-      : conveniosQuery.eq("convenio_types.name", queryParams.type);
+    if (Number.isFinite(typeId)) {
+      conveniosQuery = conveniosQuery.eq("convenio_type_id", typeId);
+    } else {
+      // Resolve alias (accented/unaccented raw DB spelling) through the shared
+      // helper so filtering by "Convenio Marco Práctica Supervisada" still
+      // matches type-5 rows when the DB stores the unaccented spelling.
+      const resolvedTypeId = resolveConvenioTypeIdByAlias(queryParams.type);
+      conveniosQuery =
+        resolvedTypeId !== null
+          ? conveniosQuery.eq("convenio_type_id", resolvedTypeId)
+          : conveniosQuery.eq("convenio_types.name", queryParams.type);
+    }
   }
 
   if (queryParams.career) {

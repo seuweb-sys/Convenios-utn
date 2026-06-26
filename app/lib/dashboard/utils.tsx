@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
-import { 
-  BuildingIcon, 
-  UsersIcon, 
+import {
+  BuildingIcon,
+  UsersIcon,
   ClipboardCheckIcon,
   FileTextIcon,
   GraduationCapIcon,
@@ -13,16 +13,38 @@ import {
   EditIcon,
   InfoIcon
 } from "lucide-react";
+import { resolveConvenioTypeIdByAlias } from "@/app/lib/convenios/type-normalization";
 
 export type ConvenioColor = "blue" | "green" | "amber" | "purple" | "rose" | "cyan" | "orange" | "red";
 
 /**
- * Asigna un icono según el tipo de convenio
+ * Asigna un icono según el tipo de convenio.
+ * Resuelve primero por tipo canónico (id) a través del helper compartido, de
+ * modo que "Convenio Marco Práctica Supervisada" (acento o no) reciba el icono
+ * de práctica y no el de "marco" genérico. Mantiene fallback por palabras clave.
  */
 export function getIconForType(typeName: string): ReactNode {
   // Convertimos a minúsculas y eliminamos espacios para facilitar comparación
   const type = typeName.toLowerCase().trim();
-  
+  const typeId = resolveConvenioTypeIdByAlias(typeName);
+
+  if (typeId === 2) {
+    return <BuildingIcon className="h-5 w-5" />;
+  }
+  // Marco PPS y Particular PPS comparten la misma key de icono (práctica).
+  if (typeId === 1 || typeId === 5) {
+    return <UsersIcon className="h-5 w-5" />;
+  }
+  if (typeId === 4) {
+    return <ClipboardCheckIcon className="h-5 w-5" />;
+  }
+  if (typeId === 3) {
+    return <HeartHandshakeIcon className="h-5 w-5" />;
+  }
+  if (typeId === 6) {
+    return <FilePlusIcon className="h-5 w-5" />;
+  }
+
   if (type.includes("marco")) {
     return <BuildingIcon className="h-5 w-5" />;
   } else if (type.includes("práctica") || type.includes("practica") || type.includes("pasantía") || type.includes("pasantia")) {
@@ -36,32 +58,27 @@ export function getIconForType(typeName: string): ReactNode {
   } else if (type.includes("adenda")) {
     return <FilePlusIcon className="h-5 w-5" />;
   }
-  
+
   // Icono predeterminado para cualquier otro tipo
   return <FileTextIcon className="h-5 w-5" />;
 }
 
 /**
- * Asigna un color según el tipo de convenio
+ * Asigna un color según el tipo de convenio.
+ * Resuelve primero por tipo canónico (id) para que las variantes acento/no
+ * acento colapsen a la misma clave de color antes del fallback por palabras.
  */
 export function getColorForType(typeName: string): ConvenioColor {
   const type = typeName.toLowerCase().trim();
-  
-  // Mapeo específico por nombre exacto primero
-  if (type === "convenio marco") {
-    return "blue";
-  } else if (type === "convenio marco práctica supervisada" || type === "convenio marco practica supervisada") {
-    return "purple";
-  } else if (type === "convenio específico" || type === "convenio especifico") {
-    return "orange";
-  } else if (type === "convenio particular de práctica supervisada" || type === "convenio particular de practica supervisada") {
-    return "green";
-  } else if (type === "acuerdo de colaboración" || type === "acuerdo de colaboracion") {
-    return "red";
-  } else if (type === "adenda") {
-    return "cyan";
-  }
-  
+  const typeId = resolveConvenioTypeIdByAlias(typeName);
+
+  if (typeId === 2) return "blue";
+  if (typeId === 5) return "purple";
+  if (typeId === 4) return "orange";
+  if (typeId === 1) return "green";
+  if (typeId === 3) return "red";
+  if (typeId === 6) return "cyan";
+
   // Fallback por palabras clave
   if (type.includes("marco")) {
     return "blue";
@@ -76,7 +93,7 @@ export function getColorForType(typeName: string): ConvenioColor {
   } else if (type.includes("adenda")) {
     return "cyan";
   }
-  
+
   // Color predeterminado para cualquier otro tipo
   return "cyan";
 }

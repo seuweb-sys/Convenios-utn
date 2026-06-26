@@ -38,6 +38,10 @@ import {
   buildConveniosApiSearchFilter,
   shouldUseLegacyFullResponse,
 } from './query-params';
+import {
+  canonicalConvenioTypeName,
+  resolveConvenioTypeIdByAlias,
+} from '@/app/lib/convenios/type-normalization';
 import { createClient as createSupabaseAdmin } from '@supabase/supabase-js';
 import path from 'path';
 import fs from 'fs';
@@ -83,22 +87,10 @@ interface ConvenioFromDB {
   } | null;
 }
 
-// Helper function para mapear convenio_type_id a nombres correctos
+// Helper function para mapear convenio_type_id a nombres correctos.
+// Delegado al helper compartido para que variantes acento/no acento colapsen.
 function getConvenioTypeName(typeId: number | null, dbName?: string): string {
-  const typeMap: Record<number, string> = {
-    1: "Convenio Particular de Práctica Supervisada",
-    2: "Convenio Marco",
-    3: "Acuerdo de Colaboración",
-    4: "Convenio Específico",
-    5: "Convenio Marco Práctica Supervisada",
-    6: "Adenda"
-  };
-
-  if (typeId && typeMap[typeId]) {
-    return typeMap[typeId];
-  }
-
-  return dbName || "Sin tipo";
+  return canonicalConvenioTypeName(typeId ?? undefined, dbName);
 }
 
 export async function GET(request: NextRequest) {
@@ -265,13 +257,21 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', statusParam);
     }
 
-    // Filtro por tipo (acepta id numérico o nombre)
+    // Filtro por tipo (acepta id numérico, nombre raw, o alias acento/no acento)
     if (typeParam && typeParam !== 'all') {
       const typeId = parseInt(typeParam, 10);
       if (!isNaN(typeId)) {
         query = query.eq('convenio_type_id', typeId);
       } else {
-        query = query.eq('convenio_types.name', typeParam);
+        // Resolve alias (accented/unaccented, raw DB spelling) through the
+        // shared helper so filtering by "Convenio Marco Práctica Supervisada"
+        // returns type-5 rows even when the DB stores the unaccented spelling.
+        const resolvedTypeId = resolveConvenioTypeIdByAlias(typeParam);
+        if (resolvedTypeId !== null) {
+          query = query.eq('convenio_type_id', resolvedTypeId);
+        } else {
+          query = query.eq('convenio_types.name', typeParam);
+        }
       }
     }
 
@@ -637,7 +637,9 @@ export async function POST(request: Request) {
       constrained,
       secretariatId,
       careerId,
-      convenioTypeId
+      convenioTypeId,
+      (memRows || []) as MembershipRow[],
+      saRow?.id ?? null,
     );
     if (!scopeCheck.ok) {
       return NextResponse.json({ error: scopeCheck.error }, { status: 400 });
