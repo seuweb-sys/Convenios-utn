@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AdminFilters } from "@/app/protected/admin/admin-filters";
+import type { ConvenioFacetCounts } from "@/app/lib/convenios/facet-counts";
 import { ConvenioItem } from "@/app/components/dashboard";
 import { ConvenioCardSkeleton } from "@/app/components/ui/skeleton";
 import { Button } from "@/app/components/ui/button";
@@ -15,6 +16,7 @@ export function ConveniosListaClient({
   secretariats,
   pagination = { page: 1, pageSize: 10, total: convenios.length },
   filters = { q: "", status: null, type: null, career: null, secretariat: null },
+  counts,
 }: {
   convenios: any[];
   careers: any[];
@@ -27,6 +29,7 @@ export function ConveniosListaClient({
     career: string | null;
     secretariat: string | null;
   };
+  counts?: ConvenioFacetCounts;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -100,6 +103,7 @@ export function ConveniosListaClient({
           secretariats={secretariats}
           secretariatFilter={secretariatFilter}
           setSecretariatFilter={setSecretariatFilter}
+          counts={counts}
         />
       </div>
       <div className="md:col-span-3">

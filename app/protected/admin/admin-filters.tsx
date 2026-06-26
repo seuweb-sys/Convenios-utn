@@ -24,9 +24,9 @@ import {
   type AgreementYearFilterValue,
 } from "@/app/lib/admin/convenio-year-filters";
 import {
-  canonicalConvenioTypeName,
-  resolveConvenioTypeIdByAlias,
-} from "@/app/lib/convenios/type-normalization";
+  buildConvenioFacetCounts,
+  type ConvenioFacetCounts,
+} from "@/app/lib/convenios/facet-counts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -59,6 +59,13 @@ interface AdminFiltersProps {
   setUploadYearFilter?: (y: number | null) => void;
   agreementYearFilter?: AgreementYearFilterValue;
   setAgreementYearFilter?: (y: AgreementYearFilterValue) => void;
+  /**
+   * Full-set facet counts for the filters the current user can see. When
+   * provided, sidebars counters and available status/type keys are derived from
+   * this instead of the (possibly page-sliced) `data`. Legacy call sites that
+   * pass full unpaginated data can omit this and counts fall back to `data`.
+   */
+  counts?: ConvenioFacetCounts;
 }
 
 const tipoConvenioUI: Record<string, { icon: React.ReactNode; color: string }> = {
@@ -93,17 +100,6 @@ function resolveTipoUI(typeName: string) {
   );
 }
 
-/**
- * Collapse raw `convenio_types.name` (accented or unaccented DB spelling) into a
- * single canonical key so accented/unaccented Marco PPS render and count as one.
- */
-function canonicalTypeOf(row: any): string {
-  const rawName = row?.convenio_types?.name;
-  if (typeof rawName !== "string") return "Sin tipo";
-  const typeId = resolveConvenioTypeIdByAlias(rawName);
-  return canonicalConvenioTypeName(typeId, rawName);
-}
-
 export function AdminFilters({
   data,
   statusFilter,
@@ -120,6 +116,7 @@ export function AdminFilters({
   setUploadYearFilter,
   agreementYearFilter,
   setAgreementYearFilter,
+  counts,
 }: AdminFiltersProps) {
   const [careersOpen, setCareersOpen] = useState(false);
 
@@ -150,33 +147,23 @@ export function AdminFilters({
     };
   }, [data]);
 
-  const availableStatuses = Array.from(
-    new Set(data.map((item: any) => (item as any).status).filter(Boolean))
-  );
+  // When `counts` is supplied (paginated list route), prefer them so sidebar
+  // counters reflect the full filtered set instead of the page slice. When
+  // absent, derive from `data` to preserve legacy behavior.
+  const facetCounts = counts ?? buildConvenioFacetCounts(data);
 
-  const availableTypes = Array.from(
-    new Set(data.map((item: any) => canonicalTypeOf(item)).filter((t) => t !== "Sin tipo"))
-  );
+  const availableStatuses = Object.keys(facetCounts.byStatus);
 
-  const getStatusCount = (status: string) => {
-    return data.filter((item: any) => (item as any).status === status).length;
-  };
+  const availableTypes = Object.keys(facetCounts.byType);
 
-  const getTypeCount = (type: string) => {
-    return data.filter((item: any) => canonicalTypeOf(item) === type).length;
-  };
+  const getStatusCount = (status: string) => facetCounts.byStatus[status] ?? 0;
 
-  const getCareerCount = (careerId: string) => {
-    return data.filter((item: any) => {
-      const c = item as any;
-      return c.career_id === careerId || c.profiles?.career_id === careerId;
-    }).length;
-  };
+  const getTypeCount = (type: string) => facetCounts.byType[type] ?? 0;
 
-  const getSecretariatCount = (secretariatId: string) => {
-    return data.filter((item: any) => (item as any).secretariat_id === secretariatId)
-      .length;
-  };
+  const getCareerCount = (careerId: string) => facetCounts.byCareer[careerId] ?? 0;
+
+  const getSecretariatCount = (secretariatId: string) =>
+    facetCounts.bySecretariat[secretariatId] ?? 0;
 
   return (
     <div className="space-y-4">
