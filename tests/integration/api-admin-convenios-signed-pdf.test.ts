@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   mockUploadFileToOAuthDriveWithMimeType: vi.fn(),
   mockMoveFileToFolderOAuth: vi.fn(),
   mockCreateOAuthDriveResumableUploadSession: vi.fn(),
+  mockFindOAuthDriveFileByName: vi.fn(),
 }));
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -24,9 +25,11 @@ vi.mock("@/app/lib/google-drive", () => ({
   createFolderInOAuthDrive: vi.fn(),
   moveFileToFolderOAuth: mocks.mockMoveFileToFolderOAuth,
   createOAuthDriveResumableUploadSession: mocks.mockCreateOAuthDriveResumableUploadSession,
+  findOAuthDriveFileByName: mocks.mockFindOAuthDriveFileByName,
 }));
 
 import { POST as postSignedPdf } from "@/app/api/admin/convenios/[id]/signed-pdf/route";
+import { POST as postFinalizeUpload } from "@/app/api/admin/convenios/[id]/signed-pdf/finalize-upload/route";
 import { POST as postResumableSession } from "@/app/api/admin/convenios/[id]/signed-pdf/resumable-session/route";
 
 function createSupabaseDouble(documentPath: string) {
@@ -96,6 +99,14 @@ describe("admin signed PDF folderized storage", () => {
       uploadUrl: "https://upload.example.com/session",
       expiresIn: "one-week",
     });
+    mocks.mockFindOAuthDriveFileByName.mockResolvedValue({
+      id: "signed-pdf-drive-id",
+      name: "FIRMADO-Convenio Firmado.pdf",
+      mimeType: "application/pdf",
+      size: "1024",
+      webViewLink: "https://drive.google.com/file/d/signed-pdf-drive-id/view",
+      webContentLink: "https://drive.google.com/uc?id=signed-pdf-drive-id",
+    });
   });
 
   it("migrates legacy approved convenios into APPROVED folders before uploading the signed PDF", async () => {
@@ -161,8 +172,51 @@ describe("admin signed PDF folderized storage", () => {
       fileSize: 1024,
       folderId: "approved-convenio-folder",
     });
+    await expect(response.json()).resolves.toMatchObject({
+      uploadUrl: "https://upload.example.com/session",
+      folderId: "approved-convenio-folder",
+      fileName: "FIRMADO-Convenio Firmado.pdf",
+      fileSize: 1024,
+      mimeType: "application/pdf",
+      finalizeEndpoint: "/api/admin/convenios/conv-1/signed-pdf/finalize-upload",
+    });
     expect(ctx.calls.convenios[0]).toMatchObject({
       document_path: "https://drive.google.com/drive/folders/approved-convenio-folder",
+    });
+  });
+
+  it("looks up finalized signed PDF metadata in Drive after a client-side final chunk failure", async () => {
+    const ctx = createSupabaseDouble("https://drive.google.com/file/d/legacy-doc/view");
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const response = await postFinalizeUpload(
+      new Request("http://localhost/api/admin/convenios/conv-1/signed-pdf/finalize-upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: "FIRMADO-Convenio Firmado.pdf",
+          mimeType: "application/pdf",
+          fileSize: 1024,
+          folderId: "approved-convenio-folder",
+        }),
+      }),
+      { params: { id: "conv-1" } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockFindOAuthDriveFileByName).toHaveBeenCalledWith({
+      folderId: "approved-convenio-folder",
+      fileName: "FIRMADO-Convenio Firmado.pdf",
+      mimeType: "application/pdf",
+      fileSize: 1024,
+    });
+    await expect(response.json()).resolves.toEqual({
+      id: "signed-pdf-drive-id",
+      name: "FIRMADO-Convenio Firmado.pdf",
+      mimeType: "application/pdf",
+      size: "1024",
+      webViewLink: "https://drive.google.com/file/d/signed-pdf-drive-id/view",
+      webContentLink: "https://drive.google.com/uc?id=signed-pdf-drive-id",
     });
   });
 

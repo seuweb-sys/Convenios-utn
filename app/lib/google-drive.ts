@@ -566,6 +566,15 @@ async function getOAuthClient() {
   return google.drive({ version: 'v3', auth: oauth2Client });
 }
 
+export type OAuthDriveUploadedFile = {
+  id: string;
+  name?: string;
+  mimeType?: string;
+  size?: string;
+  webViewLink?: string;
+  webContentLink?: string;
+};
+
 export async function createOAuthDriveResumableUploadSession({
   fileName,
   mimeType,
@@ -617,6 +626,56 @@ export async function createOAuthDriveResumableUploadSession({
   return {
     uploadUrl,
     expiresIn: 'La sesion de Google Drive expira despues de una semana de inactividad',
+  };
+}
+
+export async function findOAuthDriveFileByName({
+  folderId,
+  fileName,
+  mimeType,
+  fileSize,
+}: {
+  folderId: string;
+  fileName: string;
+  mimeType?: string;
+  fileSize?: number;
+}): Promise<OAuthDriveUploadedFile | null> {
+  const driveClient = await getOAuthClient();
+
+  const queryParts = [
+    `'${folderId}' in parents`,
+    `name = '${fileName.replace(/'/g, "\\'")}'`,
+    'trashed = false',
+  ];
+
+  if (mimeType) {
+    queryParts.push(`mimeType = '${mimeType.replace(/'/g, "\\'")}'`);
+  }
+
+  const response = await driveClient.files.list({
+    q: queryParts.join(' and '),
+    fields: 'files(id,name,mimeType,size,webViewLink,webContentLink,createdTime)',
+    orderBy: 'createdTime desc',
+    pageSize: 10,
+    includeItemsFromAllDrives: true,
+    supportsAllDrives: true,
+  });
+
+  const files = response.data.files ?? [];
+  const expectedSize = typeof fileSize === 'number' ? String(fileSize) : null;
+  const match = files.find((file) => !expectedSize || file.size === expectedSize);
+
+  if (!match?.id) {
+    return null;
+  }
+
+  return {
+    id: match.id,
+    name: match.name ?? undefined,
+    mimeType: match.mimeType ?? undefined,
+    size: match.size ?? undefined,
+    webViewLink: match.webViewLink ?? undefined,
+    webContentLink: match.webContentLink ?? undefined,
   };
 }
 

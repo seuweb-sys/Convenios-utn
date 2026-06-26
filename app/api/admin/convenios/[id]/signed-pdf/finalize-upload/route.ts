@@ -1,14 +1,13 @@
-﻿import { createClient } from "@/utils/supabase/server";
 import { NextResponse } from "next/server";
-import {
-  createOAuthDriveResumableUploadSession,
-  DRIVE_FOLDERS,
-} from '@/app/lib/google-drive';
-import { ensureConvenioFolder } from '@/app/lib/convenio-drive';
+
+import { ensureConvenioFolder } from "@/app/lib/convenio-drive";
+import { DRIVE_FOLDERS, findOAuthDriveFileByName } from "@/app/lib/google-drive";
+import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
 const MAX_SIGNED_PDF_SIZE_BYTES = 50 * 1024 * 1024;
+const LOOKUP_RETRY_DELAYS_MS = [0, 150, 300, 600] as const;
 
 export async function POST(
   request: Request,
@@ -56,10 +55,19 @@ export async function POST(
       fileName?: string;
       mimeType?: string;
       fileSize?: number;
+      folderId?: string;
     } | null;
 
+    const expectedFileName = `FIRMADO-${convenio.title || 'convenio'}.pdf`;
+    const fileName = body?.fileName?.trim();
+    const mimeType = body?.mimeType?.trim();
     const fileSize = Number(body?.fileSize);
-    if (body?.mimeType !== 'application/pdf') {
+
+    if (fileName !== expectedFileName) {
+      return NextResponse.json({ error: "Nombre de archivo inválido" }, { status: 400 });
+    }
+
+    if (mimeType !== 'application/pdf') {
       return NextResponse.json({ error: "Solo se aceptan archivos PDF" }, { status: 400 });
     }
 
@@ -80,10 +88,8 @@ export async function POST(
       currentDocumentPath: convenio.document_path,
     });
 
-    const folderId = folder.folderId || null;
-
-    if (!folderId) {
-      return NextResponse.json({ error: "No se pudo determinar la carpeta de destino" }, { status: 500 });
+    if (body?.folderId && body.folderId !== folder.folderId) {
+      return NextResponse.json({ error: "Carpeta de destino inválida" }, { status: 400 });
     }
 
     if (folder.migratedFromFile) {
@@ -93,26 +99,36 @@ export async function POST(
         .eq("id", params.id);
     }
 
-    const session = await createOAuthDriveResumableUploadSession({
-      fileName: `FIRMADO-${convenio.title || 'convenio'}.pdf`,
-      mimeType: 'application/pdf',
-      fileSize,
-      folderId,
-    });
+    for (const delayMs of LOOKUP_RETRY_DELAYS_MS) {
+      if (delayMs > 0) {
+        await sleep(delayMs);
+      }
 
-    return NextResponse.json({
-      ...session,
-      folderId,
-      fileName: `FIRMADO-${convenio.title || 'convenio'}.pdf`,
-      fileSize,
-      mimeType: 'application/pdf',
-      finalizeEndpoint: `/api/admin/convenios/${params.id}/signed-pdf/finalize-upload`,
-    });
-  } catch (error) {
-    console.error("Error al iniciar subida resumable de PDF firmado:", error);
+      const uploadedFile = await findOAuthDriveFileByName({
+        folderId: folder.folderId,
+        fileName,
+        mimeType,
+        fileSize,
+      });
+
+      if (uploadedFile?.id) {
+        return NextResponse.json(uploadedFile);
+      }
+    }
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Error al iniciar subida de PDF firmado" },
+      { error: "No se pudo recuperar el archivo subido desde Google Drive" },
+      { status: 404 }
+    );
+  } catch (error) {
+    console.error("Error al finalizar subida directa de PDF firmado:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Error al recuperar el PDF firmado desde Google Drive" },
       { status: 500 }
     );
   }
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
