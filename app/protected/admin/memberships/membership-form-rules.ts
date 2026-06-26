@@ -16,6 +16,8 @@ export interface MembershipRoleControls {
   careerDisabled: boolean;
   /** Whether the career select must be filled before submitting. */
   careerRequired: boolean;
+  /** Whether the org unit (subárea) select should be disabled for this role. */
+  orgUnitDisabled: boolean;
   /** Whether the secretariat select must be filled before submitting. */
   secretariatRequired: boolean;
   /** Whether the secretariat is locked to SA for this role. */
@@ -25,18 +27,31 @@ export interface MembershipRoleControls {
 }
 
 /**
- * Returns the rule-aware control state for a membership role. Pure function:
- * input role -> immutable controls, easy to unit test and reuse from the React
- * component without DOM coupling.
+ * Returns the rule-aware control state for a membership role, optionally aware
+ * of the selected secretariat code. Pure function: (role, secretariat) ->
+ * immutable controls, easy to unit test and reuse from the React component
+ * without DOM coupling.
+ *
+ * Secretariat awareness mirrors the DB/server invariants:
+ * - `director`/`profesor` are SA-only, require a career, and never carry an
+ *   org unit -> `orgUnitDisabled` is true.
+ * - `secretario` is secretariat-wide: no career, no org unit -> both disabled.
+ * - `miembro` under CYT/SEU never carries a career -> career disabled; the org
+ *   unit stays enabled (CYT/SEU miembro is org-unit-scoped). SA miembro keeps
+ *   the legacy optional career/org-unit flow.
  */
-export function resolveRoleControls(role: MembershipRole): MembershipRoleControls {
+export function resolveRoleControls(
+  role: MembershipRole,
+  secretariatCode?: string | null,
+): MembershipRoleControls {
   if (role === "secretario") {
     return {
       careerDisabled: true,
       careerRequired: false,
+      orgUnitDisabled: true,
       secretariatRequired: true,
       secretariatLockedToSA: false,
-      helperText: "El secretario es de secretaría y no admite carrera.",
+      helperText: "El secretario es de secretaría y no admite carrera ni subárea.",
     };
   }
 
@@ -44,19 +59,30 @@ export function resolveRoleControls(role: MembershipRole): MembershipRoleControl
     return {
       careerDisabled: false,
       careerRequired: true,
+      // Director/profesor are always career-scoped (SA); they never use org units.
+      orgUnitDisabled: true,
       secretariatRequired: true,
       secretariatLockedToSA: true,
       helperText: MEMBERSHIP_HELPER_TEXT,
     };
   }
 
-  // miembro (and any future default) preserves the legacy non-SA/org-unit flow.
+  // miembro (and any future default). Career is rejected for CYT/SEU by the
+  // DB invariant; the form disables it so the admin cannot select one. SA
+  // miembro keeps the legacy optional career flow. Org unit stays enabled for
+  // every miembro path (CYT/SEU miembro is org-unit-scoped; SA miembro optional).
+  const cytSeuMiembroCareerDisabled =
+    secretariatCode === "CYT" || secretariatCode === "SEU";
+
   return {
-    careerDisabled: false,
+    careerDisabled: cytSeuMiembroCareerDisabled,
     careerRequired: false,
+    orgUnitDisabled: false,
     secretariatRequired: false,
     secretariatLockedToSA: false,
-    helperText: "",
+    helperText: cytSeuMiembroCareerDisabled
+      ? "Las membresías CYT/SEU no admiten carrera."
+      : "",
   };
 }
 
@@ -78,17 +104,43 @@ export function resolveEnforcedSecretariat(input: {
 }
 
 /**
- * Returns the career value to keep after the role changes. Switching to
- * secretario clears the career (secretario is secretariat-scoped, no career);
- * director/profesor and miembro keep the current value so the admin can confirm
- * or adjust it.
+ * Returns the career value to keep after the role/secretariat changes.
+ * Deterministic clearing rules mirror the DB/server invariants:
+ * - secretario never carries a career -> cleared.
+ * - CYT/SEU miembro never carries a career -> cleared.
+ * - director/profesor and SA miembro keep the current value so the admin can
+ *   confirm or adjust it.
+ *
+ * `secretariatCode` is optional so existing role-only callers keep working.
  */
 export function resolveCareerAfterRoleChange(input: {
   role: MembershipRole;
   currentCareerId: string;
+  secretariatCode?: string | null;
 }): string {
   if (input.role === "secretario") return "";
+  if (
+    input.role === "miembro" &&
+    (input.secretariatCode === "CYT" || input.secretariatCode === "SEU")
+  ) {
+    return "";
+  }
   return input.currentCareerId;
+}
+
+/**
+ * Returns the org unit value to keep after the role changes. Secretario,
+ * director, and profesor never carry an org unit -> cleared. miembro keeps it
+ * (CYT/SEU miembro is org-unit-scoped; SA miembro optional).
+ */
+export function resolveOrgUnitAfterRoleChange(input: {
+  role: MembershipRole;
+  currentOrgUnitId: string;
+}): string {
+  if (input.role === "secretario" || input.role === "director" || input.role === "profesor") {
+    return "";
+  }
+  return input.currentOrgUnitId;
 }
 
 /** UI-only client-side guard code emitted when the shared validator cannot run
@@ -111,6 +163,7 @@ export function resolveSubmitValidation(input: {
   secretariatId: string;
   secretariatCode: string | null;
   careerId: string | null;
+  orgUnitId?: string | null;
 }): MembershipSubmitValidation {
   if (input.role === "secretario" && !input.secretariatId) {
     return {
@@ -132,11 +185,14 @@ export function resolveSubmitValidation(input: {
 
   // Delegates to the shared authz validator: it returns the backend-known rule
   // codes (DIRECTOR_PROFESOR_REQUIRE_SA / DIRECTOR_PROFESOR_REQUIRE_CAREER /
-  // SECRETARIO_REQUIRES_NULL_CAREER) so the UI mirrors the server contract.
+  // SECRETARIO_REQUIRES_NULL_CAREER / SECRETARIO_REQUIRES_NULL_ORG_UNIT /
+  // CYT_SEU_REQUIRE_NULL_CAREER) so the UI mirrors the server contract, with
+  // the same deterministic priority as the API route.
   const result = validateMembershipScopeRule({
     membership_role: input.role,
     secretariatCode: input.secretariatCode,
     career_id: input.careerId,
+    org_unit_id: input.orgUnitId ?? null,
   });
 
   if (!result.valid) {
@@ -155,6 +211,10 @@ export function resolveMembershipRuleMessage(code: string | null | undefined): s
   switch (code) {
     case "SECRETARIO_REQUIRES_NULL_CAREER":
       return "La membresía secretario no admite carrera.";
+    case "SECRETARIO_REQUIRES_NULL_ORG_UNIT":
+      return "La membresía secretario no admite subárea.";
+    case "CYT_SEU_REQUIRE_NULL_CAREER":
+      return "Las membresías CYT/SEU no admiten carrera.";
     case "DIRECTOR_PROFESOR_REQUIRE_SA":
       return "Las membresías director/profesor solo pueden pertenecer a SA.";
     case "DIRECTOR_PROFESOR_REQUIRE_CAREER":

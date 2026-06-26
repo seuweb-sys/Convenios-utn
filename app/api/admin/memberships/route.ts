@@ -149,6 +149,7 @@ export async function POST(request: Request) {
     membership_role: payload.membership_role,
     secretariatCode,
     career_id: payload.career_id,
+    org_unit_id: payload.org_unit_id,
   });
 
   if (!validation.valid) {

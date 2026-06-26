@@ -5,6 +5,7 @@ import {
   resolveCareerAfterRoleChange,
   resolveEnforcedSecretariat,
   resolveMembershipRuleMessage,
+  resolveOrgUnitAfterRoleChange,
   resolveRoleControls,
   resolveSubmitValidation,
 } from "@/app/protected/admin/memberships/membership-form-rules";
@@ -194,6 +195,109 @@ describe("membership rule message resolution", () => {
 
   it("returns null for an unknown code so the caller can fall back to the server message", () => {
     expect(resolveMembershipRuleMessage("UNKNOWN_CODE")).toBeNull();
+  });
+});
+
+describe("secretariat-aware role controls", () => {
+  it("disables the career field for a CYT miembro but keeps the org unit enabled", () => {
+    const controls = resolveRoleControls("miembro", "CYT");
+
+    expect(controls.careerDisabled).toBe(true);
+    expect(controls.careerRequired).toBe(false);
+    expect(controls.orgUnitDisabled).toBe(false);
+  });
+
+  it("disables the career field for a SEU miembro", () => {
+    expect(resolveRoleControls("miembro", "SEU").careerDisabled).toBe(true);
+  });
+
+  it("keeps the career field enabled for an SA miembro (career optional in SA)", () => {
+    const controls = resolveRoleControls("miembro", "SA");
+
+    expect(controls.careerDisabled).toBe(false);
+    expect(controls.orgUnitDisabled).toBe(false);
+  });
+
+  it("disables the org unit field for secretario", () => {
+    const controls = resolveRoleControls("secretario", "CYT");
+
+    expect(controls.orgUnitDisabled).toBe(true);
+    expect(controls.careerDisabled).toBe(true);
+  });
+
+  it("disables the org unit field for director and profesor regardless of secretariat", () => {
+    for (const role of ["director", "profesor"] as const) {
+      const controls = resolveRoleControls(role, "SA");
+      expect(controls.orgUnitDisabled).toBe(true);
+    }
+  });
+});
+
+describe("deterministic field clearing on role/secretariat change", () => {
+  it("clears the career when switching to a CYT miembro", () => {
+    expect(
+      resolveCareerAfterRoleChange({
+        role: "miembro",
+        secretariatCode: "CYT",
+        currentCareerId: "isi",
+      }),
+    ).toBe("");
+  });
+
+  it("keeps the career for an SA miembro so the admin can confirm it", () => {
+    expect(
+      resolveCareerAfterRoleChange({
+        role: "miembro",
+        secretariatCode: "SA",
+        currentCareerId: "isi",
+      }),
+    ).toBe("isi");
+  });
+
+  it("clears the org unit when switching to secretario", () => {
+    expect(resolveOrgUnitAfterRoleChange({ role: "secretario", currentOrgUnitId: "ou-1" })).toBe("");
+  });
+
+  it("keeps the org unit when switching to miembro", () => {
+    expect(resolveOrgUnitAfterRoleChange({ role: "miembro", currentOrgUnitId: "ou-1" })).toBe("ou-1");
+  });
+});
+
+describe("submit validation mirrors secretariat-aware org unit codes", () => {
+  it("blocks secretario with an org unit using SECRETARIO_REQUIRES_NULL_ORG_UNIT", () => {
+    const result = resolveSubmitValidation({
+      role: "secretario",
+      secretariatId: cytId,
+      secretariatCode: "CYT",
+      careerId: null,
+      orgUnitId: "ou-1",
+    });
+
+    expect(result.canSubmit).toBe(false);
+    expect(result.code).toBe("SECRETARIO_REQUIRES_NULL_ORG_UNIT");
+  });
+
+  it("blocks a CYT miembro with a career using CYT_SEU_REQUIRE_NULL_CAREER", () => {
+    const result = resolveSubmitValidation({
+      role: "miembro",
+      secretariatId: cytId,
+      secretariatCode: "CYT",
+      careerId: "isi",
+      orgUnitId: null,
+    });
+
+    expect(result.canSubmit).toBe(false);
+    expect(result.code).toBe("CYT_SEU_REQUIRE_NULL_CAREER");
+  });
+});
+
+describe("membership rule messages for secretariat-scope codes", () => {
+  it("maps CYT_SEU_REQUIRE_NULL_CAREER to a Spanish message", () => {
+    expect(resolveMembershipRuleMessage("CYT_SEU_REQUIRE_NULL_CAREER")).toContain("carrera");
+  });
+
+  it("maps SECRETARIO_REQUIRES_NULL_ORG_UNIT to a Spanish message", () => {
+    expect(resolveMembershipRuleMessage("SECRETARIO_REQUIRES_NULL_ORG_UNIT")).toContain("subárea");
   });
 });
 

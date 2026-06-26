@@ -8,6 +8,7 @@ import {
   resolveCareerAfterRoleChange,
   resolveEnforcedSecretariat,
   resolveMembershipRuleMessage,
+  resolveOrgUnitAfterRoleChange,
   resolveRoleControls,
   resolveSubmitValidation,
 } from "@/app/protected/admin/memberships/membership-form-rules";
@@ -74,7 +75,15 @@ export function MembershipsManager() {
     [payload.secretariats],
   );
 
-  const controls = useMemo(() => resolveRoleControls(membershipRole), [membershipRole]);
+  const selectedSecretariatCode = useMemo(() => {
+    const sec = payload.secretariats.find((s) => s.id === secretariatId);
+    return sec?.code || "";
+  }, [payload.secretariats, secretariatId]);
+
+  const controls = useMemo(
+    () => resolveRoleControls(membershipRole, selectedSecretariatCode || null),
+    [membershipRole, selectedSecretariatCode],
+  );
 
   // Lock the secretariat to SA for director/profesor once the SA id is known,
   // and keep it in sync when the admin switches roles.
@@ -87,11 +96,6 @@ export function MembershipsManager() {
       }),
     );
   }, [membershipRole, saSecretariatId]);
-
-  const selectedSecretariatCode = useMemo(() => {
-    const sec = payload.secretariats.find((s) => s.id === secretariatId);
-    return sec?.code || "";
-  }, [payload.secretariats, secretariatId]);
 
   const filteredOrgUnits = useMemo(() => {
     if (!secretariatId) return payload.org_units;
@@ -110,8 +114,9 @@ export function MembershipsManager() {
         secretariatId,
         secretariatCode: selectedSecretariatCode || null,
         careerId: careerId || null,
+        orgUnitId: orgUnitId || null,
       }),
-    [membershipRole, secretariatId, selectedSecretariatCode, careerId],
+    [membershipRole, secretariatId, selectedSecretariatCode, careerId, orgUnitId],
   );
 
   const load = async () => {
@@ -147,10 +152,18 @@ export function MembershipsManager() {
 
   const onRoleChange = (role: MembershipRole) => {
     setMembershipRole(role);
-    // Clear the career for secretario and reset the subarea so the locked
-    // SA career-scoped form stays unambiguous.
-    setCareerId((prev) => resolveCareerAfterRoleChange({ role, currentCareerId: prev }));
-    setOrgUnitId("");
+    // Deterministic clearing mirrors the server contract: secretario/CYT-SEU
+    // miembro never carry a career; secretario/director/profesor never carry an
+    // org unit. Using the helpers keeps the clearing rules declared in one
+    // place (membership-form-rules.ts) and unit-tested.
+    setCareerId((prev) =>
+      resolveCareerAfterRoleChange({
+        role,
+        currentCareerId: prev,
+        secretariatCode: selectedSecretariatCode || null,
+      }),
+    );
+    setOrgUnitId((prev) => resolveOrgUnitAfterRoleChange({ role, currentOrgUnitId: prev }));
   };
 
   const createMembership = async () => {
@@ -287,8 +300,21 @@ export function MembershipsManager() {
               value={secretariatId}
               disabled={controls.secretariatLockedToSA}
               onChange={(e) => {
-                setSecretariatId(e.target.value);
-                setCareerId("");
+                const nextSecretariatId = e.target.value;
+                const nextSecretariatCode =
+                  payload.secretariats.find((s) => s.id === nextSecretariatId)?.code || "";
+                setSecretariatId(nextSecretariatId);
+                // Clear the career deterministically for the new secretariat
+                // (CYT/SEU miembro never carries a career) and reset the org
+                // unit so the form never holds a scope disallowed by the
+                // selected secretariat.
+                setCareerId((prev) =>
+                  resolveCareerAfterRoleChange({
+                    role: membershipRole,
+                    currentCareerId: prev,
+                    secretariatCode: nextSecretariatCode || null,
+                  }),
+                );
                 setOrgUnitId("");
               }}
             >
@@ -312,7 +338,7 @@ export function MembershipsManager() {
                 (controls.careerDisabled ? "opacity-60" : "")
               }
               value={careerId}
-              disabled={controls.careerDisabled || selectedSecretariatCode !== "SA"}
+              disabled={controls.careerDisabled}
               onChange={(e) => setCareerId(e.target.value)}
             >
               <option value="">{controls.careerRequired ? "Carrera requerida" : "Carrera (opcional)"}</option>
@@ -328,9 +354,12 @@ export function MembershipsManager() {
           <label className="flex flex-col gap-1 text-sm">
             <span>Subárea (opcional)</span>
             <select
-              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
+              className={
+                "rounded-md border border-border bg-background px-3 py-2 text-sm " +
+                (controls.orgUnitDisabled ? "opacity-60" : "")
+              }
               value={orgUnitId}
-              disabled={controls.secretariatLockedToSA}
+              disabled={controls.orgUnitDisabled}
               onChange={(e) => setOrgUnitId(e.target.value)}
             >
               <option value="">Subárea (opcional)</option>

@@ -145,6 +145,58 @@ describe("admin memberships routes", () => {
     vi.clearAllMocks();
   });
 
+  it("returns 422 CYT_SEU_REQUIRE_NULL_CAREER when a CYT miembro is created with a career", async () => {
+    const ctx = createMembershipAdminSupabaseDouble({ secretariatCodeById: { "cyt-id": "CYT" } });
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const response = (await POST(
+      new Request("http://localhost/api/admin/memberships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile_id: "profile-2",
+          membership_role: "miembro",
+          secretariat_id: "cyt-id",
+          career_id: "career-a",
+          org_unit_id: null,
+          is_active: true,
+        }),
+      }),
+    ))!;
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "CYT_SEU_REQUIRE_NULL_CAREER",
+    });
+    expect(ctx.calls.profileMembershipInserts).toHaveLength(0);
+  });
+
+  it("returns 422 SECRETARIO_REQUIRES_NULL_ORG_UNIT when a secretario is created with an org unit", async () => {
+    const ctx = createMembershipAdminSupabaseDouble();
+    mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
+
+    const response = (await POST(
+      new Request("http://localhost/api/admin/memberships", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile_id: "profile-2",
+          membership_role: "secretario",
+          secretariat_id: "cyt-id",
+          career_id: null,
+          org_unit_id: "org-unit-a",
+          is_active: true,
+        }),
+      }),
+    ))!;
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toMatchObject({
+      code: "SECRETARIO_REQUIRES_NULL_ORG_UNIT",
+    });
+    expect(ctx.calls.profileMembershipInserts).toHaveLength(0);
+  });
+
   it("returns 422 with rule code when director/profesor is created outside SA", async () => {
     const ctx = createMembershipAdminSupabaseDouble({ secretariatCodeById: { "cyt-id": "CYT" } });
     mocks.mockCreateClient.mockResolvedValue(ctx.supabase);
