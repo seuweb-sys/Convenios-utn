@@ -10,8 +10,10 @@ export interface MembershipScope {
 
 export type MembershipRuleCode =
   | "SECRETARIO_REQUIRES_NULL_CAREER"
+  | "SECRETARIO_REQUIRES_NULL_ORG_UNIT"
   | "DIRECTOR_PROFESOR_REQUIRE_SA"
-  | "DIRECTOR_PROFESOR_REQUIRE_CAREER";
+  | "DIRECTOR_PROFESOR_REQUIRE_CAREER"
+  | "CYT_SEU_REQUIRE_NULL_CAREER";
 
 export const PRACTICE_TYPE_IDS = new Set([1, 5]);
 
@@ -137,7 +139,25 @@ export function validateMembershipScopeRule(input: {
   membership_role: MembershipRole;
   secretariatCode: string | null;
   career_id: string | null;
+  /**
+   * Optional today so existing PR1 callers (which don't wire org_unit_id
+   * through the API route yet) keep working. PR2 passes org_unit_id through.
+   * Deterministic priority: secretario org_unit failure is reported BEFORE
+   * secretario career and BEFORE CYT/SEU career failures.
+   */
+  org_unit_id?: string | null;
 }) {
+  // Deterministic priority: secretario -> org_unit_id IS NULL first.
+  // A secretario never carries an org_unit scope; surfacing this before the
+  // career rule keeps 422 outputs unambiguous for UI messaging.
+  if (input.membership_role === "secretario" && input.org_unit_id) {
+    return {
+      valid: false as const,
+      code: "SECRETARIO_REQUIRES_NULL_ORG_UNIT" as const,
+      error: "La membresía secretario no admite subárea",
+    };
+  }
+
   if (input.membership_role === "secretario" && input.career_id !== null) {
     return {
       valid: false as const,
@@ -164,8 +184,25 @@ export function validateMembershipScopeRule(input: {
     }
   }
 
+  // CYT/SEU non-secretary memberships reject career_id. The secretary branch is
+  // excluded because secretario already requires career_id NULL above and the
+  // secretary-specific code must win whenever both could apply.
+  if (
+    input.membership_role !== "secretario" &&
+    (input.secretariatCode === "CYT" || input.secretariatCode === "SEU") &&
+    input.career_id !== null
+  ) {
+    return {
+      valid: false as const,
+      code: "CYT_SEU_REQUIRE_NULL_CAREER" as const,
+      error: "Las membresías CYT/SEU no admiten carrera",
+    };
+  }
+
   return { valid: true as const };
 }
+
+import { selectValidCytSeuMiembros } from "./classification-scope";
 
 export interface CreateScopeInput {
   role: string;
@@ -210,18 +247,27 @@ export function canCreateByMembershipMatrix(input: CreateScopeInput) {
   }
 
   if (secretariatCode === "CYT") {
+    // Defensive: ignore stale CYT miembro rows carrying career_id; they must
+    // not widen access beyond the org_unit match.
+    const hasValidCytMiembro =
+      !!orgUnitId &&
+      selectValidCytSeuMiembros(memberships, secretariatId, orgUnitId).length > 0;
     return (
-      hasMembership(memberships, "secretario", secretariatId) ||
-      (!!orgUnitId && hasMembership(memberships, "miembro", secretariatId, null, orgUnitId))
+      hasMembership(memberships, "secretario", secretariatId) || hasValidCytMiembro
     );
   }
 
   if (secretariatCode === "SEU") {
+    // Defensive: ignore stale SEU miembro rows carrying career_id in both the
+    // exact org_unit path and the secretariat-wide (no org_unit) miembro path.
+    const validSeuMiembros = selectValidCytSeuMiembros(
+      memberships,
+      secretariatId,
+      orgUnitId,
+    );
     return (
       hasMembership(memberships, "secretario", secretariatId) ||
-      (orgUnitId
-        ? hasMembership(memberships, "miembro", secretariatId, null, orgUnitId)
-        : hasMembership(memberships, "miembro", secretariatId))
+      validSeuMiembros.length > 0
     );
   }
 

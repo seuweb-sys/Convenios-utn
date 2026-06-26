@@ -32,6 +32,36 @@ export type ConstrainedClassification =
 
 const ACTIVE = (m: MembershipRow) => (m.is_active ?? true) !== false;
 
+/**
+ * Returns the active CYT/SEU `miembro` rows that are valid under the
+ * membership-secretary-secretariat-scope DB invariant: career_id MUST be NULL.
+ *
+ * Stale rows with career_id set are defensively ignored because the DB
+ * invariant (added in PR1) prohibits CYT/SEU memberships with a career. They
+ * must never widen access beyond the secretariat + org_unit match. Pure
+ * function — no side effects, no I/O, safe to unit test.
+ *
+ * @param memberships  Full membership set (any role) for the requesting user.
+ * @param secretariatId Restrict to members of this secretariat.
+ * @param orgUnitId Optional exact org_unit match; null/undefined keeps the
+ *                  secretariat-wide miembro path (SEU without org_unit).
+ */
+export function selectValidCytSeuMiembros(
+  memberships: MembershipRow[],
+  secretariatId: string,
+  orgUnitId?: string | null,
+): MembershipRow[] {
+  return memberships.filter((m) => {
+    if (!ACTIVE(m)) return false;
+    if (m.membership_role !== "miembro") return false;
+    if (m.secretariat_id !== secretariatId) return false;
+    // Defensive guard: ignore stale CYT/SEU miembro rows carrying career_id.
+    if (m.career_id != null) return false;
+    if (orgUnitId && m.org_unit_id !== orgUnitId) return false;
+    return true;
+  });
+}
+
 function uniqueCareerIds(rows: MembershipRow[]) {
   return Array.from(
     new Set(rows.map((row) => row.career_id).filter((id): id is string => !!id)),
