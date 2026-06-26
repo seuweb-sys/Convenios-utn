@@ -62,7 +62,7 @@ export async function DELETE(
 ) {
   const guard = await requireAdmin();
   if ("error" in guard) return guard.error;
-  const { supabase, user } = guard;
+  const { supabase } = guard;
 
   const { data: membership, error: membershipError } = await supabase
     .from("profile_memberships")
@@ -130,28 +130,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Error al eliminar membresía" }, { status: 500 });
   }
 
-  const { error: activityError } = await supabase
-    .from("activity_log")
-    .insert({
-      convenio_id: null,
-      user_id: user.id,
-      action: "admin_delete_membership",
-      status_from: membership.is_active ? "active" : "inactive",
-      status_to: "deleted",
-      metadata: {
-        membership_id: membership.id,
-        profile_id: membership.profile_id,
-        membership_role: membership.membership_role,
-        secretariat_id: membership.secretariat_id,
-        career_id: membership.career_id,
-        org_unit_id: membership.org_unit_id,
-      },
-      ip_address: request.headers.get("x-forwarded-for") || "unknown",
-    });
-
-  if (activityError) {
-    console.error("Error logging membership deletion", activityError);
-  }
-
+  // Membership deletions are not convenio-scoped, and activity_log requires a
+  // non-null convenio_id (convenio-scoped table). The audit snapshot written to
+  // profile_membership_correction_audit above is the authoritative record for
+  // membership corrections, so no activity_log entry is produced here.
   return NextResponse.json({ success: true });
 }

@@ -216,7 +216,7 @@ describe("admin memberships routes", () => {
     expect(ctx.calls.auditInserts).toHaveLength(0);
   });
 
-  it("writes an audit snapshot and activity log before deleting a membership", async () => {
+  it("writes an audit snapshot and deletes a membership without touching activity_log", async () => {
     const ctx = createMembershipAdminSupabaseDouble({
       targetProfileRole: "admin",
       siblingMemberships: [
@@ -239,12 +239,9 @@ describe("admin memberships routes", () => {
       profile_id: "profile-2",
       previous_rows: [expect.objectContaining({ id: "membership-1" })],
     });
-    expect(ctx.calls.activityInserts[0]).toMatchObject({
-      user_id: "admin-1",
-      action: "admin_delete_membership",
-      status_from: "active",
-      status_to: "deleted",
-    });
+    // activity_log is convenio-scoped (convenio_id NOT NULL). Membership deletion
+    // is not convenio-scoped, so the route must NOT attempt an activity_log insert.
+    expect(ctx.calls.activityInserts).toHaveLength(0);
     expect(ctx.calls.deletes).toEqual(["membership-1"]);
   });
 
