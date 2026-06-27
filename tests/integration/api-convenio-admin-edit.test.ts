@@ -286,6 +286,7 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
       signed_pdf_uploaded_at: null,
       signed_pdf_uploaded_by: null,
     });
+    expect(ctx.calls.convenios.updates[0]).not.toHaveProperty("user_id");
     expect(ctx.calls.activity_log.inserts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -344,6 +345,7 @@ describe("PATCH /api/convenios/[id] admin direct edit", () => {
       status: "enviado",
       document_path: "https://drive.google.com/drive/folders/new-folder",
     });
+    expect(ctx.calls.convenios.updates[0]).not.toHaveProperty("user_id");
     expect(ctx.calls.observaciones.updates[0]).toMatchObject({ resolved: true });
     expect(ctx.calls.activity_log.inserts).toEqual(
       expect.arrayContaining([
