@@ -60,13 +60,25 @@ export async function interceptConvenioSubmissionWithOptions(page: Page, options
   return capture;
 }
 
-export async function mockDirectDriveUpload(page: Page, uploadedIds: string[] = []) {
+export async function mockDirectDriveUpload(
+  page: Page,
+  uploadedIds: string[] = [],
+  options?: { failFinalChunk?: boolean }
+) {
   let uploadIndex = 0;
+  const uploadedMetadata = new Map<string, { id: string; fileName: string; mimeType?: string; fileSize?: number }>();
 
   await page.route("**/api/uploads/drive/resumable-session", async (route) => {
     const request = route.request();
-    const body = request.postDataJSON() as { fileName?: string } | null;
+    const body = request.postDataJSON() as { fileName?: string; mimeType?: string; fileSize?: number } | null;
     const nextId = uploadedIds[uploadIndex] || `drive-upload-${uploadIndex + 1}`;
+    const driveFileName = `ANEXO-${body?.fileName || `file-${uploadIndex + 1}`}`;
+    uploadedMetadata.set(nextId, {
+      id: nextId,
+      fileName: driveFileName,
+      mimeType: body?.mimeType,
+      fileSize: body?.fileSize,
+    });
     uploadIndex += 1;
 
     await route.fulfill({
@@ -74,18 +86,50 @@ export async function mockDirectDriveUpload(page: Page, uploadedIds: string[] = 
       contentType: "application/json",
       body: JSON.stringify({
         uploadUrl: `https://mocked-drive-upload.local/${nextId}`,
-        fileName: body?.fileName,
+        fileName: driveFileName,
+        folderId: "pending-folder",
+        fileSize: body?.fileSize,
+        mimeType: body?.mimeType,
+        finalizeEndpoint: "/api/uploads/drive/finalize-upload",
       }),
     });
   });
 
   await page.route("https://mocked-drive-upload.local/**", async (route) => {
     const uploadId = route.request().url().split("/").pop() || "drive-upload-1";
+    if (options?.failFinalChunk) {
+      await route.abort("failed");
+      return;
+    }
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
         id: uploadId,
+        webViewLink: `https://drive.google.com/file/d/${uploadId}/view`,
+        webContentLink: `https://drive.google.com/uc?id=${uploadId}`,
+      }),
+    });
+  });
+
+  await page.route("**/api/uploads/drive/finalize-upload", async (route) => {
+    const body = route.request().postDataJSON() as {
+      fileName?: string;
+      mimeType?: string;
+      fileSize?: number;
+    } | null;
+    const match = Array.from(uploadedMetadata.values()).find((item) => item.fileName === body?.fileName);
+    const uploadId = match?.id || uploadedIds[0] || "drive-upload-1";
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        id: uploadId,
+        name: body?.fileName,
+        mimeType: body?.mimeType,
+        size: String(body?.fileSize || 0),
         webViewLink: `https://drive.google.com/file/d/${uploadId}/view`,
         webContentLink: `https://drive.google.com/uc?id=${uploadId}`,
       }),
@@ -269,6 +313,105 @@ export async function fillAcuerdoForm(page: Page, suffix: string) {
   await page.getByLabel(/Confirmo que toda la información es correcta/i).check();
 }
 
+export type AdendaExpectedPayload = {
+  ciudad: string;
+  provincia: string;
+  dia: string;
+  mes: string;
+  anio: string;
+  entidad_nombre: string;
+  entidad_tipo: string;
+  entidad_domicilio: string;
+  entidad_ciudad: string;
+  entidad_provincia: string;
+  entidad_cuit: string;
+  entidad_representante: string;
+  entidad_dni: string;
+  entidad_cargo: string;
+  convenios_previos: Array<{
+    tipo: string;
+    fecha: string;
+    objeto: string;
+  }>;
+  exponen_adicional: string;
+  acuerdan: Array<{
+    ordinal: string;
+    texto: string;
+  }>;
+};
+
+export async function fillAdendaForm(
+  page: Page,
+  suffix: string,
+  options?: { attachments?: Array<{ name: string; mimeType: string; buffer: Buffer }> }
+) {
+  const values: AdendaExpectedPayload = {
+    ciudad: "Resistencia",
+    provincia: "Chaco",
+    dia: "4",
+    mes: "Abril",
+    anio: "2026",
+    entidad_nombre: `Entidad Adenda ${suffix}`,
+    entidad_tipo: "Empresa",
+    entidad_domicilio: "Calle Adenda 123",
+    entidad_ciudad: "Resistencia",
+    entidad_provincia: "Chaco",
+    entidad_cuit: "30712345678",
+    entidad_representante: "Ana Representante",
+    entidad_dni: "40123456",
+    entidad_cargo: "Gerenta General",
+    convenios_previos: [
+      {
+        tipo: "Convenio Marco",
+        fecha: "2026-04-01",
+        objeto: `Objeto previo ${suffix} para cobertura e2e`,
+      },
+    ],
+    exponen_adicional: `Exponen adicional ${suffix} para validar payload de adenda.`,
+    acuerdan: [
+      {
+        ordinal: "PRIMERA",
+        texto: `Cláusula ${suffix} para validar payload de adenda.`,
+      },
+    ],
+  };
+
+  await page.locator("#ciudad").fill(values.ciudad);
+  await page.locator("#provincia").fill(values.provincia);
+  await page.locator("#dia").fill(values.dia);
+  await page.locator("#mes").selectOption({ label: values.mes });
+  await page.locator("#anio").fill(values.anio);
+  await page.getByRole("button", { name: /^Siguiente$/ }).click();
+
+  await page.locator("#entidad_nombre").fill(values.entidad_nombre);
+  await page.locator("#entidad_tipo").fill(values.entidad_tipo);
+  await page.locator("#entidad_domicilio").fill(values.entidad_domicilio);
+  await page.locator("#entidad_ciudad").fill(values.entidad_ciudad);
+  await page.locator("#entidad_provincia").fill(values.entidad_provincia);
+  await page.locator("#entidad_cuit").fill(values.entidad_cuit);
+  await page.locator("#entidad_representante").fill(values.entidad_representante);
+  await page.locator("#entidad_dni").fill(values.entidad_dni);
+  await page.locator("#entidad_cargo").fill(values.entidad_cargo);
+  await page.getByRole("button", { name: /^Siguiente$/ }).click();
+
+  await page.getByLabel("Tipo *").fill(values.convenios_previos[0].tipo);
+  await page.getByLabel("Fecha *").fill(values.convenios_previos[0].fecha);
+  await page.getByLabel("Objeto *").fill(values.convenios_previos[0].objeto);
+  await page.getByLabel("Texto adicional de exponen").fill(values.exponen_adicional);
+  await page.getByRole("button", { name: /^Siguiente$/ }).click();
+
+  await page.locator("textarea").first().fill(values.acuerdan[0].texto);
+
+  if (options?.attachments?.length) {
+    await page.locator("#adenda-anexos-upload").setInputFiles(options.attachments);
+    await expect(page.getByText(options.attachments[0].name).first()).toBeVisible();
+  }
+
+  await page.getByRole("button", { name: /^Siguiente$/ }).click();
+
+  return values;
+}
+
 export async function fillEspecificoForm(page: Page, suffix: string, uploadFile: { name: string; mimeType: string; buffer: Buffer }) {
   await page.getByLabel("Nombre de la Entidad *").fill(`Entidad Específica ${suffix}`);
   await page.getByLabel("Domicilio *").fill("Calle Específica 123");
@@ -314,6 +457,47 @@ export async function fillMarcoForm(page: Page, suffix: string, uploadFile: { na
   await page.getByRole("button", { name: /^Siguiente$/ }).click();
 }
 
+export function expectAdendaPayload(
+  payload: Record<string, unknown> | null,
+  expected: AdendaExpectedPayload,
+  options?: {
+    expectedTemplateSlug?: string;
+    expectedType?: string;
+    expectedTypeId?: number;
+  }
+) {
+  expect(payload).not.toBeNull();
+  expect(payload?.template_slug).toBe(options?.expectedTemplateSlug || "nuevo-adenda");
+  expect(payload?.convenio_type).toBe(options?.expectedType || "adenda");
+
+  const formData = payload?.form_data as Record<string, unknown> | undefined;
+  expect(formData).toBeTruthy();
+  expect(formData).toMatchObject({
+    ciudad: expected.ciudad,
+    provincia: expected.provincia,
+    dia: expected.dia,
+    mes: expected.mes,
+    anio: expected.anio,
+    entidad_nombre: expected.entidad_nombre,
+    entidad_tipo: expected.entidad_tipo,
+    entidad_domicilio: expected.entidad_domicilio,
+    entidad_ciudad: expected.entidad_ciudad,
+    entidad_provincia: expected.entidad_provincia,
+    entidad_cuit: expected.entidad_cuit,
+    entidad_representante: expected.entidad_representante,
+    entidad_dni: expected.entidad_dni,
+    entidad_cargo: expected.entidad_cargo,
+    exponen_adicional: expected.exponen_adicional,
+  });
+
+  expect(formData?.convenios_previos).toEqual(expected.convenios_previos);
+  expect(formData?.acuerdan).toEqual(expected.acuerdan);
+
+  if (options?.expectedTypeId !== undefined) {
+    expect(payload?.convenio_type_id).toBe(options.expectedTypeId);
+  }
+}
+
 export async function expectMockedSuccess(page: Page, successTitle: string, timeout = 15_000) {
   await expect(page.getByText(successTitle)).toBeVisible({ timeout });
 }
@@ -327,10 +511,10 @@ export function expectScopedPayload(
   expect(payload).not.toBeNull();
   expect(payload?.secretariat_id).toBe(secretariatValue);
   if (careerValue !== undefined) {
-    expect(payload?.career_id).toBe(careerValue);
+    expect(payload?.career_id).toBe(careerValue === "" ? null : careerValue);
   }
   if (orgUnitValue !== undefined) {
-    expect(payload?.org_unit_id).toBe(orgUnitValue);
+    expect(payload?.org_unit_id).toBe(orgUnitValue === "" ? null : orgUnitValue);
   }
   expect(payload?.status).toBe("enviado");
   expect(payload?.agreement_year).toBe(new Date().getFullYear());

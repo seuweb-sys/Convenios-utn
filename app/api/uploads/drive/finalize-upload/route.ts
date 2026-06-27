@@ -1,9 +1,10 @@
-﻿import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { NextResponse } from 'next/server';
+
 import {
-  createOAuthDriveResumableUploadSession,
   DRIVE_FOLDERS,
+  findOAuthDriveFileByNameWithRetry,
 } from '@/app/lib/google-drive';
+import { createClient } from '@/utils/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,7 +13,7 @@ const ALLOWED_MIME_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
-const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB defensivo para anexos institucionales
+const MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
       fileName?: string;
       mimeType?: string;
       fileSize?: number;
+      folderId?: string;
     } | null;
 
     const fileName = body?.fileName?.trim();
@@ -59,6 +61,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Solo se aceptan archivos .docx y .pdf' }, { status: 400 });
     }
 
+    if (!fileName.startsWith('ANEXO-')) {
+      return NextResponse.json({ error: 'Nombre de archivo inválido' }, { status: 400 });
+    }
+
     if (fileSize > MAX_UPLOAD_SIZE_BYTES) {
       return NextResponse.json(
         { error: 'El archivo supera el máximo permitido de 50 MB' },
@@ -66,27 +72,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const driveFileName = `ANEXO-${fileName}`;
+    if (body?.folderId && body.folderId !== DRIVE_FOLDERS.PENDING) {
+      return NextResponse.json({ error: 'Carpeta de destino inválida' }, { status: 400 });
+    }
 
-    const session = await createOAuthDriveResumableUploadSession({
-      fileName: driveFileName,
+    const uploadedFile = await findOAuthDriveFileByNameWithRetry({
+      folderId: DRIVE_FOLDERS.PENDING,
+      fileName,
       mimeType,
       fileSize,
-      folderId: DRIVE_FOLDERS.PENDING,
     });
 
-    return NextResponse.json({
-      ...session,
-      fileName: driveFileName,
-      folderId: DRIVE_FOLDERS.PENDING,
-      fileSize,
-      mimeType,
-      finalizeEndpoint: '/api/uploads/drive/finalize-upload',
-    });
+    if (!uploadedFile?.id) {
+      return NextResponse.json(
+        { error: 'No se pudo recuperar el archivo subido desde Google Drive' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(uploadedFile);
   } catch (error) {
-    console.error('Error al iniciar subida resumable a Drive:', error);
+    console.error('Error al finalizar subida directa de anexo:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Error al iniciar la subida a Drive' },
+      { error: error instanceof Error ? error.message : 'Error al recuperar el archivo subido desde Google Drive' },
       { status: 500 }
     );
   }

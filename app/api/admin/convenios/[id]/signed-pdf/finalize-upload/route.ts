@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { ensureConvenioFolder } from "@/app/lib/convenio-drive";
-import { DRIVE_FOLDERS, findOAuthDriveFileByName } from "@/app/lib/google-drive";
+import { DRIVE_FOLDERS, findOAuthDriveFileByNameWithRetry } from "@/app/lib/google-drive";
 import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = 'force-dynamic';
 
 const MAX_SIGNED_PDF_SIZE_BYTES = 50 * 1024 * 1024;
-const LOOKUP_RETRY_DELAYS_MS = [0, 150, 300, 600] as const;
 
 export async function POST(
   request: Request,
@@ -99,21 +98,15 @@ export async function POST(
         .eq("id", params.id);
     }
 
-    for (const delayMs of LOOKUP_RETRY_DELAYS_MS) {
-      if (delayMs > 0) {
-        await sleep(delayMs);
-      }
+    const uploadedFile = await findOAuthDriveFileByNameWithRetry({
+      folderId: folder.folderId,
+      fileName,
+      mimeType,
+      fileSize,
+    });
 
-      const uploadedFile = await findOAuthDriveFileByName({
-        folderId: folder.folderId,
-        fileName,
-        mimeType,
-        fileSize,
-      });
-
-      if (uploadedFile?.id) {
-        return NextResponse.json(uploadedFile);
-      }
+    if (uploadedFile?.id) {
+      return NextResponse.json(uploadedFile);
     }
 
     return NextResponse.json(
@@ -127,8 +120,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

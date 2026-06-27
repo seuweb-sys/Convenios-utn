@@ -105,6 +105,56 @@ describe("uploadFileToDriveInChunks", () => {
     });
   });
 
+  it("recovers generic anexo metadata after the final chunk hits a browser network error", async () => {
+    const file = new File([Buffer.from("1234567812345678")], "adenda-anexo.pdf", { type: "application/pdf" });
+    const uploadChunk = vi
+      .fn()
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error("Error de red subiendo el archivo a Google Drive"));
+    const finalizeUpload = vi.fn().mockResolvedValue({
+      id: "drive-anexo-1",
+      name: "ANEXO-adenda-anexo.pdf",
+      mimeType: "application/pdf",
+      size: String(file.size),
+      webViewLink: "https://drive.google.com/file/d/drive-anexo-1/view",
+      webContentLink: "https://drive.google.com/uc?id=drive-anexo-1",
+    });
+
+    const uploaded = await uploadFileToDriveInChunks({
+      file,
+      sessionEndpoint: "/api/uploads/drive/resumable-session",
+      chunkSize: 8,
+      deps: {
+        createSession: vi.fn().mockResolvedValue({
+          uploadUrl: "https://upload.example.com/session",
+          finalizeEndpoint: "/api/uploads/drive/finalize-upload",
+          fileName: "ANEXO-adenda-anexo.pdf",
+          fileSize: file.size,
+          folderId: "pending-folder",
+          mimeType: "application/pdf",
+        }),
+        uploadChunk,
+        finalizeUpload,
+      },
+    });
+
+    expect(finalizeUpload).toHaveBeenCalledWith({
+      finalizeEndpoint: "/api/uploads/drive/finalize-upload",
+      fileName: "ANEXO-adenda-anexo.pdf",
+      fileSize: file.size,
+      folderId: "pending-folder",
+      mimeType: "application/pdf",
+    });
+    expect(uploaded).toEqual({
+      id: "drive-anexo-1",
+      name: "ANEXO-adenda-anexo.pdf",
+      mimeType: "application/pdf",
+      size: String(file.size),
+      webViewLink: "https://drive.google.com/file/d/drive-anexo-1/view",
+      webContentLink: "https://drive.google.com/uc?id=drive-anexo-1",
+    });
+  });
+
   it("still rejects final chunk failures when no finalize endpoint is available", async () => {
     const file = new File([Buffer.from("1234567812345678")], "firmado.pdf", { type: "application/pdf" });
     const uploadChunk = vi

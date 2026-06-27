@@ -575,6 +575,8 @@ export type OAuthDriveUploadedFile = {
   webContentLink?: string;
 };
 
+const DRIVE_LOOKUP_RETRY_DELAYS_MS = [0, 150, 300, 600] as const;
+
 export async function createOAuthDriveResumableUploadSession({
   fileName,
   mimeType,
@@ -677,6 +679,43 @@ export async function findOAuthDriveFileByName({
     webViewLink: match.webViewLink ?? undefined,
     webContentLink: match.webContentLink ?? undefined,
   };
+}
+
+export async function findOAuthDriveFileByNameWithRetry({
+  folderId,
+  fileName,
+  mimeType,
+  fileSize,
+  retryDelaysMs = DRIVE_LOOKUP_RETRY_DELAYS_MS,
+}: {
+  folderId: string;
+  fileName: string;
+  mimeType?: string;
+  fileSize?: number;
+  retryDelaysMs?: readonly number[];
+}): Promise<OAuthDriveUploadedFile | null> {
+  for (const delayMs of retryDelaysMs) {
+    if (delayMs > 0) {
+      await sleep(delayMs);
+    }
+
+    const uploadedFile = await findOAuthDriveFileByName({
+      folderId,
+      fileName,
+      mimeType,
+      fileSize,
+    });
+
+    if (uploadedFile?.id) {
+      return uploadedFile;
+    }
+  }
+
+  return null;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 

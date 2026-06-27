@@ -6,11 +6,13 @@ import {
   openConvenioForm,
 } from "./helpers/auth";
 import {
+  expectAdendaPayload,
   expectLockedNonSaClassification,
   expectMockedSuccess,
   expectScopedPayload,
   expectScopedClassificationLoaded,
   fillAcuerdoForm,
+  fillAdendaForm,
   interceptConvenioSubmission,
   selectOrgUnit,
   submitFinalAction,
@@ -34,6 +36,23 @@ test.describe("Scoped convenio submission", () => {
 
     await expectMockedSuccess(page, "Acuerdo de Colaboración Enviado");
     expectScopedPayload(capture.payload, secretariatValue, careerValue, null);
+  });
+
+  test("director submits adenda with scoped classification", async ({ page }) => {
+    test.skip(!hasRoleFixtures("director"), "Set director e2e credentials to run this test.");
+
+    const capture = await interceptConvenioSubmission(page);
+
+    await login(page, getRoleCredentials("director")!);
+    await openConvenioForm(page, "adenda");
+    const { secretariatValue, careerValue } = await expectScopedClassificationLoaded(page);
+
+    const expectedPayload = await fillAdendaForm(page, "mocked-director-adenda");
+    await submitFinalAction(page, /Guardar y Enviar adenda/i, /Sí, enviar/i);
+
+    await expectMockedSuccess(page, "¡Adenda Enviada!");
+    expectScopedPayload(capture.payload, secretariatValue, careerValue, null);
+    expectAdendaPayload(capture.payload, expectedPayload);
   });
 
   test("member submits non-SA convenio within own org unit", async ({ page }) => {

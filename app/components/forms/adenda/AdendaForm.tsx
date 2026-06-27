@@ -37,6 +37,7 @@ import {
   normalizeConveniosPreviosForSubmit,
   type ConvenioPrevioFormValue,
 } from "./adenda-utils";
+import { buildAdendaSubmissionSnapshot } from "./adenda-submit";
 
 const meses = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -150,7 +151,7 @@ interface AdendaFormProps {
   onError: (error: string | null) => void;
   isSubmitting: boolean;
   setIsSubmitting: (isSubmitting: boolean) => void;
-  onFinalSubmit: () => Promise<void>;
+  onFinalSubmit: (snapshot?: Record<string, any>) => Promise<void>;
 }
 
 function getOrdinal(index: number) {
@@ -272,7 +273,14 @@ export default function AdendaForm({
   }, [convenioData, form]);
 
   useEffect(() => {
-    setAnexoFiles(buildInitialAnexos(convenioData as Record<string, any>));
+    const nextAnexos = buildInitialAnexos(convenioData as Record<string, any>);
+    setAnexoFiles((currentAnexos) => {
+      if (nextAnexos.length === 0 && currentAnexos.length > 0) {
+        return currentAnexos;
+      }
+
+      return nextAnexos;
+    });
   }, [convenioData]);
 
   useEffect(() => {
@@ -749,18 +757,14 @@ export default function AdendaForm({
 
                     const uploadedAnexos = await uploadPendingAnexos();
                     const values = form.getValues();
-                    const normalizedConveniosPrevios = normalizeConveniosPreviosForSubmit(values.convenios_previos);
-                    syncToStore(values);
-                    updateConvenioData("all", {
-                      ...convenioData,
-                      ...values,
-                      entidad_cuit: normalizeOptionalCuit(values.entidad_cuit),
-                      convenios_previos: normalizedConveniosPrevios,
-                      acuerdan: values.acuerdan.map((item, index) => ({ ordinal: getOrdinal(index), texto: item.texto })),
-                      anexos: uploadedAnexos,
-                      anexosMarco: uploadedAnexos,
+                    const snapshot = buildAdendaSubmissionSnapshot({
+                      convenioData: convenioData as Record<string, any>,
+                      values,
+                      uploadedAnexos,
                     });
-                    await onFinalSubmit();
+                    syncToStore(values);
+                    updateConvenioData("all", snapshot);
+                    await onFinalSubmit(snapshot);
                     setShowConfirmModal(false);
                     setShowSuccessModal(true);
                   } catch (error) {

@@ -1,4 +1,4 @@
-import { test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
   getRoleCredentials,
   hasRoleFixtures,
@@ -7,10 +7,12 @@ import {
 } from "./helpers/auth";
 import {
   createFakeUploadFile,
+  expectAdendaPayload,
   expectAttachmentMetadataOnly,
   expectCareerDisabledOutsideSA,
   expectAnexosCount,
   expectMockedSuccess,
+  fillAdendaForm,
   mockDirectDriveUpload,
   expectScopedPayload,
   fillParticularForm,
@@ -160,5 +162,38 @@ test.describe("Admin convenio submission", () => {
     expectScopedPayload(capture.payload, secretariatValue, careerValue, null);
     expectAnexosCount(capture.payload, 2);
     expectAttachmentMetadataOnly(capture.payload);
+  });
+
+  test("adenda submission recovers direct-upload anexos after the final Drive PUT fails", async ({ page }) => {
+    const capture = await interceptConvenioSubmission(page);
+    const uploadFile = createFakeUploadFile(
+      "adenda-anexo.pdf",
+      "application/pdf",
+      "fake adenda attachment"
+    );
+
+    await mockDirectDriveUpload(page, ["drive-adenda-1"], { failFinalChunk: true });
+    await login(page, getRoleCredentials("admin")!);
+    await openConvenioForm(page, "adenda");
+    const { secretariatValue, careerValue } = await setAdminClassification(page, cytSecretariatLabel);
+    await expectCareerDisabledOutsideSA(page);
+
+    const expectedPayload = await fillAdendaForm(page, "mocked-admin-adenda", {
+      attachments: [uploadFile],
+    });
+    await submitFinalAction(page, /Guardar y Enviar adenda/i, /Sí, enviar/i);
+
+    await expectMockedSuccess(page, "¡Adenda Enviada!");
+    expectScopedPayload(capture.payload, secretariatValue, careerValue, null);
+    expectAdendaPayload(capture.payload, expectedPayload);
+    expectAnexosCount(capture.payload, 1);
+    expectAttachmentMetadataOnly(capture.payload);
+    expect(capture.payload?.anexos).toEqual([
+      expect.objectContaining({
+        name: "adenda-anexo.pdf",
+        driveFileId: "drive-adenda-1",
+        mimeType: "application/pdf",
+      }),
+    ]);
   });
 });

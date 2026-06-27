@@ -13,6 +13,7 @@ async function expectAllConvenioTypesVisible(page: Page) {
   await expect(page.getByRole("heading", { name: "Convenio Marco", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Convenio Específico", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Acuerdo de Colaboracion/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Adenda", exact: true })).toBeVisible();
 }
 
 test.describe("Convenio dashboard visibility", () => {
@@ -27,12 +28,13 @@ test.describe("Convenio dashboard visibility", () => {
     await expect(page.getByRole("heading", { name: "Convenio Marco", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Convenio Específico", exact: true })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: /Acuerdo de Colaboracion/i })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Adenda", exact: true })).toHaveCount(0);
   });
 
   const fullAccessRoles: RoleKey[] = ["admin", "director", "miembro"];
 
   for (const role of fullAccessRoles) {
-    test(`${role} sees all five convenio types`, async ({ page }) => {
+    test(`${role} sees all six convenio types`, async ({ page }) => {
       test.skip(!hasRoleFixtures(role), `Set ${role} e2e credentials to run this test.`);
 
       await login(page, getRoleCredentials(role)!);

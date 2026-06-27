@@ -420,6 +420,59 @@ describe("POST /api/convenios", () => {
     });
   });
 
+  it("uses adenda folder flow even when recovered anexo refs arrive only inside form_data", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/convenios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "Adenda Recovered Refs",
+          convenio_type: "adenda",
+          template_slug: "nuevo-adenda",
+          secretariat_id: "sec-1",
+          agreement_year: 2026,
+          form_data: {
+            entidad_nombre: "Entidad Adenda",
+            acuerdos: [],
+            acuerdan: [{ ordinal: "PRIMERA", texto: "Texto de prueba" }],
+            anexos: [
+              {
+                name: "ANEXO-adenda-anexo.pdf",
+                driveFileId: "drive-adenda-2",
+                mimeType: "application/pdf",
+                size: 2048,
+              },
+            ],
+          },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.mockUploadConvenioEspecificoOAuth).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      expect.stringContaining("Convenio_Adenda Recovered Refs_"),
+      [
+        expect.objectContaining({
+          name: "ANEXO-adenda-anexo.pdf",
+          driveFileId: "drive-adenda-2",
+        }),
+      ],
+      "pending-folder",
+    );
+    expect(mocks.mockUploadFileToOAuthDrive).not.toHaveBeenCalled();
+    expect(ctx.adminCalls.inserts[0]).toMatchObject({
+      convenio_type_id: 6,
+      form_data: expect.objectContaining({
+        anexos: [
+          expect.objectContaining({
+            driveFileId: "drive-adenda-2",
+          }),
+        ],
+      }),
+    });
+  });
+
   it("submits PPS without attachments using the normal folder flow", async () => {
     const response = await POST(
       new Request("http://localhost/api/convenios", {

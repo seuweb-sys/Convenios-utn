@@ -60,6 +60,49 @@ type AttachmentRef = {
   mimeType?: string;
 };
 
+function normalizeAdendaTemplateData(rawFormData: any) {
+  const formData = rawFormData && typeof rawFormData === 'object' ? rawFormData : {};
+  const conveniosPrevios = Array.isArray(formData.convenios_previos)
+    ? formData.convenios_previos
+    : (formData.convenio_previo_tipo || formData.convenio_previo_fecha || formData.convenio_previo_objeto)
+      ? [{
+          tipo: formData.convenio_previo_tipo || '',
+          fecha: formData.convenio_previo_fecha || '',
+          objeto: formData.convenio_previo_objeto || '',
+        }]
+      : [];
+
+  return {
+    ...formData,
+    ciudad: formData.ciudad || '',
+    provincia: formData.provincia || '',
+    dia: formData.dia || '',
+    mes: formData.mes || '',
+    anio: formData.anio || '',
+    entidad_nombre: formData.entidad_nombre || '',
+    entidad_tipo: formData.entidad_tipo || '',
+    entidad_domicilio: formData.entidad_domicilio || '',
+    entidad_ciudad: formData.entidad_ciudad || '',
+    entidad_provincia: formData.entidad_provincia || '',
+    entidad_cuit: formData.entidad_cuit || '',
+    entidad_representante: formData.entidad_representante || '',
+    entidad_dni: formData.entidad_dni || '',
+    entidad_cargo: formData.entidad_cargo || '',
+    convenios_previos: conveniosPrevios.map((item: any) => ({
+      tipo: item?.tipo || '',
+      fecha: item?.fecha || '',
+      objeto: item?.objeto || '',
+    })),
+    exponen_adicional: formData.exponen_adicional || '',
+    acuerdan: Array.isArray(formData.acuerdan)
+      ? formData.acuerdan.map((item: any, index: number) => ({
+          ordinal: item?.ordinal || `${index + 1}°`,
+          texto: item?.texto || '',
+        }))
+      : [],
+  };
+}
+
 function extractAttachmentRefs(rawAnexos: any): AttachmentRef[] {
   if (!Array.isArray(rawAnexos)) return [];
 
@@ -479,7 +522,8 @@ export async function POST(request: Request) {
 
     // Permitimos tanto form_data (nuevo) como content_data (compatibilidad)
     const formData = body.form_data || body.content_data;
-    const attachmentRefs = extractAttachmentRefs(body.anexos);
+    const rawAnexos = body.anexos || formData?.anexos || formData?.anexosMarco;
+    const attachmentRefs = extractAttachmentRefs(rawAnexos);
     console.log('📥 [API] Datos recibidos en form_data:', formData);
     if (!formData || Object.keys(formData).length === 0) {
       console.warn('⚠️ [API] form_data está vacío!');
@@ -702,6 +746,10 @@ export async function POST(request: Request) {
       }
     }
 
+    const normalizedFormData = convenioTypeId === 6
+      ? normalizeAdendaTemplateData(formData)
+      : formData;
+
     let buffer: Buffer | null = null;
 
     // ---------- Lógica ROBUSTA para encontrar el template DOCX ----------
@@ -746,27 +794,27 @@ export async function POST(request: Request) {
 
         // POLYFILL: Asegurar que 'partes' exista como array para el template nuevo (con loops)
         // Si vienen datos viejos (planos), los convertimos a un array de 1 elemento.
-        if (!formData.partes && (formData.entidad_nombre || formData.empresa_nombre)) {
+        if (!normalizedFormData.partes && (normalizedFormData.entidad_nombre || normalizedFormData.empresa_nombre)) {
           console.log('🔄 [API] Adaptando datos legacy a array de partes para template polimórfico');
-          formData.partes = [{
-            nombre: formData.entidad_nombre || formData.empresa_nombre || '',
-            tipo: formData.entidad_tipo || formData.empresa_tipo || '',
-            domicilio: formData.entidad_domicilio || formData.empresa_domicilio || '',
-            ciudad: formData.entidad_ciudad || formData.empresa_ciudad || '',
-            cuit: formData.entidad_cuit || formData.empresa_cuit || '',
-            representanteNombre: formData.entidad_representante || formData.representante_nombre || '',
-            representanteDni: formData.entidad_dni || formData.representante_dni || '',
-            cargoRepresentante: formData.entidad_cargo || formData.representante_cargo || ''
+          normalizedFormData.partes = [{
+            nombre: normalizedFormData.entidad_nombre || normalizedFormData.empresa_nombre || '',
+            tipo: normalizedFormData.entidad_tipo || normalizedFormData.empresa_tipo || '',
+            domicilio: normalizedFormData.entidad_domicilio || normalizedFormData.empresa_domicilio || '',
+            ciudad: normalizedFormData.entidad_ciudad || normalizedFormData.empresa_ciudad || '',
+            cuit: normalizedFormData.entidad_cuit || normalizedFormData.empresa_cuit || '',
+            representanteNombre: normalizedFormData.entidad_representante || normalizedFormData.representante_nombre || '',
+            representanteDni: normalizedFormData.entidad_dni || normalizedFormData.representante_dni || '',
+            cargoRepresentante: normalizedFormData.entidad_cargo || normalizedFormData.representante_cargo || ''
           }];
         }
 
         // Log para debuggear partes
-        if (formData.partes) {
-          console.log('📋 [API] FormData tiene partes:', Array.isArray(formData.partes) ? formData.partes.length : 'no-array');
+        if (normalizedFormData.partes) {
+          console.log('📋 [API] FormData tiene partes:', Array.isArray(normalizedFormData.partes) ? normalizedFormData.partes.length : 'no-array');
         } else {
           console.log('⚠️ [API] FormData NO tiene partes');
         }
-        buffer = await renderDocx(templateBuffer, formData);
+        buffer = await renderDocx(templateBuffer, normalizedFormData);
         console.log('📤 [API] Buffer generado con tamaño:', buffer?.length);
       } else {
         console.error(`❌ [API] Template no encontrado: ${templateFileName}`);
@@ -802,7 +850,7 @@ export async function POST(request: Request) {
       console.log('📋 [API] Generando documento programáticamente con template de DB...');
 
       try {
-        const doc = createDocument(templateDB.template_content, formData);
+        const doc = createDocument(templateDB.template_content, normalizedFormData);
         buffer = await Packer.toBuffer(doc);
         console.log('✅ [API] Buffer generado programáticamente:', buffer?.length);
       } catch (genError) {
@@ -820,8 +868,8 @@ export async function POST(request: Request) {
 
     // Primero crear el convenio en la base de datos
     const persistedFormData = attachmentRefs.length > 0
-      ? { ...formData, anexos: attachmentRefs }
-      : formData;
+      ? { ...normalizedFormData, anexos: attachmentRefs }
+      : normalizedFormData;
 
     const { data: convenio, error: createError } = await supabaseAdmin
       .from('convenios')
@@ -870,10 +918,10 @@ export async function POST(request: Request) {
 
         // Preparar anexos si existen (soporta legado con buffer y nueva subida directa con driveFileId)
         const anexos = [];
-        if (body.anexos && Array.isArray(body.anexos)) {
-          console.log('[API] Procesando anexos...', body.anexos.length);
+        if (rawAnexos && Array.isArray(rawAnexos)) {
+          console.log('[API] Procesando anexos...', rawAnexos.length);
 
-          for (const anexo of body.anexos) {
+          for (const anexo of rawAnexos) {
             if (anexo.name && anexo.driveFileId) {
               anexos.push({
                 name: anexo.name,

@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   mockUploadFileToOAuthDriveWithMimeType: vi.fn(),
   mockMoveFileToFolderOAuth: vi.fn(),
   mockCreateOAuthDriveResumableUploadSession: vi.fn(),
-  mockFindOAuthDriveFileByName: vi.fn(),
+  mockFindOAuthDriveFileByNameWithRetry: vi.fn(),
 }));
 
 vi.mock("@/utils/supabase/server", () => ({
@@ -25,7 +25,7 @@ vi.mock("@/app/lib/google-drive", () => ({
   createFolderInOAuthDrive: vi.fn(),
   moveFileToFolderOAuth: mocks.mockMoveFileToFolderOAuth,
   createOAuthDriveResumableUploadSession: mocks.mockCreateOAuthDriveResumableUploadSession,
-  findOAuthDriveFileByName: mocks.mockFindOAuthDriveFileByName,
+  findOAuthDriveFileByNameWithRetry: mocks.mockFindOAuthDriveFileByNameWithRetry,
 }));
 
 import { POST as postSignedPdf } from "@/app/api/admin/convenios/[id]/signed-pdf/route";
@@ -99,7 +99,7 @@ describe("admin signed PDF folderized storage", () => {
       uploadUrl: "https://upload.example.com/session",
       expiresIn: "one-week",
     });
-    mocks.mockFindOAuthDriveFileByName.mockResolvedValue({
+    mocks.mockFindOAuthDriveFileByNameWithRetry.mockResolvedValue({
       id: "signed-pdf-drive-id",
       name: "FIRMADO-Convenio Firmado.pdf",
       mimeType: "application/pdf",
@@ -204,7 +204,7 @@ describe("admin signed PDF folderized storage", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mocks.mockFindOAuthDriveFileByName).toHaveBeenCalledWith({
+    expect(mocks.mockFindOAuthDriveFileByNameWithRetry).toHaveBeenCalledWith({
       folderId: "approved-convenio-folder",
       fileName: "FIRMADO-Convenio Firmado.pdf",
       mimeType: "application/pdf",

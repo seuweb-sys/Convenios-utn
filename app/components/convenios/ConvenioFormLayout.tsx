@@ -21,13 +21,13 @@ import {
 import { Button } from "@/app/components/ui/button";
 import { Progress } from "@/app/components/ui/progress";
 import { useConvenioMarcoStore } from "@/stores/convenioMarcoStore";
-import { isAdendaConvenioData } from "@/stores/convenioMarcoStore";
 import { cn } from "@/lib/utils";
 import { formatOrgUnitLabel } from "@/lib/org-unit-label";
 import { FullScreenPreview } from "@/app/components/convenios/full-screen-preview";
 import { useConvenioStore, getFieldsFromStore } from "@/stores/convenioStore";
 import { SuccessModal } from '@/app/components/ui/success-modal';
 import { buildAdminDirectEditContext } from "./admin-edit-payload";
+import { mapConvenioDataToFields } from "./convenio-form-payload";
 
 // Tipos
 type Step = {
@@ -78,63 +78,6 @@ const FormSkeleton = () => (
     </div>
   </div>
 );
-
-// Función para extraer y mapear datos del store a formato plano para API
-const mapConvenioDataToFields = (convenioData: any) => {
-  console.log('Datos crudos del store:', convenioData);
-  if (isAdendaConvenioData(convenioData, convenioData)) {
-    const conveniosPrevios = Array.isArray(convenioData.convenios_previos) && convenioData.convenios_previos.length > 0
-      ? convenioData.convenios_previos
-      : (convenioData?.convenio_previo_tipo || convenioData?.convenio_previo_fecha || convenioData?.convenio_previo_objeto)
-        ? [{
-            tipo: convenioData.convenio_previo_tipo || '',
-            fecha: convenioData.convenio_previo_fecha || '',
-            objeto: convenioData.convenio_previo_objeto || '',
-          }]
-        : [];
-
-    const mappedAdendaData = {
-      ciudad: convenioData.ciudad || '',
-      provincia: convenioData.provincia || '',
-      dia: convenioData.dia || '',
-      mes: convenioData.mes || '',
-      anio: convenioData.anio || '',
-      entidad_nombre: convenioData.entidad_nombre || '',
-      entidad_tipo: convenioData.entidad_tipo || '',
-      entidad_domicilio: convenioData.entidad_domicilio || '',
-      entidad_ciudad: convenioData.entidad_ciudad || '',
-      entidad_provincia: convenioData.entidad_provincia || '',
-      entidad_cuit: convenioData.entidad_cuit || '',
-      entidad_representante: convenioData.entidad_representante || '',
-      entidad_dni: convenioData.entidad_dni || '',
-      entidad_cargo: convenioData.entidad_cargo || '',
-      convenios_previos: conveniosPrevios,
-      exponen_adicional: convenioData.exponen_adicional || '',
-      acuerdan: Array.isArray(convenioData.acuerdan) ? convenioData.acuerdan : [],
-    };
-    console.log('Datos mapeados para API:', mappedAdendaData);
-    return mappedAdendaData;
-  }
-
-  const parte = convenioData.partes?.[0] || {};
-  const datosBasicos = convenioData.datosBasicos || {};
-  const mappedData = {
-    entidad_nombre: parte.nombre || '',
-    entidad_tipo: parte.tipo || '',
-    entidad_domicilio: parte.domicilio || '',
-    entidad_ciudad: parte.ciudad || '',
-    entidad_cuit: parte.cuit || '',
-    entidad_representante: parte.representanteNombre || '',
-    entidad_dni: parte.representanteDni || '',
-    entidad_cargo: parte.cargoRepresentante || '',
-    dia: datosBasicos.dia || '',
-    mes: datosBasicos.mes || '',
-    // R5: Incluir el array completo de partes para soporte multi-institución
-    partes: convenioData.partes || []
-  };
-  console.log('Datos mapeados para API:', mappedData);
-  return mappedData;
-};
 
 // Mapeo directo y robusto basado en el tipo de URL (fuera del componente para evitar recreaciones)
 const SLUG_MAPPING: { [key: string]: string } = {
@@ -357,7 +300,10 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     }
   }, [convenioData?.id]);
 
-  const handleSaveAndContinue = useCallback(async (newStatus: 'borrador' | 'enviado' = 'borrador') => {
+  const handleSaveAndContinue = useCallback(async (
+    newStatus: 'borrador' | 'enviado' = 'borrador',
+    overrideData?: Record<string, any>,
+  ) => {
     setIsSubmitting(true);
     setError(null);
     try {
@@ -373,7 +319,8 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
           .replace(/-+/g, '-');
 
       // 2. Construir el payload
-      const finalData = mapConvenioDataToFields(convenioData);
+      const submissionData = overrideData ? { ...convenioData, ...overrideData } : convenioData;
+      const finalData = mapConvenioDataToFields(submissionData);
       if (Object.values(finalData).every(v => !v)) {
         throw new Error('No hay datos en el formulario. Por favor completa los campos.');
       }
@@ -392,14 +339,20 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
       }
       // Generar título robusto
       const title = finalData.entidad_nombre ||
-        convenioData.entidad?.nombre ||
+        submissionData.entidad?.nombre ||
         config.title ||
         "Nuevo Convenio";
 
       // Preparar anexos si existen (para Convenio Marco con anexos).
       // Nuevo flujo: los archivos se suben directo a Drive y ac? solo viajan referencias livianas.
       // Compatibilidad: si alg?n flujo legacy todav?a trae buffer, se serializa como antes.
-      const anexos = (convenioData as any).anexosMarco || [];
+      const anexosMarco = Array.isArray((submissionData as any).anexosMarco)
+        ? (submissionData as any).anexosMarco
+        : [];
+      const anexosDirectos = Array.isArray((submissionData as any).anexos)
+        ? (submissionData as any).anexos
+        : [];
+      const anexos = anexosMarco.length > 0 ? anexosMarco : anexosDirectos;
       const anexosPayload = anexos.map((anexo: any) => {
         if (anexo.driveFileId) {
           return {
@@ -425,14 +378,14 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
         template_slug: templateSlug, // NUEVO: Enviar el slug en lugar del ID
         convenio_type: urlType, // SÚPER BACKUP: Enviar tipo explícito también
         form_data: finalData, // CORREGIDO: Usar form_data en lugar de content_data
-        user_id: convenioData.user_id,
+        user_id: submissionData.user_id,
         secretariat_id: scopeSecretariatId,
         career_id: scopeCareerId || null,
         org_unit_id: scopeOrgUnitId || null,
         agreement_year: agreementYear,
         is_hidden_from_area: hiddenFromArea,
-        ...(buildAdminDirectEditContext(origin, convenioData?.status) && {
-          edit_context: buildAdminDirectEditContext(origin, convenioData?.status),
+        ...(buildAdminDirectEditContext(origin, submissionData?.status) && {
+          edit_context: buildAdminDirectEditContext(origin, submissionData?.status),
         }),
         // Incluir anexos si existen (para Marco con anexos)
         ...(anexosPayload.length > 0 && { anexos: anexosPayload })
@@ -462,7 +415,7 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
 
       // Actualizar el store de Zustand con el nuevo ID si es un convenio nuevo
       if (!convenioIdFromUrl && savedConvenio.id) {
-        useConvenioMarcoStore.setState({ convenioData: { ...convenioData, id: savedConvenio.id } });
+        useConvenioMarcoStore.setState({ convenioData: { ...submissionData, id: savedConvenio.id } });
       }
 
       // Si se envió, recargar para ver el estado final
@@ -501,8 +454,8 @@ export function ConvenioFormLayout({ config }: ConvenioFormLayoutProps) {
     profileRole,
   ]);
 
-  const handleFinalSubmit = async () => {
-    await handleSaveAndContinue('enviado');
+  const handleFinalSubmit = async (overrideData?: Record<string, any>) => {
+    await handleSaveAndContinue('enviado', overrideData);
   };
 
   // Ejemplo de templateContent
